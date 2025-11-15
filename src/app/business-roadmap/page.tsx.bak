@@ -1,0 +1,1208 @@
+'use client'
+
+import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import type { Database } from '@/types/supabase'
+import { WISDOM_ROADMAP_DATA } from './wisdom-roadmap-data'
+import {
+  ArrowLeft,
+  TrendingUp,
+  Users,
+  DollarSign,
+  Target,
+  CheckCircle,
+  Circle,
+  Zap,
+  Building2,
+  Rocket,
+  Crown,
+  Trophy,
+  Megaphone,
+  ShoppingCart,
+  Heart,
+  Settings,
+  Calculator,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Award,
+  Lightbulb
+} from 'lucide-react'
+
+type Business = Database['public']['Tables']['businesses']['Row']
+
+// Icon mapping for engines
+const ENGINE_ICONS: Record<string, React.ElementType> = {
+  attract: Megaphone,
+  convert: ShoppingCart,
+  'deliver-cx': Heart,
+  'deliver-people': Users,
+  'deliver-systems': Settings,
+  finance: Calculator,
+  leadership: Crown,
+  time: Target
+}
+
+// Map Wisdom Roadmap data to format used by current page
+const BUSINESS_ENGINES = WISDOM_ROADMAP_DATA.map(engine => ({
+  id: engine.id,
+  name: engine.name,
+  subtitle: engine.subtitle,
+  icon: ENGINE_ICONS[engine.id],
+  color: `text-${engine.id === 'attract' ? 'blue' : engine.id === 'convert' ? 'green' : engine.id === 'deliver-cx' ? 'purple' : engine.id === 'deliver-people' ? 'orange' : engine.id === 'deliver-systems' ? 'indigo' : engine.id === 'finance' ? 'red' : engine.id === 'leadership' ? 'yellow' : 'teal'}-600`,
+  bgColor: `bg-${engine.id === 'attract' ? 'blue' : engine.id === 'convert' ? 'green' : engine.id === 'deliver-cx' ? 'purple' : engine.id === 'deliver-people' ? 'orange' : engine.id === 'deliver-systems' ? 'indigo' : engine.id === 'finance' ? 'red' : engine.id === 'leadership' ? 'yellow' : 'teal'}-50`,
+  borderColor: `border-${engine.id === 'attract' ? 'blue' : engine.id === 'convert' ? 'green' : engine.id === 'deliver-cx' ? 'purple' : engine.id === 'deliver-people' ? 'orange' : engine.id === 'deliver-systems' ? 'indigo' : engine.id === 'finance' ? 'red' : engine.id === 'leadership' ? 'yellow' : 'teal'}-200`,
+  stages: {
+    foundation: {
+      priorities: (engine.stages.foundation || []).map(build => `"${build.name}" - ${build.description}`),
+      metrics: engine.metrics,
+      builds: engine.stages.foundation || []
+    },
+    traction: {
+      priorities: (engine.stages.traction || []).map(build => `"${build.name}" - ${build.description}`),
+      metrics: engine.metrics,
+      builds: engine.stages.traction || []
+    },
+    scaling: {
+      priorities: (engine.stages.scaling || []).map(build => `"${build.name}" - ${build.description}`),
+      metrics: engine.metrics,
+      builds: engine.stages.scaling || []
+    },
+    optimization: {
+      priorities: (engine.stages.optimization || []).map(build => `"${build.name}" - ${build.description}`),
+      metrics: engine.metrics,
+      builds: engine.stages.optimization || []
+    },
+    leadership: {
+      priorities: (engine.stages.leadership || []).map(build => `"${build.name}" - ${build.description}`),
+      metrics: engine.metrics,
+      builds: engine.stages.leadership || []
+    },
+    mastery: {
+      priorities: (engine.stages.mastery || []).map(build => `"${build.name}" - ${build.description}`),
+      metrics: engine.metrics,
+      builds: engine.stages.mastery || []
+    }
+  }
+}))
+
+// Revenue stages with their characteristics - matching your methodology
+const REVENUE_STAGES = [
+  {
+    id: 'foundation',
+    name: 'Foundation',
+    range: '$0-250K',
+    min: 0,
+    max: 250000,
+    icon: Building2,
+    color: 'from-gray-500 to-gray-600',
+    borderColor: 'border-gray-500',
+    bgColor: 'bg-gray-50',
+    iconBg: 'bg-gray-100',
+    focus: 'Prove concept & reach breakeven',
+    keyChallenge: 'Finding product-market fit',
+    primaryGoal: 'Consistent revenue + breakeven',
+    profitTarget: 'Breakeven to 5%',
+    successDisciplines: ['Time Management', 'Financial Acumen', 'Decision-Making'],
+  },
+  {
+    id: 'traction',
+    name: 'Traction',
+    range: '$250K-1M',
+    min: 250000,
+    max: 1000000,
+    icon: Rocket,
+    color: 'from-blue-500 to-blue-600',
+    borderColor: 'border-blue-500',
+    bgColor: 'bg-blue-50',
+    iconBg: 'bg-blue-100',
+    focus: 'Scale & systematize + pay owner',
+    keyChallenge: 'Building repeatable systems',
+    primaryGoal: 'Owner salary + 10-15% profit',
+    profitTarget: '10-15% net profit',
+    successDisciplines: ['Operational Excellence', 'Strategic Marketing', 'Leadership Development'],
+  },
+  {
+    id: 'scaling',
+    name: 'Scaling',
+    range: '$1M-3M',
+    min: 1000000,
+    max: 3000000,
+    icon: TrendingUp,
+    color: 'from-purple-500 to-purple-600',
+    borderColor: 'border-purple-500',
+    bgColor: 'bg-purple-50',
+    iconBg: 'bg-purple-100',
+    focus: 'Optimize & grow + healthy margins',
+    keyChallenge: 'Managing complexity',
+    primaryGoal: 'Scalable operations + 15-20% profit',
+    profitTarget: '15-20% net profit',
+    successDisciplines: ['Leadership Development', 'Accountability', 'Technology & AI'],
+  },
+  {
+    id: 'optimization',
+    name: 'Optimization',
+    range: '$3M-5M',
+    min: 3000000,
+    max: 5000000,
+    icon: Zap,
+    color: 'from-green-500 to-green-600',
+    borderColor: 'border-green-500',
+    bgColor: 'bg-green-50',
+    iconBg: 'bg-green-100',
+    focus: 'Perfect & expand + maximize profit',
+    keyChallenge: 'System efficiency',
+    primaryGoal: 'Excellence + 20%+ profit',
+    profitTarget: '20%+ net profit',
+    successDisciplines: ['Strategic Excellence', 'Growth Mindset', 'Systems Thinking'],
+  },
+  {
+    id: 'leadership',
+    name: 'Leadership',
+    range: '$5M-10M',
+    min: 5000000,
+    max: 10000000,
+    icon: Crown,
+    color: 'from-yellow-500 to-yellow-600',
+    borderColor: 'border-yellow-500',
+    bgColor: 'bg-yellow-50',
+    iconBg: 'bg-yellow-100',
+    focus: 'Lead & innovate + strategic profit',
+    keyChallenge: 'Market positioning',
+    primaryGoal: 'Market leadership + strategic growth',
+    profitTarget: 'Strategic profit optimization',
+    successDisciplines: ['Visionary Leadership', 'Strategic Partnerships', 'Market Innovation'],
+  },
+  {
+    id: 'mastery',
+    name: 'Mastery',
+    range: '$10M+',
+    min: 10000000,
+    max: Infinity,
+    icon: Trophy,
+    color: 'from-red-500 to-red-600',
+    borderColor: 'border-red-500',
+    bgColor: 'bg-red-50',
+    iconBg: 'bg-red-100',
+    focus: 'Empire building + wealth creation',
+    keyChallenge: 'Building lasting value',
+    primaryGoal: 'Legacy + diversification',
+    profitTarget: 'Maximum profitability + wealth',
+    successDisciplines: ['Strategic Acquisitions', 'Enterprise Leadership', 'Wealth Creation'],
+  },
+]
+
+// Business engines with stage-specific priorities - Simplified to 3 priorities per stage
+const BUSINESS_ENGINES = [
+  {
+    id: 'attract',
+    name: 'Attract Engine',
+    subtitle: 'Marketing & Lead Generation',
+    icon: Megaphone,
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50',
+    borderColor: 'border-blue-200',
+    stages: {
+      foundation: {
+        priorities: [
+          '"Who\'s Your Person?" - Define your ideal customer with crystal clarity',
+          '"The One Channel" - Pick one lead generation method and make it work consistently',
+          '"Show Up Daily" - Build presence where your customers actually spend time',
+        ],
+        metrics: ['Weekly leads', 'Cost per lead', 'Lead quality score', 'Response rate'],
+      },
+      traction: {
+        priorities: [
+          '"The Lead Machine" - Systematize your proven channel so it runs without you',
+          '"The Second Stream" - Layer in one more predictable lead source',
+          '"Referral Engine" - Build a system that turns customers into advocates',
+        ],
+        metrics: ['Monthly qualified leads', 'Channel ROI', 'Referral rate', 'Lead velocity'],
+      },
+      scaling: {
+        priorities: [
+          '"Marketing Team Ready" - Hire and train people who can run your lead generation',
+          '"Multi-Channel Mastery" - Orchestrate 3-4 channels working together',
+          '"The Content Machine" - Create systems that establish authority at scale',
+        ],
+        metrics: ['Pipeline value', 'Brand awareness', 'Marketing team productivity', 'Content performance'],
+      },
+      optimization: {
+        priorities: [
+          '"Data-Driven Growth" - Use analytics to optimize every dollar spent',
+          '"Authority Position" - Become the known expert in your category',
+          '"Strategic Partnerships" - Build relationships that feed your pipeline',
+        ],
+        metrics: ['Customer acquisition cost', 'Lifetime value ratio', 'Market share', 'Partnership leads'],
+      },
+      leadership: {
+        priorities: [
+          '"Thought Leadership Platform" - Speak, write, and lead industry conversations',
+          '"The Magnet Effect" - Build a brand that attracts customers without outbound effort',
+          '"Strategic Alliances" - Create partnerships that amplify your market presence',
+        ],
+        metrics: ['Industry recognition', 'Inbound lead %', 'Partnership revenue', 'Media mentions'],
+      },
+      mastery: {
+        priorities: [
+          '"Market Dominance" - Own your category through brand and reach',
+          '"Platform Strategy" - Build marketing infrastructure that scales to any size',
+          '"Acquisition Ready" - Create marketing systems that integrate and multiply',
+        ],
+        metrics: ['Category leadership', 'National penetration', 'Platform scalability', 'Acquisition synergies'],
+      },
+    },
+  },
+  {
+    id: 'convert',
+    name: 'Convert Engine',
+    subtitle: 'Sales & Conversion',
+    icon: ShoppingCart,
+    color: 'text-green-600',
+    bgColor: 'bg-green-50',
+    borderColor: 'border-green-200',
+    stages: {
+      foundation: {
+        priorities: [
+          '"Your Money Talk" - Master confident pricing conversations and proposal delivery',
+          '"The Close Process" - Document your repeatable sales steps from lead to close',
+          '"Follow-Up Discipline" - Build a system that never lets opportunities slip away',
+        ],
+        metrics: ['Conversion rate', 'Average deal size', 'Sales cycle length', 'Follow-up consistency'],
+      },
+      traction: {
+        priorities: [
+          '"The Sales Playbook" - Create scripts and tools that others can run',
+          '"CRM Foundation" - Track every lead, opportunity, and conversation systematically',
+          '"Pipeline Visibility" - Know exactly what\'s coming and when',
+        ],
+        metrics: ['Monthly closed deals', 'Pipeline value', 'Win rate', 'Forecast accuracy'],
+      },
+      scaling: {
+        priorities: [
+          '"Sales Team Build" - Hire, train, and manage people who can sell for you',
+          '"Performance System" - Create clear metrics and accountability for every rep',
+          '"Territory Strategy" - Organize coverage so nothing falls through cracks',
+        ],
+        metrics: ['Revenue per rep', 'Quota attainment', 'Team capacity', 'Territory coverage'],
+      },
+      optimization: {
+        priorities: [
+          '"Strategic Pricing" - Command premium prices through positioning and value',
+          '"Account Management" - Build systems that grow existing customer value',
+          '"Sales Leadership" - Develop managers who develop top performers',
+        ],
+        metrics: ['Average deal size', 'Upsell rate', 'Customer expansion', 'Sales leadership bench'],
+      },
+      leadership: {
+        priorities: [
+          '"Enterprise Ready" - Build capability to close large, complex deals',
+          '"Partnership Sales" - Create channels where others sell for you',
+          '"Consultative Approach" - Sell outcomes and transformation, not products',
+        ],
+        metrics: ['Enterprise deal count', 'Partnership revenue', 'Deal complexity', 'Sales cycle efficiency'],
+      },
+      mastery: {
+        priorities: [
+          '"National Sales Force" - Build and manage distributed sales infrastructure',
+          '"Strategic Deal Architecture" - Structure transactions that build enterprise value',
+          '"Acquisition Integration" - Create sales systems that merge and multiply',
+        ],
+        metrics: ['National coverage', 'Strategic deal size', 'Integration success', 'Market consolidation'],
+      },
+    },
+  },
+  {
+    id: 'deliver-cx',
+    name: 'Deliver Engine - CX',
+    subtitle: 'Customer Experience',
+    icon: Heart,
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-50',
+    borderColor: 'border-purple-200',
+    stages: {
+      foundation: {
+        priorities: [
+          '"Service Promise" - Define what great delivery looks like for your customers',
+          '"Quality Checklist" - Create simple systems to deliver consistently every time',
+          '"Feedback Loop" - Ask customers how you\'re doing and actually use what they tell you',
+        ],
+        metrics: ['Customer satisfaction', 'Delivery consistency', 'Issue resolution time', 'Repeat rate'],
+      },
+      traction: {
+        priorities: [
+          '"The Onboarding Experience" - Make first 30 days so good they can\'t imagine leaving',
+          '"Proactive Service" - Solve problems before customers know they have them',
+          '"Testimonial System" - Make it easy for happy customers to tell others',
+        ],
+        metrics: ['Net Promoter Score', 'Retention rate', 'First 90-day success', 'Testimonial collection'],
+      },
+      scaling: {
+        priorities: [
+          '"Customer Success Team" - Hire people dedicated to customer outcomes, not just service',
+          '"Retention Programs" - Build initiatives that keep customers longer and happier',
+          '"Service Automation" - Use technology to deliver faster without losing the personal touch',
+        ],
+        metrics: ['Customer lifetime value', 'Churn rate', 'Expansion revenue', 'Service efficiency'],
+      },
+      optimization: {
+        priorities: [
+          '"Journey Mapping" - Understand and optimize every customer touchpoint',
+          '"Predictive Service" - Use data to anticipate needs before customers ask',
+          '"Value-Add Strategy" - Create additional services that deepen relationships',
+        ],
+        metrics: ['Customer effort score', 'Upsell success', 'Service innovation', 'Customer segments'],
+      },
+      leadership: {
+        priorities: [
+          '"Experience Innovation" - Lead your industry in how customers are served',
+          '"Customer Advisory Board" - Turn top customers into strategic partners',
+          '"Service Recognition" - Win awards and accolades that validate your excellence',
+        ],
+        metrics: ['Industry recognition', 'Customer advocacy', 'Innovation adoption', 'Advisory engagement'],
+      },
+      mastery: {
+        priorities: [
+          '"Service at Scale" - Deliver exceptional experience across multiple locations/markets',
+          '"Integration Excellence" - Maintain service quality through growth and acquisitions',
+          '"Industry Benchmark" - Set the standard others try to match',
+        ],
+        metrics: ['Multi-location consistency', 'Integration success', 'Industry leadership', 'Service scalability'],
+      },
+    },
+  },
+  {
+    id: 'deliver-people',
+    name: 'Deliver Engine - People',
+    subtitle: 'People & Team',
+    icon: Users,
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-50',
+    borderColor: 'border-orange-200',
+    stages: {
+      foundation: {
+        priorities: [
+          '"First Great Hires" - Bring in people who share your values and can execute',
+          '"Clear Expectations" - Define roles and responsibilities so everyone knows their job',
+          '"Basic Training" - Get new team members productive quickly and confidently',
+        ],
+        metrics: ['Team size', 'Time to productivity', 'Turnover rate', 'Performance consistency'],
+      },
+      traction: {
+        priorities: [
+          '"Culture Definition" - Make your values visible in how people actually work',
+          '"Performance Rhythm" - Create regular feedback and review conversations',
+          '"Team Development" - Invest in making your people better at what they do',
+        ],
+        metrics: ['Employee satisfaction', 'Training completion', 'Performance ratings', 'Culture score'],
+      },
+      scaling: {
+        priorities: [
+          '"Management Layer" - Develop or hire people who can lead other people',
+          '"Career Paths" - Show your team how they can grow with the company',
+          '"Leadership Bench" - Build your next level of leaders before you need them',
+        ],
+        metrics: ['Manager effectiveness', 'Internal promotion rate', 'Leadership pipeline', 'Engagement scores'],
+      },
+      optimization: {
+        priorities: [
+          '"Organizational Design" - Structure your team for the size you\'re becoming',
+          '"Talent Systems" - Create processes that attract, develop, and retain top performers',
+          '"Performance Culture" - Build an environment where excellence is expected and rewarded',
+        ],
+        metrics: ['Talent retention', 'High performer retention', 'Succession readiness', 'Organizational efficiency'],
+      },
+      leadership: {
+        priorities: [
+          '"Executive Team" - Build a leadership group that can run the business without you',
+          '"Strategic Capability" - Develop leaders who think strategically, not just operationally',
+          '"Innovation Culture" - Create an environment where new ideas thrive',
+        ],
+        metrics: ['Executive effectiveness', 'Strategic decisions', 'Innovation metrics', 'Leadership autonomy'],
+      },
+      mastery: {
+        priorities: [
+          '"Talent at Scale" - Recruit and develop exceptional people across multiple locations',
+          '"Integration Mastery" - Successfully merge teams through growth and acquisitions',
+          '"Leadership Legacy" - Develop the next generation who will carry the business forward',
+        ],
+        metrics: ['Multi-location culture', 'Integration success', 'Leadership development', 'Talent brand strength'],
+      },
+    },
+  },
+  {
+    id: 'deliver-systems',
+    name: 'Deliver Engine - Systems',
+    subtitle: 'Systems & Process',
+    icon: Settings,
+    color: 'text-indigo-600',
+    bgColor: 'bg-indigo-50',
+    borderColor: 'border-indigo-200',
+    stages: {
+      foundation: {
+        priorities: [
+          '"Document the Basics" - Write down your core processes so they\'re repeatable',
+          '"Essential Tools" - Choose the technology that helps you deliver faster and better',
+          '"Quality Control" - Create simple checks that catch mistakes before customers do',
+        ],
+        metrics: ['Process documentation', 'Error rate', 'Tool adoption', 'Consistency score'],
+      },
+      traction: {
+        priorities: [
+          '"Standard Operating Procedures" - Formalize how work gets done so anyone can follow',
+          '"First Automation" - Use technology to eliminate repetitive manual tasks',
+          '"System Integration" - Connect your tools so data flows automatically',
+        ],
+        metrics: ['Process compliance', 'Automation percentage', 'System uptime', 'Efficiency gains'],
+      },
+      scaling: {
+        priorities: [
+          '"Process Automation" - Scale by letting technology handle routine operations',
+          '"Real-Time Visibility" - Build dashboards that show what\'s happening now',
+          '"Continuous Improvement" - Create systems that get better automatically',
+        ],
+        metrics: ['Automation coverage', 'Dashboard adoption', 'Process efficiency', 'Improvement velocity'],
+      },
+      optimization: {
+        priorities: [
+          '"Operational Excellence" - Fine-tune every process for maximum efficiency',
+          '"Predictive Systems" - Use data to anticipate and prevent problems',
+          '"AI Integration" - Deploy artificial intelligence where it creates real advantage',
+        ],
+        metrics: ['Operational metrics', 'Predictive accuracy', 'AI adoption', 'System optimization'],
+      },
+      leadership: {
+        priorities: [
+          '"Industry-Leading Systems" - Build processes others study and try to copy',
+          '"Innovation Process" - Create capability to rapidly test and deploy new approaches',
+          '"Best Practice Creation" - Develop and share methods that advance your industry',
+        ],
+        metrics: ['Industry benchmarks', 'Innovation rate', 'Process leadership', 'Best practice adoption'],
+      },
+      mastery: {
+        priorities: [
+          '"Enterprise Architecture" - Design systems that work across multiple businesses',
+          '"Integration Platform" - Build capability to rapidly absorb acquired companies',
+          '"Global Operations" - Create processes that work anywhere at any scale',
+        ],
+        metrics: ['Multi-business efficiency', 'Integration speed', 'Global scalability', 'Platform performance'],
+      },
+    },
+  },
+  {
+    id: 'finance',
+    name: 'Finance Engine',
+    subtitle: 'Financial Management',
+    icon: Calculator,
+    color: 'text-red-600',
+    bgColor: 'bg-red-50',
+    borderColor: 'border-red-200',
+    stages: {
+      foundation: {
+        priorities: [
+          '"Money in the Bank" - Know your cash position, burn rate, and runway at all times',
+          '"Profitable Pricing" - Set prices that cover costs and generate owner pay',
+          '"Financial Discipline" - Track every dollar in and out with simple, consistent systems',
+        ],
+        metrics: ['Cash position', 'Gross margin', 'Owner compensation', 'Runway months'],
+      },
+      traction: {
+        priorities: [
+          '"Monthly Financials" - Get clear P&L, balance sheet, and cash flow reports every month',
+          '"Budget Control" - Plan spending and track actual vs. budget relentlessly',
+          '"Working Capital" - Manage cash flow so you can invest in growth',
+        ],
+        metrics: ['Net margin', 'Budget variance', 'Cash conversion cycle', 'Operating cash flow'],
+      },
+      scaling: {
+        priorities: [
+          '"Financial Forecasting" - Project 12+ months ahead with confidence',
+          '"Strategic Investment" - Deploy capital to highest-return opportunities',
+          '"Risk Management" - Identify and mitigate financial risks before they hit',
+        ],
+        metrics: ['EBITDA', 'Return on investment', 'Forecast accuracy', 'Financial ratios'],
+      },
+      optimization: {
+        priorities: [
+          '"Capital Efficiency" - Get maximum business value from every dollar invested',
+          '"Performance Analytics" - Use financial data to drive strategic decisions',
+          '"Wealth Building" - Structure the business to create personal financial freedom',
+        ],
+        metrics: ['Return on equity', 'Capital efficiency', 'Business valuation', 'Owner wealth creation'],
+      },
+      leadership: {
+        priorities: [
+          '"Strategic Finance" - Use financial strategy as competitive advantage',
+          '"Portfolio Management" - Allocate resources like an investor, not an operator',
+          '"Exit Readiness" - Structure finances to maximize optionality and value',
+        ],
+        metrics: ['Strategic ROI', 'Portfolio performance', 'Business value', 'Exit readiness score'],
+      },
+      mastery: {
+        priorities: [
+          '"Acquisition Finance" - Structure deals that create value beyond purchase price',
+          '"Wealth Diversification" - Move from business wealth to portfolio wealth',
+          '"Legacy Planning" - Optimize for long-term wealth preservation and transfer',
+        ],
+        metrics: ['Acquisition ROI', 'Portfolio diversification', 'Wealth preservation', 'Legacy structure'],
+      },
+    },
+  },
+  {
+    id: 'leadership',
+    name: 'Leadership',
+    subtitle: 'Owner & Leadership Development',
+    icon: Crown,
+    color: 'text-yellow-600',
+    bgColor: 'bg-yellow-50',
+    borderColor: 'border-yellow-200',
+    stages: {
+      foundation: {
+        priorities: [
+          '"Owner Mindset" - Stop being the technician and start being the business builder',
+          '"Decision Confidence" - Make calls with incomplete information and move forward',
+          '"Get a Guide" - Find a mentor or coach who\'s been where you\'re going',
+        ],
+        metrics: ['Decision speed', 'Time on business vs in business', 'Mentor engagement', 'Leadership confidence'],
+      },
+      traction: {
+        priorities: [
+          '"First Leadership" - Learn to hire, delegate, and hold people accountable effectively',
+          '"Feedback Mastery" - Give input that improves performance without destroying morale',
+          '"Team Trust" - Build relationships where people follow you because they want to',
+        ],
+        metrics: ['Team satisfaction', 'Delegation success', 'Employee retention', 'Leadership effectiveness'],
+      },
+      scaling: {
+        priorities: [
+          '"Develop Managers" - Build your first layer of leaders who can lead others',
+          '"Strategic Thinking" - Shift from daily operations to long-term business building',
+          '"Executive Team" - Assemble people who complement your strengths and fill gaps',
+        ],
+        metrics: ['Manager performance', 'Strategic time percentage', 'Executive team strength', 'Vision clarity'],
+      },
+      optimization: {
+        priorities: [
+          '"Leadership Refinement" - Develop your personal leadership style and presence',
+          '"Industry Presence" - Build relationships and visibility in your market',
+          '"Lead Change" - Guide your organization through complexity and transformation',
+        ],
+        metrics: ['Leadership effectiveness', 'Industry connections', 'Change success rate', 'Personal brand strength'],
+      },
+      leadership: {
+        priorities: [
+          '"Thought Leadership" - Become recognized as an expert and innovator in your field',
+          '"Succession Planning" - Identify and develop people who could run without you',
+          '"Build Optionality" - Create choices for your future (scale, sell, semi-retire, etc.)',
+        ],
+        metrics: ['Industry influence', 'Succession readiness', 'Optionality score', 'Leadership impact'],
+      },
+      mastery: {
+        priorities: [
+          '"Portfolio Leadership" - Lead multiple businesses as investor, not operator',
+          '"Next Generation" - Develop leaders who will carry your businesses into the future',
+          '"Legacy Creation" - Focus on lasting impact beyond yourself',
+        ],
+        metrics: ['Portfolio performance', 'Leadership succession', 'Legacy initiatives', 'Wealth transfer readiness'],
+      },
+    },
+  },
+  {
+    id: 'time',
+    name: 'Time Management',
+    subtitle: 'Focus & Productivity',
+    icon: Target,
+    color: 'text-teal-600',
+    bgColor: 'bg-teal-50',
+    borderColor: 'border-teal-200',
+    stages: {
+      foundation: {
+        priorities: [
+          '"Track Your Time" - Know exactly where your hours go for one full week',
+          '"Revenue Work First" - Focus on activities that directly generate income',
+          '"Stop $10 Tasks" - Eliminate or delegate work below your value per hour',
+        ],
+        metrics: ['Revenue-generating hours', 'Time tracking consistency', 'Delegation percentage', 'Focus time daily'],
+      },
+      traction: {
+        priorities: [
+          '"Virtual Support" - Hire assistant to handle admin tasks and calendar management',
+          '"Calendar Control" - Block time for strategic work and protect it fiercely',
+          '"Meeting Discipline" - Cut meeting time and make necessary meetings productive',
+        ],
+        metrics: ['Hours delegated', 'Strategic work time', 'Meeting hours', 'Calendar control score'],
+      },
+      scaling: {
+        priorities: [
+          '"Executive Assistant" - Bring on someone who manages your schedule and priorities',
+          '"Operations Handoff" - Let your team handle daily operations without you',
+          '"Strategic Planning Time" - Block full days for business planning and thinking',
+        ],
+        metrics: ['Operational time percentage', 'Strategic planning days', 'Team autonomy', 'Focus quality'],
+      },
+      optimization: {
+        priorities: [
+          '"EA Full Control" - Have your assistant fully manage calendar and access',
+          '"Strategic Focus Only" - Spend time exclusively on highest-value activities',
+          '"Development Investment" - Dedicate time to learning and personal growth',
+        ],
+        metrics: ['CEO-level work percentage', 'Strategic impact', 'Learning investment', 'Value creation time'],
+      },
+      leadership: {
+        priorities: [
+          '"Vision & Strategy Time" - Focus schedule on direction-setting and planning',
+          '"Key Relationships" - Invest time in strategic partnerships and connections',
+          '"Thought Leadership" - Dedicate hours to writing, speaking, and industry presence',
+        ],
+        metrics: ['Vision/strategy time', 'Strategic relationships', 'Thought leadership hours', 'Market presence'],
+      },
+      mastery: {
+        priorities: [
+          '"Portfolio Oversight" - Manage multiple businesses at board level only',
+          '"Annual Planning Focus" - Shift to yearly strategy, quarterly reviews only',
+          '"Legacy Time" - Focus on long-term impact, wealth management, and personal goals',
+        ],
+        metrics: ['Portfolio oversight hours', 'Operational involvement', 'Legacy activities', 'Personal goal progress'],
+      },
+    },
+  },
+]
+
+export default function RevenueRoadmap() {
+  const router = useRouter()
+  const supabase = createClient()
+  const [business, setBusiness] = useState<Business | null>(null)
+  const [currentStage, setCurrentStage] = useState<typeof REVENUE_STAGES[0] | null>(null)
+  const [expandedEngines, setExpandedEngines] = useState<string[]>(['attract'])
+  const [expandedStages, setExpandedStages] = useState<string[]>([])
+  const [completedTasks, setCompletedTasks] = useState<Record<string, boolean>>({})
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    loadBusiness()
+  }, [])
+
+  const loadBusiness = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/auth/login')
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('owner_id', user.id)
+        .maybeSingle()
+
+      if (data) {
+        setBusiness(data)
+        
+        // Determine current stage based on revenue
+        const revenue = data.annual_revenue || 0
+        const stage = REVENUE_STAGES.find(s => revenue >= s.min && revenue < s.max) || REVENUE_STAGES[0]
+        setCurrentStage(stage)
+      }
+    } catch (error) {
+      console.error('Error loading business:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Calculate progress to next stage
+  const calculateProgress = () => {
+    if (!business || !currentStage) return 0
+    const revenue = business.annual_revenue || 0
+    
+    if (currentStage.max === Infinity) return 100
+    
+    const stageProgress = ((revenue - currentStage.min) / (currentStage.max - currentStage.min)) * 100
+    return Math.min(100, Math.max(0, stageProgress))
+  }
+
+  // Get next stage
+  const getNextStage = () => {
+    if (!currentStage) return null
+    const currentIndex = REVENUE_STAGES.findIndex(s => s.id === currentStage.id)
+    return REVENUE_STAGES[currentIndex + 1] || null
+  }
+
+  // Toggle engine expansion
+  const toggleEngine = (engineId: string) => {
+    setExpandedEngines(prev =>
+      prev.includes(engineId)
+        ? prev.filter(id => id !== engineId)
+        : [...prev, engineId]
+    )
+  }
+
+  // Toggle stage expansion in journey table
+  const toggleStage = (stageId: string) => {
+    setExpandedStages(prev =>
+      prev.includes(stageId)
+        ? prev.filter(id => id !== stageId)
+        : [...prev, stageId]
+    )
+  }
+
+  // Toggle task completion
+  const toggleTask = (taskId: string) => {
+    setCompletedTasks(prev => ({
+      ...prev,
+      [taskId]: !prev[taskId]
+    }))
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8 flex items-center justify-center">
+        <div className="text-gray-600">Loading revenue roadmap...</div>
+      </div>
+    )
+  }
+
+  const nextStage = getNextStage()
+  const progress = calculateProgress()
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="mb-4 text-blue-600 hover:text-blue-700 flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Dashboard
+          </button>
+          
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Revenue Stage Roadmap</h1>
+              <p className="text-gray-600 mt-2">
+                Your comprehensive growth path with stage-specific priorities
+              </p>
+            </div>
+            
+            {business && (
+              <div className="text-right">
+                <div className="text-sm text-gray-600">Current Revenue</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  ${(business.annual_revenue || 0).toLocaleString()}
+                </div>
+                {business.net_margin && (
+                  <div className="text-sm text-gray-600 mt-1">
+                    Net Margin: <span className={`font-medium ${
+                      business.net_margin >= 15 ? 'text-green-600' : 
+                      business.net_margin >= 10 ? 'text-yellow-600' : 'text-red-600'
+                    }`}>{business.net_margin}%</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Stage Progress Visual */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <div className="flex items-center justify-between">
+            {REVENUE_STAGES.map((stage, index) => {
+              const Icon = stage.icon
+              const isCurrent = currentStage?.id === stage.id
+              const isPast = (business?.annual_revenue || 0) > stage.max
+              const isFuture = (business?.annual_revenue || 0) < stage.min
+              
+              return (
+                <div key={stage.id} className="flex-1 relative">
+                  <div className="flex flex-col items-center">
+                    <div
+                      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                        isCurrent 
+                          ? `bg-gradient-to-r ${stage.color} text-white shadow-lg scale-110` 
+                          : isPast 
+                          ? 'bg-green-100 text-green-600' 
+                          : 'bg-gray-100 text-gray-400'
+                      }`}
+                    >
+                      <Icon className="w-6 h-6" />
+                    </div>
+                    <div className="mt-2 text-center">
+                      <div className={`text-xs font-medium ${
+                        isCurrent ? 'text-gray-900' : 'text-gray-500'
+                      }`}>
+                        {stage.name}
+                      </div>
+                      <div className={`text-xs ${
+                        isCurrent ? 'text-gray-700' : 'text-gray-400'
+                      }`}>
+                        {stage.range}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Connection line */}
+                  {index < REVENUE_STAGES.length - 1 && (
+                    <div 
+                      className={`absolute top-6 left-1/2 w-full h-0.5 ${
+                        isPast ? 'bg-green-300' : 'bg-gray-200'
+                      }`}
+                      style={{ transform: 'translateX(50%)' }}
+                    />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Current Stage Details - Redesigned */}
+        {currentStage && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Current Stage Card - More Compact */}
+            <div className={`bg-white rounded-xl shadow-lg p-6 border-l-4 ${currentStage.borderColor}`}>
+              <div className="flex items-start gap-4">
+                <div className={`p-3 rounded-lg ${currentStage.iconBg} flex-shrink-0`}>
+                  <currentStage.icon className={`w-6 h-6 text-${currentStage.id}-600`} />
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm text-gray-500 mb-1">Current Stage</div>
+                  <div className={`text-2xl font-bold bg-gradient-to-r ${currentStage.color} bg-clip-text text-transparent mb-3`}>
+                    {currentStage.name}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Target className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-700">{currentStage.focus}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm font-medium text-green-600">{currentStage.profitTarget}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="text-xs text-gray-500 mb-2">Top Success Disciplines</div>
+                    <div className="flex flex-wrap gap-1">
+                      {currentStage.successDisciplines.map((discipline, index) => (
+                        <span key={index} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                          {discipline}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Next Stage Info - Compact */}
+            {nextStage ? (
+              <div className="bg-white rounded-xl shadow-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Path to {nextStage.name}</h3>
+                  <span className="text-2xl font-bold text-gray-900">
+                    ${(nextStage.min - (business?.annual_revenue || 0)).toLocaleString()}
+                  </span>
+                </div>
+                
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-600">Progress</span>
+                      <span className="font-medium">{Math.round(progress)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className={`bg-gradient-to-r ${nextStage.color} h-2 rounded-full transition-all`}
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between items-center pt-2 border-t">
+                    <span className="text-sm text-gray-600">Target Margin</span>
+                    <span className="text-sm font-medium text-green-600">{nextStage.profitTarget}</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-xl shadow-lg p-6 text-white">
+                <Trophy className="w-8 h-8 mb-3" />
+                <h3 className="text-lg font-semibold mb-2">Mastery Achieved!</h3>
+                <p className="text-sm opacity-90">
+                  Focus on empire building, strategic acquisitions, and wealth creation.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Journey to Mastery Table */}
+        <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">🏔️ Journey to Mastery</h2>
+            <p className="text-gray-600">See your complete path across all business engines - click any stage to expand</p>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              {/* Header Row - Engine Names */}
+              <thead>
+                <tr className="border-b-2 border-gray-300">
+                  <th className="text-left p-3 bg-gray-50 font-semibold text-gray-700 sticky left-0 z-10 min-w-[150px]">
+                    STAGE
+                  </th>
+                  {BUSINESS_ENGINES.map((engine) => {
+                    const Icon = engine.icon
+                    return (
+                      <th key={engine.id} className={`text-center p-3 ${engine.bgColor} min-w-[160px]`}>
+                        <div className="flex flex-col items-center gap-1">
+                          <Icon className={`w-5 h-5 ${engine.color}`} />
+                          <div className="font-semibold text-gray-900 text-sm">{engine.name.replace(' Engine', '')}</div>
+                          <div className="text-xs text-gray-600">{engine.subtitle}</div>
+                        </div>
+                      </th>
+                    )
+                  })}
+                </tr>
+              </thead>
+
+              {/* Body - Stages in reverse order (Mastery at top) */}
+              <tbody>
+                {[...REVENUE_STAGES].reverse().map((stage) => {
+                  const Icon = stage.icon
+                  const isCurrent = currentStage?.id === stage.id
+                  const isPast = (business?.annual_revenue || 0) > stage.max
+                  const isExpanded = expandedStages.includes(stage.id)
+
+                  return (
+                    <React.Fragment key={stage.id}>
+                      {/* Stage Row - Clickable */}
+                      <tr
+                        className={`border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors ${
+                          isCurrent ? 'bg-blue-50' : isPast ? 'bg-green-50' : ''
+                        }`}
+                        onClick={() => toggleStage(stage.id)}
+                      >
+                        {/* Stage Name Column */}
+                        <td className="p-3 sticky left-0 z-10 bg-inherit">
+                          <div className="flex items-center gap-2">
+                            <div>
+                              {isCurrent ? (
+                                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                              ) : isPast ? (
+                                <CheckCircle className="w-4 h-4 text-green-600" />
+                              ) : (
+                                <Circle className="w-4 h-4 text-gray-300" />
+                              )}
+                            </div>
+                            <div className={`p-2 rounded-lg ${stage.iconBg} flex-shrink-0`}>
+                              <Icon className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <div className={`font-semibold text-sm ${isCurrent ? 'text-blue-700' : isPast ? 'text-green-700' : 'text-gray-700'}`}>
+                                {stage.name}
+                              </div>
+                              <div className="text-xs text-gray-600">{stage.range}</div>
+                            </div>
+                            {isExpanded ? (
+                              <ChevronUp className="w-4 h-4 text-gray-400 ml-auto" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-gray-400 ml-auto" />
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Engine Cells - Summary */}
+                        {BUSINESS_ENGINES.map((engine) => {
+                          const stageData = engine.stages[stage.id as keyof typeof engine.stages]
+                          return (
+                            <td key={engine.id} className={`p-3 text-center ${isCurrent ? 'font-medium' : isPast ? '' : 'text-gray-500'}`}>
+                              <div className="text-xs">
+                                {stageData.priorities[0]}
+                              </div>
+                              {isExpanded && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  +{stageData.priorities.length - 1} more
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })}
+                      </tr>
+
+                      {/* Expanded Details Row */}
+                      {isExpanded && (
+                        <tr className={`border-b border-gray-200 ${isCurrent ? 'bg-blue-25' : isPast ? 'bg-green-25' : 'bg-gray-25'}`}>
+                          <td colSpan={BUSINESS_ENGINES.length + 1} className="p-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {BUSINESS_ENGINES.map((engine) => {
+                                const Icon = engine.icon
+                                const stageData = engine.stages[stage.id as keyof typeof engine.stages]
+
+                                return (
+                                  <div key={engine.id} className={`border ${engine.borderColor} rounded-lg p-4 ${engine.bgColor}`}>
+                                    <div className="flex items-center gap-2 mb-3">
+                                      <Icon className={`w-4 h-4 ${engine.color}`} />
+                                      <h4 className="font-semibold text-sm text-gray-900">{engine.name.replace(' Engine', '')}</h4>
+                                    </div>
+
+                                    <div className="space-y-2 mb-3">
+                                      <div className="text-xs font-medium text-gray-700">Priorities:</div>
+                                      <ul className="text-xs text-gray-600 space-y-1">
+                                        {stageData.priorities.slice(0, 4).map((priority, idx) => (
+                                          <li key={idx} className="flex items-start gap-1">
+                                            <span className="text-gray-400">•</span>
+                                            <span>{priority}</span>
+                                          </li>
+                                        ))}
+                                        {stageData.priorities.length > 4 && (
+                                          <li className="text-gray-400 italic">+{stageData.priorities.length - 4} more...</li>
+                                        )}
+                                      </ul>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                      <div className="text-xs font-medium text-gray-700">Key Metrics:</div>
+                                      <div className="flex flex-wrap gap-1">
+                                        {stageData.metrics.slice(0, 3).map((metric, idx) => (
+                                          <span key={idx} className="text-xs bg-white px-2 py-1 rounded text-gray-600">
+                                            {metric}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-4 text-xs text-gray-500 flex items-center gap-4">
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span>Current Stage</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <CheckCircle className="w-3 h-3 text-green-600" />
+              <span>Completed</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Circle className="w-3 h-3 text-gray-300" />
+              <span>Future</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Business Engines Section - With Checklists */}
+        <div className="bg-white rounded-xl shadow-lg p-8">
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Current Stage Action Checklist</h2>
+            <p className="text-gray-600">Track your progress by checking off completed priorities</p>
+          </div>
+          
+          {/* All Engines Accordion with Checklists */}
+          <div className="space-y-3">
+            {BUSINESS_ENGINES.map((engine) => {
+              const Icon = engine.icon
+              const isExpanded = expandedEngines.includes(engine.id)
+              const stageData = currentStage ? engine.stages[currentStage.id as keyof typeof engine.stages] : null
+              
+              return (
+                <div key={engine.id} className={`border ${engine.borderColor} rounded-lg overflow-hidden`}>
+                  <button
+                    onClick={() => toggleEngine(engine.id)}
+                    className={`w-full px-6 py-4 ${engine.bgColor} hover:opacity-90 transition-all flex items-center justify-between`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon className={`w-5 h-5 ${engine.color}`} />
+                      <div className="text-left">
+                        <h3 className="font-semibold text-gray-900">{engine.name}</h3>
+                        <p className="text-sm text-gray-600">{engine.subtitle}</p>
+                      </div>
+                    </div>
+                    {isExpanded ? (
+                      <ChevronUp className="w-5 h-5 text-gray-400" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-gray-400" />
+                    )}
+                  </button>
+                  
+                  {isExpanded && stageData && (
+                    <div className="p-6 bg-white border-t">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Priorities as Checklist */}
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-3">Priorities Checklist</h4>
+                          <div className="space-y-2">
+                            {stageData.priorities.map((priority, index) => {
+                              const taskId = `${engine.id}-${index}`
+                              return (
+                                <label key={index} className="flex items-start gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                  <input
+                                    type="checkbox"
+                                    checked={completedTasks[taskId] || false}
+                                    onChange={() => toggleTask(taskId)}
+                                    className="mt-0.5 w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                  />
+                                  <span className={`text-sm ${completedTasks[taskId] ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
+                                    {priority}
+                                  </span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        </div>
+                        
+                        {/* Metrics */}
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-3">Key Metrics to Track</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {stageData.metrics.map((metric, index) => (
+                              <span key={index} className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
+                                {metric}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="mt-8 flex justify-center gap-4">
+          <button
+            onClick={() => router.push('/assessment')}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+          >
+            Take Full Assessment
+          </button>
+          <button
+            onClick={() => router.push('/swot')}
+            className="px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+          >
+            SWOT Analysis
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

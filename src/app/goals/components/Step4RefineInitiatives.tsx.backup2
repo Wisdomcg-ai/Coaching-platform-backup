@@ -1,0 +1,587 @@
+'use client'
+
+import { StrategicInitiative, InitiativeCategory, InitiativePriority, InitiativeEffort } from '../types'
+import { AlertCircle, Check, GripVertical, Search, X, Zap, ChevronDown, ChevronUp } from 'lucide-react'
+import { useState, useMemo } from 'react'
+
+interface Step4Props {
+  strategicIdeas: StrategicInitiative[]
+  roadmapSuggestions: StrategicInitiative[]
+  twelveMonthInitiatives: StrategicInitiative[]
+  setTwelveMonthInitiatives: (initiatives: StrategicInitiative[]) => void
+}
+
+const CATEGORY_INFO: Record<InitiativeCategory, { label: string; emoji: string; color: string }> = {
+  'marketing': { label: 'Marketing & Sales', emoji: '📢', color: 'text-purple-600' },
+  'operations': { label: 'Operations', emoji: '⚙️', color: 'text-blue-600' },
+  'finance': { label: 'Finance', emoji: '💰', color: 'text-green-600' },
+  'people': { label: 'People & Culture', emoji: '👥', color: 'text-pink-600' },
+  'systems': { label: 'Systems & Tech', emoji: '💻', color: 'text-indigo-600' },
+  'product': { label: 'Product & Service', emoji: '🎯', color: 'text-orange-600' },
+  'customer_experience': { label: 'Customer Experience', emoji: '⭐', color: 'text-yellow-600' },
+  'other': { label: 'Other', emoji: '📋', color: 'text-gray-600' }
+}
+
+const PRIORITY_INFO: Record<InitiativePriority, { label: string; color: string }> = {
+  'high': { label: 'HIGH', color: 'bg-red-100 text-red-700 border-red-200' },
+  'medium': { label: 'MED', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  'low': { label: 'LOW', color: 'bg-gray-100 text-gray-600 border-gray-200' }
+}
+
+const EFFORT_INFO: Record<InitiativeEffort, { label: string; icon: string }> = {
+  'small': { label: 'Quick Win', icon: '⚡' },
+  'medium': { label: 'Medium', icon: '⏱️' },
+  'large': { label: 'Large', icon: '🎯' }
+}
+
+export default function Step4RefineInitiatives({
+  strategicIdeas,
+  roadmapSuggestions,
+  twelveMonthInitiatives,
+  setTwelveMonthInitiatives
+}: Step4Props) {
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterCategory, setFilterCategory] = useState<InitiativeCategory | 'all'>('all')
+  const [filterPriority, setFilterPriority] = useState<InitiativePriority | 'all'>('all')
+  const [sortBy, setSortBy] = useState<'priority' | 'category' | 'effort' | 'none'>('priority')
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [showBalance, setShowBalance] = useState(false)
+
+  // Combine all available initiatives
+  const allAvailableInitiatives = useMemo(() => {
+    return [...strategicIdeas, ...roadmapSuggestions]
+  }, [strategicIdeas, roadmapSuggestions])
+
+  const selectedCount = twelveMonthInitiatives.length
+  const isOverLimit = selectedCount > 10
+  const isInRange = selectedCount >= 5 && selectedCount <= 10
+  const needMore = selectedCount > 0 && selectedCount < 5
+
+  // Filter and sort initiatives
+  const filteredInitiatives = useMemo(() => {
+    let filtered = allAvailableInitiatives.filter(
+      init => !twelveMonthInitiatives.some(selected => selected.id === init.id)
+    )
+
+    // Search
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(
+        init =>
+          init.title.toLowerCase().includes(query) ||
+          init.description?.toLowerCase().includes(query) ||
+          init.notes?.toLowerCase().includes(query)
+      )
+    }
+
+    // Category filter
+    if (filterCategory !== 'all') {
+      filtered = filtered.filter(init => init.category === filterCategory)
+    }
+
+    // Priority filter
+    if (filterPriority !== 'all') {
+      filtered = filtered.filter(init => init.priority === filterPriority)
+    }
+
+    // Sort
+    if (sortBy === 'priority') {
+      const priorityOrder = { high: 0, medium: 1, low: 2 }
+      filtered.sort((a, b) => {
+        const aPriority = a.priority || 'low'
+        const bPriority = b.priority || 'low'
+        return priorityOrder[aPriority] - priorityOrder[bPriority]
+      })
+    } else if (sortBy === 'category') {
+      filtered.sort((a, b) => {
+        const aCategory = a.category || 'other'
+        const bCategory = b.category || 'other'
+        return aCategory.localeCompare(bCategory)
+      })
+    } else if (sortBy === 'effort') {
+      const effortOrder = { small: 0, medium: 1, large: 2 }
+      filtered.sort((a, b) => {
+        const aEffort = a.estimatedEffort || 'medium'
+        const bEffort = b.estimatedEffort || 'medium'
+        return effortOrder[aEffort] - effortOrder[bEffort]
+      })
+    }
+
+    return filtered
+  }, [allAvailableInitiatives, twelveMonthInitiatives, searchQuery, filterCategory, filterPriority, sortBy])
+
+  // Calculate balance stats
+  const balanceStats = useMemo(() => {
+    const categoryCount: Partial<Record<InitiativeCategory, number>> = {}
+    const effortCount: Partial<Record<InitiativeEffort, number>> = {}
+
+    twelveMonthInitiatives.forEach(init => {
+      if (init.category) {
+        categoryCount[init.category] = (categoryCount[init.category] || 0) + 1
+      }
+      if (init.estimatedEffort) {
+        effortCount[init.estimatedEffort] = (effortCount[init.estimatedEffort] || 0) + 1
+      }
+    })
+
+    const categoryDiversity = Object.keys(categoryCount).length
+    const quickWins = effortCount['small'] || 0
+
+    return {
+      categoryCount,
+      effortCount,
+      categoryDiversity,
+      quickWins
+    }
+  }, [twelveMonthInitiatives])
+
+  // Handlers
+  const handleToggleInitiative = (initiative: StrategicInitiative) => {
+    const isSelected = twelveMonthInitiatives.some(item => item.id === initiative.id)
+
+    if (isSelected) {
+      setTwelveMonthInitiatives(
+        twelveMonthInitiatives.filter(item => item.id !== initiative.id)
+      )
+    } else {
+      setTwelveMonthInitiatives([
+        ...twelveMonthInitiatives,
+        { ...initiative, selected: true, order: twelveMonthInitiatives.length }
+      ])
+    }
+  }
+
+  const handleRemoveInitiative = (initiativeId: string) => {
+    setTwelveMonthInitiatives(
+      twelveMonthInitiatives.filter(item => item.id !== initiativeId)
+    )
+  }
+
+  const handleClearAll = () => {
+    setTwelveMonthInitiatives([])
+  }
+
+  const handleSelectAllHighPriority = () => {
+    const highPriorityItems = allAvailableInitiatives.filter(
+      init => init.priority === 'high' && !twelveMonthInitiatives.some(selected => selected.id === init.id)
+    )
+    setTwelveMonthInitiatives([
+      ...twelveMonthInitiatives,
+      ...highPriorityItems.map((init, idx) => ({
+        ...init,
+        selected: true,
+        order: twelveMonthInitiatives.length + idx
+      }))
+    ])
+  }
+
+  // Drag and drop for reordering selected items
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index)
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+
+    if (draggedIndex === null || draggedIndex === index) return
+
+    const reordered = [...twelveMonthInitiatives]
+    const draggedItem = reordered[draggedIndex]
+    reordered.splice(draggedIndex, 1)
+    reordered.splice(index, 0, draggedItem)
+
+    const updated = reordered.map((init, idx) => ({ ...init, order: idx }))
+
+    setTwelveMonthInitiatives(updated)
+    setDraggedIndex(index)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null)
+  }
+
+  const hasFilters = searchQuery || filterCategory !== 'all' || filterPriority !== 'all'
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Selection Status */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                Selected: <span className={`text-lg ${selectedCount === 0 ? 'text-gray-500' : isInRange ? 'text-green-600' : isOverLimit ? 'text-red-600' : 'text-amber-600'}`}>{selectedCount}</span> <span className="text-gray-600">of 5-10 initiatives</span>
+              </p>
+            </div>
+            {isInRange && (
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-green-100 border border-green-300 rounded-full">
+                <Check className="w-4 h-4 text-green-700" />
+                <span className="text-sm font-medium text-green-700">Perfect range!</span>
+              </div>
+            )}
+            {isOverLimit && (
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-red-100 border border-red-300 rounded-full">
+                <AlertCircle className="w-4 h-4 text-red-700" />
+                <span className="text-sm font-medium text-red-700">Remove {selectedCount - 10}</span>
+              </div>
+            )}
+            {needMore && (
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-100 border border-amber-300 rounded-full">
+                <AlertCircle className="w-4 h-4 text-amber-700" />
+                <span className="text-sm font-medium text-amber-700">Add {5 - selectedCount} more</span>
+              </div>
+            )}
+          </div>
+
+          {/* Batch Actions */}
+          <div className="flex items-center gap-2">
+            {allAvailableInitiatives.filter(i => i.priority === 'high' && !twelveMonthInitiatives.some(s => s.id === i.id)).length > 0 && (
+              <button
+                onClick={handleSelectAllHighPriority}
+                className="text-xs px-3 py-1.5 bg-red-100 text-red-700 border border-red-200 rounded-lg hover:bg-red-200 font-medium transition-colors"
+              >
+                + All High Priority
+              </button>
+            )}
+            {selectedCount > 0 && (
+              <button
+                onClick={handleClearAll}
+                className="text-xs px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+              >
+                Clear All
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Search and Filters Bar */}
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center gap-3">
+          {/* Search */}
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search initiatives..."
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            />
+          </div>
+
+          {/* Category Filter */}
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value as InitiativeCategory | 'all')}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm min-w-[180px]"
+          >
+            <option value="all">All Categories</option>
+            {Object.entries(CATEGORY_INFO).map(([key, info]) => (
+              <option key={key} value={key}>
+                {info.emoji} {info.label}
+              </option>
+            ))}
+          </select>
+
+          {/* Priority Filter */}
+          <select
+            value={filterPriority}
+            onChange={(e) => setFilterPriority(e.target.value as InitiativePriority | 'all')}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm min-w-[140px]"
+          >
+            <option value="all">All Priorities</option>
+            {Object.entries(PRIORITY_INFO).map(([key, info]) => (
+              <option key={key} value={key}>
+                {info.label}
+              </option>
+            ))}
+          </select>
+
+          {/* Sort By */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm min-w-[140px]"
+          >
+            <option value="none">No Sort</option>
+            <option value="priority">Sort: Priority</option>
+            <option value="category">Sort: Category</option>
+            <option value="effort">Sort: Effort</option>
+          </select>
+
+          {hasFilters && (
+            <button
+              onClick={() => {
+                setSearchQuery('')
+                setFilterCategory('all')
+                setFilterPriority('all')
+              }}
+              className="text-xs text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap"
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Available Initiatives Table */}
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+          <h3 className="text-sm font-bold text-gray-900">
+            Available Initiatives ({filteredInitiatives.length})
+          </h3>
+        </div>
+
+        {allAvailableInitiatives.length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-sm text-gray-600">
+              No initiatives yet. Go back to Steps 2 & 3 to add ideas and recommendations.
+            </p>
+          </div>
+        ) : filteredInitiatives.length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-sm text-gray-600">
+              No initiatives match your filters.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b-2 border-gray-300">
+                  <th className="p-3 text-center text-sm font-bold text-gray-700 bg-gray-50 w-[60px]">Select</th>
+                  <th className="p-3 text-left text-sm font-bold text-gray-700 bg-gray-50 min-w-[300px]">Initiative</th>
+                  <th className="p-3 text-center text-sm font-bold text-gray-700 bg-gray-50 w-[180px]">Category</th>
+                  <th className="p-3 text-center text-sm font-bold text-gray-700 bg-gray-50 w-[100px]">Priority</th>
+                  <th className="p-3 text-center text-sm font-bold text-gray-700 bg-gray-50 w-[130px]">Effort</th>
+                  <th className="p-3 text-center text-sm font-bold text-gray-700 bg-gray-50 w-[130px]">Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredInitiatives.map((initiative, index) => {
+                  const isEven = index % 2 === 0
+                  const categoryInfo = initiative.category ? CATEGORY_INFO[initiative.category] : CATEGORY_INFO.other
+                  const priorityInfo = initiative.priority ? PRIORITY_INFO[initiative.priority] : null
+                  const effortInfo = initiative.estimatedEffort ? EFFORT_INFO[initiative.estimatedEffort] : null
+                  const isFromIdeas = strategicIdeas.some(i => i.id === initiative.id)
+
+                  return (
+                    <tr
+                      key={initiative.id}
+                      className={`border-b border-gray-200 hover:bg-blue-50 transition-colors cursor-pointer ${
+                        isEven ? 'bg-white' : 'bg-gray-50'
+                      }`}
+                      onClick={() => handleToggleInitiative(initiative)}
+                    >
+                      {/* Checkbox */}
+                      <td className="p-3 text-center">
+                        <div className="flex items-center justify-center">
+                          <div className="w-5 h-5 rounded border-2 border-gray-300 flex items-center justify-center hover:border-blue-500 transition-colors">
+                            <div className="w-3 h-3 rounded-sm bg-transparent" />
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Title */}
+                      <td className="p-3">
+                        <p className="text-sm font-semibold text-gray-900">{initiative.title}</p>
+                        {initiative.description && (
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-1">{initiative.description}</p>
+                        )}
+                      </td>
+
+                      {/* Category */}
+                      <td className="p-3 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="text-lg">{categoryInfo.emoji}</span>
+                          <span className={`text-xs font-medium ${categoryInfo.color}`}>{categoryInfo.label}</span>
+                        </div>
+                      </td>
+
+                      {/* Priority */}
+                      <td className="p-3 text-center">
+                        {priorityInfo && (
+                          <span className={`inline-block px-2 py-1 text-xs font-bold rounded border ${priorityInfo.color}`}>
+                            {priorityInfo.label}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Effort */}
+                      <td className="p-3 text-center">
+                        {effortInfo && (
+                          <div className="flex items-center justify-center gap-1">
+                            <span>{effortInfo.icon}</span>
+                            <span className="text-xs font-medium text-gray-700">{effortInfo.label}</span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Source */}
+                      <td className="p-3 text-center">
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          isFromIdeas
+                            ? 'bg-purple-100 text-purple-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {isFromIdeas ? 'Your Ideas' : 'Roadmap'}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Selected Initiatives - Priority List */}
+      {selectedCount > 0 && (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="px-4 py-3 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-gray-900">
+              Your 12-Month Plan ({selectedCount} initiatives)
+            </h3>
+            <p className="text-xs text-gray-600">Drag to reorder by priority</p>
+          </div>
+
+          <div className="p-4">
+            <div className="space-y-2">
+              {twelveMonthInitiatives.map((initiative, index) => {
+                const categoryInfo = initiative.category ? CATEGORY_INFO[initiative.category] : CATEGORY_INFO.other
+                const priorityInfo = initiative.priority ? PRIORITY_INFO[initiative.priority] : null
+
+                return (
+                  <div
+                    key={initiative.id}
+                    draggable
+                    onDragStart={() => handleDragStart(index)}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDragEnd={handleDragEnd}
+                    className={`flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-all cursor-move ${
+                      draggedIndex === index ? 'opacity-50' : ''
+                    }`}
+                  >
+                    {/* Drag Handle */}
+                    <GripVertical className="w-4 h-4 text-gray-400 flex-shrink-0" />
+
+                    {/* Priority Number */}
+                    <div className="flex items-center justify-center w-7 h-7 bg-blue-600 text-white rounded-full text-sm font-bold flex-shrink-0">
+                      {index + 1}
+                    </div>
+
+                    {/* Category Emoji */}
+                    <span className="text-lg flex-shrink-0" title={categoryInfo.label}>
+                      {categoryInfo.emoji}
+                    </span>
+
+                    {/* Title */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{initiative.title}</p>
+                    </div>
+
+                    {/* Priority Badge */}
+                    {priorityInfo && (
+                      <span className={`px-2 py-1 text-xs font-bold rounded border flex-shrink-0 ${priorityInfo.color}`}>
+                        {priorityInfo.label}
+                      </span>
+                    )}
+
+                    {/* Remove Button */}
+                    <button
+                      onClick={() => handleRemoveInitiative(initiative.id)}
+                      className="text-gray-400 hover:text-red-600 transition-colors flex-shrink-0"
+                      title="Remove"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Balance Stats - Collapsible */}
+      {selectedCount > 0 && (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <button
+            onClick={() => setShowBalance(!showBalance)}
+            className="w-full px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between hover:bg-gray-100 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <h3 className="text-sm font-bold text-gray-900">Balance Stats</h3>
+              <div className="flex items-center gap-3 text-xs text-gray-700">
+                <div className="flex items-center gap-1">
+                  <span className="font-semibold">{balanceStats.categoryDiversity}</span>
+                  <span>categories</span>
+                </div>
+                <span className="text-gray-300">•</span>
+                <div className="flex items-center gap-1">
+                  <Zap className="w-3 h-3 text-amber-500" />
+                  <span className="font-semibold">{balanceStats.quickWins}</span>
+                  <span>quick wins</span>
+                </div>
+              </div>
+            </div>
+            {showBalance ? <ChevronUp className="w-4 h-4 text-gray-600" /> : <ChevronDown className="w-4 h-4 text-gray-600" />}
+          </button>
+
+          {showBalance && (
+            <div className="p-4">
+              <div className="grid grid-cols-2 gap-6">
+                {/* Category Balance */}
+                <div>
+                  <p className="text-xs font-bold text-gray-700 mb-2 uppercase">By Category</p>
+                  <div className="space-y-1.5">
+                    {Object.entries(balanceStats.categoryCount).map(([category, count]) => {
+                      const info = CATEGORY_INFO[category as InitiativeCategory]
+                      return (
+                        <div key={category} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">{info.emoji} {info.label}</span>
+                          <span className="font-semibold text-gray-900">{count}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Effort Balance */}
+                <div>
+                  <p className="text-xs font-bold text-gray-700 mb-2 uppercase">By Effort</p>
+                  <div className="space-y-1.5">
+                    {Object.entries(balanceStats.effortCount).map(([effort, count]) => {
+                      const info = EFFORT_INFO[effort as InitiativeEffort]
+                      return (
+                        <div key={effort} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">{info.icon} {info.label}</span>
+                          <span className="font-semibold text-gray-900">{count}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Balance Assessment */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                {balanceStats.categoryDiversity >= 3 ? (
+                  <p className="text-sm text-green-600 font-medium">
+                    ✓ Well balanced across {balanceStats.categoryDiversity} business areas
+                  </p>
+                ) : (
+                  <p className="text-sm text-amber-600 font-medium">
+                    ⚠ Consider adding diversity across more categories
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
