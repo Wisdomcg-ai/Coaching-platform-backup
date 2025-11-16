@@ -68,6 +68,7 @@ export class StrategicPlanningService {
           selected: init.selected || false,
           order_index: init.order !== undefined ? init.order : index,
           linked_kpis: init.linkedKPIs ? JSON.stringify(init.linkedKPIs) : null,
+          assigned_to: init.assignedTo || null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }))
@@ -126,7 +127,8 @@ export class StrategicPlanningService {
         timeline: row.timeline || undefined,
         selected: row.selected || false,
         order: row.order_index !== undefined ? row.order_index : 0,
-        linkedKPIs: row.linked_kpis ? JSON.parse(row.linked_kpis) : undefined
+        linkedKPIs: row.linked_kpis ? JSON.parse(row.linked_kpis) : undefined,
+        assignedTo: row.assigned_to || undefined
       }))
 
       console.log(`[Strategic Planning] 📥 Loaded ${initiatives.length} initiatives for ${stepType}`)

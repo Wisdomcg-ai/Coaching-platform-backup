@@ -20,7 +20,8 @@ export class FinancialService {
     userId: string,
     financialData: FinancialData,
     yearType: 'FY' | 'CY',
-    coreMetrics?: CoreMetricsData
+    coreMetrics?: CoreMetricsData,
+    quarterlyTargets?: Record<string, { q1: string; q2: string; q3: string; q4: string }>
   ): Promise<{ success: boolean; error?: string }> {
     try {
       if (!businessId || !userId) {
@@ -100,6 +101,9 @@ export class FinancialService {
         owner_hours_per_week_year2: coreMetrics?.ownerHoursPerWeek?.year2 || 0,
         owner_hours_per_week_year3: coreMetrics?.ownerHoursPerWeek?.year3 || 0,
 
+        // Quarterly Targets (stored as JSONB)
+        quarterly_targets: quarterlyTargets || {},
+
         year_type: yearType,
         updated_at: new Date().toISOString()
       }
@@ -131,11 +135,12 @@ export class FinancialService {
     financialData: FinancialData | null
     coreMetrics: CoreMetricsData | null
     yearType: 'FY' | 'CY'
+    quarterlyTargets: Record<string, { q1: string; q2: string; q3: string; q4: string }>
     error?: string
   }> {
     try {
       if (!businessId) {
-        return { financialData: null, coreMetrics: null, yearType: 'FY', error: 'Business ID required' }
+        return { financialData: null, coreMetrics: null, yearType: 'FY', quarterlyTargets: {}, error: 'Business ID required' }
       }
 
       console.log(`[Financial Service] 📥 Loading financial goals for business ${businessId}`)
@@ -150,15 +155,15 @@ export class FinancialService {
         // If no data found, return null (not an error)
         if (error.code === 'PGRST116') {
           console.log('[Financial Service] ℹ️ No financial goals found (first time user)')
-          return { financialData: null, coreMetrics: null, yearType: 'FY' }
+          return { financialData: null, coreMetrics: null, yearType: 'FY', quarterlyTargets: {} }
         }
 
         console.error('[Financial Service] ❌ Error loading financial goals:', error)
-        return { financialData: null, coreMetrics: null, yearType: 'FY', error: error.message }
+        return { financialData: null, coreMetrics: null, yearType: 'FY', quarterlyTargets: {}, error: error.message }
       }
 
       if (!data) {
-        return { financialData: null, coreMetrics: null, yearType: 'FY' }
+        return { financialData: null, coreMetrics: null, yearType: 'FY', quarterlyTargets: {} }
       }
 
       const financialData: FinancialData = {
@@ -244,7 +249,8 @@ export class FinancialService {
       return {
         financialData,
         coreMetrics,
-        yearType: (data.year_type as 'FY' | 'CY') || 'FY'
+        yearType: (data.year_type as 'FY' | 'CY') || 'FY',
+        quarterlyTargets: (data.quarterly_targets as Record<string, { q1: string; q2: string; q3: string; q4: string }>) || {}
       }
     } catch (err) {
       console.error('[Financial Service] ❌ Error loading financial goals:', err)
@@ -252,6 +258,7 @@ export class FinancialService {
         financialData: null,
         coreMetrics: null,
         yearType: 'FY',
+        quarterlyTargets: {},
         error: err instanceof Error ? err.message : 'Unknown error'
       }
     }

@@ -5,6 +5,18 @@ export const formatDollar = (value: number): string => {
   return '$' + value.toLocaleString('en-AU')
 }
 
+export const formatCurrency = (value: number): string => {
+  return '$' + value.toLocaleString('en-AU')
+}
+
+export const formatNumber = (value: number): string => {
+  return value.toLocaleString('en-AU')
+}
+
+export const formatPercentage = (value: number): string => {
+  return value.toFixed(1) + '%'
+}
+
 export const parseDollarInput = (value: string): number => {
   return Number(value.replace(/[$,]/g, ''))
 }

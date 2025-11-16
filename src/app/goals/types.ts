@@ -179,3 +179,210 @@ export interface AnnualSnapshot {
   createdAt: string
   updatedAt: string
 }
+
+// ============================================================================
+// 90-DAY SPRINT MANAGEMENT TYPES
+// ============================================================================
+
+export type ActionStatus = 'not_started' | 'in_progress' | 'completed' | 'blocked' | 'cancelled'
+export type ActionPriority = 'p1' | 'p2' | 'p3' // P1=Must do, P2=Should do, P3=Nice to have
+export type RockStatus = 'not_started' | 'on_track' | 'at_risk' | 'completed' | 'missed'
+export type MilestoneStatus = 'pending' | 'in_progress' | 'completed' | 'missed'
+
+export interface QuarterlyRock {
+  id: string
+  title: string
+  description?: string
+  owner: string
+  status: RockStatus
+  progressPercentage: number
+  linkedInitiatives?: string[] // IDs of strategic initiatives
+  linkedKPIs?: string[] // IDs of KPIs this rock will impact
+  successCriteria: string
+  startDate?: string
+  targetDate?: string
+  completionDate?: string
+  notes?: string
+}
+
+export interface Milestone {
+  id: string
+  day: 30 | 60 | 90 // Day marker (30-day, 60-day, 90-day)
+  title: string
+  description?: string
+  targetDate: string
+  status: MilestoneStatus
+  completionDate?: string
+  keyMetrics?: Array<{
+    metric: string
+    target: number | string
+    actual?: number | string
+  }>
+  reviewNotes?: string
+  wins?: string[]
+  challenges?: string[]
+  adjustments?: string[]
+}
+
+export interface WeeklyPlan {
+  id: string
+  weekNumber: number // 1-13
+  startDate: string
+  endDate: string
+  focus: string // Main focus for the week
+  keyActions: string[] // IDs of actions planned for this week
+  completed: boolean
+  progressNotes?: string
+}
+
+export interface KeyAction {
+  id: string
+  action: string
+  description?: string
+  owner: string
+  status: ActionStatus
+  priority: ActionPriority
+  dueDate: string
+  completionDate?: string
+  estimatedHours?: number
+  linkedRocks?: string[] // IDs of rocks this action supports
+  linkedKPIs?: string[] // IDs of KPIs this action will move
+  linkedInitiatives?: string[] // IDs of strategic initiatives
+  weekNumber?: number // Which week (1-13) this is scheduled
+  blockers?: string
+  progressNotes?: string
+  tags?: string[]
+}
+
+export interface WeeklyCheckIn {
+  id: string
+  weekNumber: number
+  checkInDate: string
+  completedActions: number
+  totalActions: number
+  progressPercentage: number
+  wins: string[]
+  challenges: string[]
+  blockers: string[]
+  nextWeekFocus: string
+  teamNotes?: string
+  coachNotes?: string
+}
+
+export interface SprintMetadata {
+  id: string
+  businessId: string
+  userId: string
+  quarter: QuarterType
+  year: number
+  yearType: YearType
+  startDate: string
+  endDate: string
+  totalWeeks: number
+  currentWeek: number
+  quarterlyTargets: {
+    revenue?: number
+    grossProfit?: number
+    netProfit?: number
+    kpiTargets?: Record<string, number>
+  }
+  overallProgress: number
+  status: 'planning' | 'active' | 'completed' | 'archived'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SprintData {
+  metadata: SprintMetadata
+  rocks: QuarterlyRock[]
+  milestones: Milestone[]
+  weeklyPlans: WeeklyPlan[]
+  keyActions: KeyAction[]
+  checkIns: WeeklyCheckIn[]
+  focusInitiatives: string[] // IDs of initiatives from Q1
+}
+
+// ============================================================================
+// V3 - MONTHLY TARGETS & INITIATIVE TASK BREAKDOWN
+// ============================================================================
+
+export type TaskStatus = 'not_started' | 'in_progress' | 'done'
+
+export interface MonthlyTargets {
+  month1: {
+    revenue: number
+    grossProfit: number
+    grossMargin: number
+    netProfit: number
+    netMargin: number
+    customers: number
+    employees: number
+  }
+  month2: {
+    revenue: number
+    grossProfit: number
+    grossMargin: number
+    netProfit: number
+    netMargin: number
+    customers: number
+    employees: number
+  }
+  month3: {
+    revenue: number
+    grossProfit: number
+    grossMargin: number
+    netProfit: number
+    netMargin: number
+    customers: number
+    employees: number
+  }
+}
+
+// Monthly targets stored as strings for database persistence (similar to quarterlyTargets)
+// Key format: "metricName_quarter" (e.g., "revenue_q1", "grossProfit_q2")
+// Value: { m1: string, m2: string, m3: string }
+export type MonthlyTargetsData = Record<string, { m1: string; m2: string; m3: string }>
+
+export interface InitiativeTask {
+  id: string
+  task: string
+  assignedTo: string
+  minutesAllocated: number
+  dueDate: string
+  status: TaskStatus
+  order: number
+}
+
+export interface TeamMember {
+  id: string
+  name: string
+  email?: string
+  role?: string
+  type: 'employee' | 'contractor'
+  initials?: string // For avatar display
+  color?: string // Avatar background color
+  businessId: string
+  userId: string
+  createdAt: string
+  updatedAt: string
+}
+
+// Simple milestone for project tracking
+export interface ProjectMilestone {
+  id: string
+  description: string
+  targetDate: string
+  isCompleted: boolean
+}
+
+// Enhanced StrategicInitiative with V3 task breakdown fields
+export interface InitiativeWithTasks extends StrategicInitiative {
+  // Project plan fields
+  why?: string // Why are we doing this now?
+  outcome?: string // What outcome are we looking for?
+  startDate?: string // Project start date
+  endDate?: string // Project end date
+  milestones?: ProjectMilestone[] // Key checkpoints
+  tasks?: InitiativeTask[] // Task breakdown
+  totalHours?: number // Auto-calculated from tasks
+}

@@ -6,7 +6,7 @@ import Step1GoalsAndKPIs from './components/Step1GoalsAndKPIs'
 import Step2StrategicIdeas from './components/Step2StrategicIdeas'
 import Step4RefineInitiatives from './components/Step4RefineInitiatives'
 import Step5AnnualPlan from './components/Step5AnnualPlan'
-import Step690DaySprint from './components/Step690DaySprint'
+import Step690DaySprintV3 from './components/Step690DaySprintV3'
 import { FinancialData, KPIData, StrategicInitiative, YearType } from './types'
 import { Target, ListChecks, Calendar, Zap, Brain, Rocket, ChevronLeft, ChevronRight, CheckCircle, Loader2 } from 'lucide-react'
 
@@ -93,6 +93,8 @@ export default function StrategicPlanningPage() {
     setTwelveMonthInitiatives,
     annualPlanByQuarter,
     setAnnualPlanByQuarter,
+    quarterlyTargets,
+    setQuarterlyTargets,
     sprintFocus,
     setSprintFocus,
     sprintKeyActions,
@@ -351,22 +353,28 @@ export default function StrategicPlanningPage() {
                 twelveMonthInitiatives={twelveMonthInitiatives}
                 annualPlanByQuarter={annualPlanByQuarter}
                 setAnnualPlanByQuarter={setAnnualPlanByQuarter}
+                quarterlyTargets={quarterlyTargets}
+                setQuarterlyTargets={setQuarterlyTargets}
                 financialData={financialData}
                 coreMetrics={coreMetrics}
                 kpis={kpis}
                 yearType={yearType}
+                businessId={businessId}
               />
             </div>
           )}
 
           {currentStep === 5 && (
             <div className="p-6">
-              <Step690DaySprint
+              <Step690DaySprintV3
                 annualPlanByQuarter={annualPlanByQuarter}
-                sprintFocus={sprintFocus}
-                setSprintFocus={setSprintFocus}
-                sprintKeyActions={sprintKeyActions}
-                setSprintKeyActions={setSprintKeyActions}
+                setAnnualPlanByQuarter={setAnnualPlanByQuarter}
+                quarterlyTargets={quarterlyTargets}
+                financialData={financialData}
+                coreMetrics={coreMetrics}
+                kpis={kpis}
+                yearType={yearType}
+                businessId={businessId}
               />
             </div>
           )}

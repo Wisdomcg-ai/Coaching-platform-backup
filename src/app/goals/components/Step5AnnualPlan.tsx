@@ -11,10 +11,13 @@ interface Step5Props {
   twelveMonthInitiatives: StrategicInitiative[]
   annualPlanByQuarter: Record<string, StrategicInitiative[]>
   setAnnualPlanByQuarter: (plan: Record<string, StrategicInitiative[]>) => void
+  quarterlyTargets: Record<string, { q1: string; q2: string; q3: string; q4: string }>
+  setQuarterlyTargets: (targets: Record<string, { q1: string; q2: string; q3: string; q4: string }>) => void
   financialData: FinancialData | null
   coreMetrics?: any
   kpis: KPIData[]
   yearType: YearType
+  businessId: string
 }
 
 interface QuarterlyDistribution {
@@ -65,10 +68,13 @@ export default function Step5AnnualPlan({
   twelveMonthInitiatives,
   annualPlanByQuarter,
   setAnnualPlanByQuarter,
+  quarterlyTargets,
+  setQuarterlyTargets,
   financialData,
   coreMetrics,
   kpis,
-  yearType
+  yearType,
+  businessId
 }: Step5Props) {
   // Calculate dynamic quarters based on year type
   const planYear = determinePlanYear(yearType)
@@ -91,31 +97,41 @@ export default function Step5AnnualPlan({
   const [newPersonRole, setNewPersonRole] = useState('')
   const [isSavingNewPerson, setIsSavingNewPerson] = useState(false)
 
-  // Quarterly target values (free-form inputs)
-  const [quarterlyTargets, setQuarterlyTargets] = useState<Record<string, { q1: string; q2: string; q3: string; q4: string }>>({})
-  const [showTargetsSection, setShowTargetsSection] = useState(true)
-  const [showInitiativesSection, setShowInitiativesSection] = useState(true)
+  // Tab navigation state
+  const [activeTab, setActiveTab] = useState<'targets' | 'execution'>('targets')
+
+  // Tab configuration
+  const tabs = useMemo(() => [
+    {
+      id: 'targets' as const,
+      label: 'Quarterly Targets',
+      icon: TargetIcon,
+      description: 'Break down your Year 1 targets across quarters',
+      color: 'from-blue-600 to-blue-700',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-500',
+      textColor: 'text-blue-700'
+    },
+    {
+      id: 'execution' as const,
+      label: 'Quarterly Execution Plan',
+      icon: Calendar,
+      description: `Assign initiatives to quarters (Max ${MAX_PER_QUARTER} per quarter)`,
+      color: 'from-emerald-600 to-emerald-700',
+      bgColor: 'bg-emerald-50',
+      borderColor: 'border-emerald-500',
+      textColor: 'text-emerald-700'
+    }
+  ], [])
 
   // Load team members from Supabase or localStorage
   useEffect(() => {
     loadTeamMembers()
   }, [])
 
-  // Load quarterly targets from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('quarterlyTargets')
-    if (saved) {
-      setQuarterlyTargets(JSON.parse(saved))
-    }
-  }, [])
-
-  // Save quarterly targets to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('quarterlyTargets', JSON.stringify(quarterlyTargets))
-  }, [quarterlyTargets])
-
   const loadTeamMembers = async () => {
     try {
+      console.log('[Annual Plan] 🔄 Loading team members with businessId:', businessId)
       const supabase = createClient()
 
       // Get current user
@@ -125,22 +141,19 @@ export default function Step5AnnualPlan({
         return
       }
 
-      // Get business_profiles.key_roles (where team members are actually stored)
-      const { data: businesses } = await supabase
-        .from('businesses')
-        .select('id')
-        .eq('owner_id', user.id)
-        .limit(1)
+      // Use the businessId prop instead of querying
+      if (!businessId) {
+        console.log('[Annual Plan] ⚠️ No businessId prop, falling back to localStorage')
+        loadFromLocalStorage()
+        return
+      }
 
-      if (businesses && businesses.length > 0) {
-        const businessId = businesses[0].id
-
-        // Load from business_profiles table where key_roles is stored
-        const { data: profile } = await supabase
-          .from('business_profiles')
-          .select('key_roles, owner_info')
-          .eq('business_id', businessId)
-          .single()
+      // Load from business_profiles table where key_roles is stored
+      const { data: profile } = await supabase
+        .from('business_profiles')
+        .select('key_roles, owner_info')
+        .eq('business_id', businessId)
+        .single()
 
         if (profile) {
           const members: TeamMember[] = []
@@ -150,7 +163,7 @@ export default function Step5AnnualPlan({
             const ownerInfo = profile.owner_info as any
             if (ownerInfo.owner_name) {
               members.push({
-                id: `owner-${Date.now()}`,
+                id: `owner-${businessId}`,
                 name: ownerInfo.owner_name,
                 initials: getInitials(ownerInfo.owner_name),
                 color: getColorForName(ownerInfo.owner_name)
@@ -163,7 +176,7 @@ export default function Step5AnnualPlan({
             profile.key_roles.forEach((role: any, index: number) => {
               if (role.name && role.name.trim()) {
                 members.push({
-                  id: `role-${index}-${Date.now()}`,
+                  id: `role-${businessId}-${index}`,
                   name: role.name,
                   initials: getInitials(role.name),
                   color: getColorForName(role.name)
@@ -172,18 +185,18 @@ export default function Step5AnnualPlan({
             })
           }
 
+          console.log('[Annual Plan] ✅ Loaded team members:', members.map(m => ({ id: m.id, name: m.name })))
           if (members.length > 0) {
             setTeamMembers(members)
             setIsLoadingTeam(false)
             return
           }
         }
-      }
 
       // Fallback to localStorage
       loadFromLocalStorage()
     } catch (error) {
-      console.error('Error loading team members:', error)
+      console.error('[Annual Plan] ❌ Error loading team members:', error)
       loadFromLocalStorage()
     }
   }
@@ -269,7 +282,7 @@ export default function Step5AnnualPlan({
 
       // Add to local state
       const newMember: TeamMember = {
-        id: `role-${currentRoles.length}-${Date.now()}`,
+        id: `role-${businessId}-${currentRoles.length}`,
         name: newPersonName.trim(),
         initials: getInitials(newPersonName.trim()),
         color: getColorForName(newPersonName.trim())
@@ -356,9 +369,11 @@ export default function Step5AnnualPlan({
 
   // Assign person to initiative
   const handleAssignPerson = (initiativeId: string, quarterId: string, personId: string) => {
+    console.log(`[Annual Plan] 👤 Assigning person ${personId} to initiative ${initiativeId} in ${quarterId}`)
     const updatedQuarter = annualPlanByQuarter[quarterId].map(init =>
       init.id === initiativeId ? { ...init, assignedTo: personId } : init
     )
+    console.log('[Annual Plan] ✅ Updated initiatives:', updatedQuarter.map(i => ({ id: i.id, title: i.title, assignedTo: i.assignedTo })))
     setAnnualPlanByQuarter({
       ...annualPlanByQuarter,
       [quarterId]: updatedQuarter
@@ -557,29 +572,50 @@ export default function Step5AnnualPlan({
 
   return (
     <div className="space-y-6">
-      {/* Section 1: Quarterly Targets */}
-      {financialData && (
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-          <button
-            onClick={() => setShowTargetsSection(!showTargetsSection)}
-            className="w-full flex items-center justify-between p-6 hover:bg-slate-50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <TargetIcon className="w-5 h-5 text-blue-600" />
-              <div className="text-left">
-                <h3 className="text-lg font-semibold text-slate-900">Quarterly Targets</h3>
-                <p className="text-sm text-slate-600">Break down your Year 1 targets across quarters</p>
-              </div>
-            </div>
-            {showTargetsSection ? (
-              <ChevronUp className="w-5 h-5 text-slate-600" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-slate-600" />
-            )}
-          </button>
+      {/* Enhanced Tab Navigation */}
+      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x divide-gray-200">
+          {tabs.map(tab => {
+            const Icon = tab.icon
+            const isActive = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`group relative p-6 transition-all duration-200 ${
+                  isActive
+                    ? `bg-gradient-to-br ${tab.color} text-white shadow-lg transform scale-[1.02]`
+                    : `bg-white hover:${tab.bgColor} text-gray-700 hover:shadow-md`
+                }`}
+              >
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <div className={`p-3 rounded-xl ${
+                    isActive ? 'bg-white/20' : 'bg-gray-100 group-hover:bg-gray-200'
+                  } transition-colors`}>
+                    <Icon className={`w-6 h-6 ${isActive ? 'text-white' : 'text-gray-600'}`} />
+                  </div>
+                  <div>
+                    <h3 className={`text-base font-bold ${isActive ? 'text-white' : 'text-gray-900'}`}>
+                      {tab.label}
+                    </h3>
+                    <p className={`text-sm mt-1 ${
+                      isActive ? 'text-white/90' : 'text-gray-600 group-hover:text-gray-700'
+                    }`}>
+                      {tab.description}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
-          {showTargetsSection && (
-            <div className="p-6 pt-0 space-y-6">
+      {/* Tab Content */}
+      {activeTab === 'targets' && financialData && (
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200">
+          <div className="p-6">
+            <div className="space-y-6">
               {/* Financial Targets Section */}
               <div>
                 <h4 className="text-sm font-semibold text-slate-900 mb-3">Financial Targets</h4>
@@ -1144,42 +1180,24 @@ export default function Step5AnnualPlan({
                 </div>
               )}
             </div>
-          )}
+          </div>
         </div>
       )}
 
       {/* Key Question - Transition between sections */}
-      <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-8">
-        <p className="text-xl text-slate-900 font-semibold leading-relaxed">
-          <Lightbulb className="w-8 h-8 inline mr-3 text-blue-600" />
-          <strong className="text-blue-900">Key Question:</strong> "What are the key initiatives or projects you must implement to help you meet or exceed these targets?"
-        </p>
-      </div>
+      {activeTab === 'execution' && (
+        <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-8">
+          <p className="text-xl text-slate-900 font-semibold leading-relaxed">
+            <Lightbulb className="w-8 h-8 inline mr-3 text-blue-600" />
+            <strong className="text-blue-900">Key Question:</strong> "What are the key initiatives or projects you must implement to help you meet or exceed these targets?"
+          </p>
+        </div>
+      )}
 
-      {/* Section 2: Quarterly Execution Plan */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-        <button
-          onClick={() => setShowInitiativesSection(!showInitiativesSection)}
-          className="w-full flex items-center justify-between p-6 hover:bg-slate-50 transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <Calendar className="w-5 h-5 text-blue-600" />
-            <div className="text-left">
-              <h3 className="text-lg font-semibold text-slate-900">Quarterly Execution Plan</h3>
-              <p className="text-sm text-slate-600">
-                Assign your initiatives to quarters. Max {MAX_PER_QUARTER} per quarter, max {MAX_PER_PERSON} per person per quarter.
-              </p>
-            </div>
-          </div>
-          {showInitiativesSection ? (
-            <ChevronUp className="w-5 h-5 text-slate-600" />
-          ) : (
-            <ChevronDown className="w-5 h-5 text-slate-600" />
-          )}
-        </button>
-
-        {showInitiativesSection && (
-          <div className="p-6 pt-0">
+      {/* Quarterly Execution Plan Content */}
+      {activeTab === 'execution' && (
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200">
+          <div className="p-6">
             {/* Batch Actions */}
             {twelveMonthInitiatives.length > 0 && (
               <div className="flex items-center justify-end gap-2 mb-4">
@@ -1208,361 +1226,361 @@ export default function Step5AnnualPlan({
                 💡 Shortcuts: Press 1-4 to toggle quarters
               </p>
             )}
-          </div>
-        )}
 
-      {/* Warning if no initiatives */}
-      {twelveMonthInitiatives.length === 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <div className="flex gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-amber-900">No initiatives selected</p>
-              <p className="text-sm text-amber-700 mt-1">
-                Go back to Step 4 to select 5-10 initiatives first.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Kanban Board - Horizontal Columns */}
-      {twelveMonthInitiatives.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {/* Unassigned Column */}
-          <div className="md:col-span-2 lg:col-span-4 xl:col-span-1">
-            <div className="bg-slate-50 rounded-lg border-2 border-dashed border-slate-300 p-4 h-full">
-              <h4 className="font-semibold text-slate-700 text-sm mb-3 uppercase tracking-wider">
-                Available
-              </h4>
-              <p className="text-xs text-slate-500 mb-3">
-                {unassignedInitiatives.length} unassigned
-              </p>
-              <div className="space-y-2">
-                {unassignedInitiatives.length === 0 ? (
-                  <p className="text-xs text-slate-500 text-center py-6">
-                    All initiatives assigned ✓
-                  </p>
-                ) : (
-                  unassignedInitiatives.map((initiative) => {
-                    const isUserIdea = initiative.source === 'strategic_ideas'
-                    return (
-                      <div
-                        key={initiative.id}
-                        draggable
-                        onDragStart={() => handleDragStart(initiative.id, 'unassigned')}
-                        className={`group flex items-start gap-2 p-3 rounded-lg border-2 cursor-move transition-all ${
-                          isUserIdea
-                            ? 'bg-[#948687]/30 border-[#948687]/80 hover:bg-[#948687]/40 hover:shadow-md'
-                            : 'bg-[#4C5D75] border-[#4C5D75] shadow-md'
-                        }`}
-                      >
-                        <GripVertical className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
-                          isUserIdea ? 'text-gray-500' : 'text-white/60'
-                        } group-hover:${isUserIdea ? 'text-gray-700' : 'text-white'}`} />
-
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-bold leading-tight ${
-                            isUserIdea ? 'text-gray-900' : 'text-white'
-                          }`}>
-                            {initiative.title}
-                          </p>
-                          {initiative.description && (
-                            <p className={`text-xs mt-1.5 leading-relaxed line-clamp-2 ${
-                              isUserIdea ? 'text-gray-700' : 'text-white/90'
-                            }`}>
-                              {initiative.description}
-                            </p>
-                          )}
-                          <span className={`inline-block mt-2 px-2 py-0.5 text-[10px] rounded font-semibold ${
-                            isUserIdea
-                              ? 'bg-[#3E3F57] text-white'
-                              : 'bg-[#948687] text-white'
-                          }`}>
-                            {isUserIdea ? 'YOUR IDEA' : 'ROADMAP'}
-                          </span>
-                        </div>
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Quarter Columns */}
-          {QUARTERS.map((quarter) => {
-            const status = getQuarterStatus(quarter.id)
-            const items = annualPlanByQuarter[quarter.id] || []
-            const isExpanded = expandedQuarters.has(quarter.id)
-            const isFull = items.length >= MAX_PER_QUARTER
-            const isPastQuarter = quarter.isPast
-            const isCurrentQuarter = quarter.isCurrent
-
-            return (
-              <div key={quarter.id} className="lg:col-span-1">
-                <div
-                  className={`rounded-lg border-2 p-4 min-h-96 transition-all ${
-                    isPastQuarter
-                      ? 'bg-gray-100 border-gray-300 opacity-60'
-                      : getStatusColor(status)
-                  }`}
-                  onDragOver={isPastQuarter ? undefined : handleDragOver}
-                  onDragLeave={isPastQuarter ? undefined : handleDragLeave}
-                  onDrop={isPastQuarter ? undefined : (e) => handleDrop(e, quarter.id)}
-                >
-                  {/* Quarter Header */}
-                  <button
-                    onClick={() => !isPastQuarter && toggleQuarter(quarter.id)}
-                    className="w-full text-left mb-4 pb-3 border-b border-current border-opacity-20"
-                    disabled={isPastQuarter}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className={`font-bold text-sm uppercase tracking-wider ${isPastQuarter ? 'text-gray-500' : 'text-slate-900'}`}>
-                            {quarter.label}
-                          </h4>
-                          {isPastQuarter && (
-                            <span className="text-[10px] px-1.5 py-0.5 bg-gray-300 text-gray-600 rounded font-semibold">PAST</span>
-                          )}
-                          {isCurrentQuarter && !isPastQuarter && (
-                            <span className="text-[10px] px-1.5 py-0.5 bg-blue-500 text-white rounded font-semibold">CURRENT</span>
-                          )}
-                        </div>
-                        <p className={`text-xs mt-1 ${isPastQuarter ? 'text-gray-500' : 'text-slate-600'}`}>
-                          {quarter.months} {quarter.startDate.getFullYear()}
-                        </p>
-                        <p className={`text-xs mt-0.5 ${isPastQuarter ? 'text-gray-400' : 'text-slate-500'}`}>
-                          {quarter.title}
-                        </p>
-                      </div>
-                      {isExpanded ? (
-                        <ChevronUp className="w-4 h-4 text-slate-600" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 text-slate-600" />
-                      )}
-                    </div>
-                    <p className={`text-xs font-medium mt-2 ${
-                      isFull ? 'text-amber-700' : 'text-slate-700'
-                    }`}>
-                      {items.length} / {MAX_PER_QUARTER} initiatives
-                      {isFull && ' (Full)'}
+            {/* Warning if no initiatives */}
+            {twelveMonthInitiatives.length === 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div className="flex gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-900">No initiatives selected</p>
+                    <p className="text-sm text-amber-700 mt-1">
+                      Go back to Step 4 to select 5-10 initiatives first.
                     </p>
-                  </button>
-
-                  {/* Drop Zone */}
-                  {isExpanded && (
-                    <div className="min-h-20">
-
-                      {items.length === 0 ? (
-                        <p className={`text-xs text-center py-6 ${isPastQuarter ? 'text-gray-400' : 'text-slate-500'}`}>
-                          {isPastQuarter ? 'Quarter has passed' : 'Drag initiatives here'}
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          {items.map((initiative, index) => {
-                            const assignedMember = initiative.assignedTo ? getMemberById(initiative.assignedTo) : null
-                            const isShowingAssignment = showAssignmentFor === initiative.id
-
-                            return (
-                              <div
-                                key={initiative.id}
-                                draggable
-                                onDragStart={() => handleDragStart(initiative.id, quarter.id)}
-                                className="p-3 bg-white rounded-lg border border-current border-opacity-30 cursor-move hover:shadow-md transition-all group"
-                              >
-                                <div className="flex items-start justify-between gap-2 mb-2">
-                                  <div className="flex items-start gap-2 flex-1">
-                                    <span className="text-xs font-bold text-current text-opacity-60 mt-0.5">
-                                      {index + 1}
-                                    </span>
-                                    <div className="flex-1">
-                                      <p className="text-xs font-medium text-slate-900 line-clamp-2 mb-1.5">
-                                        {initiative.title}
-                                      </p>
-                                      {initiative.priority && (
-                                        <span className={`inline-block text-xs px-1.5 py-0.5 rounded font-medium ${
-                                          initiative.priority === 'high'
-                                            ? 'bg-orange-100 text-orange-700'
-                                            : initiative.priority === 'medium'
-                                            ? 'bg-blue-100 text-blue-700'
-                                            : 'bg-slate-100 text-slate-600'
-                                        }`}>
-                                          {initiative.priority.toUpperCase()}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <button
-                                    onClick={() => handleRemoveFromQuarter(initiative.id, quarter.id)}
-                                    className="text-slate-300 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
-                                    title="Remove"
-                                  >
-                                    <X className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-
-                                {/* Person Assignment - Beautiful Design */}
-                                <div className="relative">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setShowAssignmentFor(isShowingAssignment ? null : initiative.id)
-                                    }}
-                                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded border transition-colors ${
-                                      assignedMember
-                                        ? peopleAtCapacityByQuarter[quarter.id]?.has(assignedMember.id)
-                                          ? 'bg-red-50 border-red-200 hover:border-red-300'
-                                          : 'bg-slate-50 border-slate-200 hover:border-slate-300'
-                                        : 'bg-white border-dashed border-slate-300 hover:border-slate-400'
-                                    }`}
-                                  >
-                                    {assignedMember ? (
-                                      <>
-                                        <div className={`w-5 h-5 rounded-full ${assignedMember.color} flex items-center justify-center flex-shrink-0`}>
-                                          <span className="text-white text-xs font-bold">{assignedMember.initials}</span>
-                                        </div>
-                                        <span className="text-xs font-medium text-slate-900 flex-1 text-left">{assignedMember.name}</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
-                                          <UserPlus className="w-3 h-3 text-slate-400" />
-                                        </div>
-                                        <span className="text-xs text-slate-500 flex-1 text-left">Assign to...</span>
-                                      </>
-                                    )}
-                                    <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${isShowingAssignment ? 'rotate-180' : ''}`} />
-                                  </button>
-
-                                  {/* Dropdown Menu */}
-                                  {isShowingAssignment && (
-                                    <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 max-h-80 overflow-y-auto min-w-[320px]">
-                                      {/* Existing Team Members */}
-                                      {teamMembers.map(member => {
-                                        const count = assignmentCountsByQuarter[quarter.id]?.[member.id] || 0
-                                        const isAtCapacity = count >= MAX_PER_PERSON
-                                        const isCurrentlyAssigned = initiative.assignedTo === member.id
-                                        const canAssign = !isAtCapacity || isCurrentlyAssigned
-
-                                        return (
-                                          <button
-                                            key={member.id}
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              if (canAssign) {
-                                                handleAssignPerson(initiative.id, quarter.id, member.id)
-                                              }
-                                            }}
-                                            disabled={!canAssign}
-                                            className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors ${
-                                              isCurrentlyAssigned ? 'bg-blue-50' : ''
-                                            } ${!canAssign ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                          >
-                                            <div className={`w-8 h-8 rounded-full ${member.color} flex items-center justify-center flex-shrink-0`}>
-                                              <span className="text-white text-sm font-bold">{member.initials}</span>
-                                            </div>
-                                            <div className="flex-1">
-                                              <p className="text-sm font-medium text-slate-900">{member.name}</p>
-                                              <p className={`text-sm ${
-                                                isAtCapacity ? 'text-red-600' : 'text-slate-500'
-                                              }`}>
-                                                {count}/{MAX_PER_PERSON} {isAtCapacity && '(Full)'}
-                                              </p>
-                                            </div>
-                                            {isCurrentlyAssigned && (
-                                              <Check className="w-5 h-5 text-blue-600" />
-                                            )}
-                                          </button>
-                                        )
-                                      })}
-
-                                      {/* Separator */}
-                                      {teamMembers.length > 0 && (
-                                        <div className="border-t border-slate-200 my-1"></div>
-                                      )}
-
-                                      {/* Add New Person Option */}
-                                      {!showAddNewPerson ? (
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            setShowAddNewPerson(true)
-                                          }}
-                                          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-blue-50 transition-colors text-blue-600"
-                                        >
-                                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                            <UserPlus className="w-4 h-4 text-blue-600" />
-                                          </div>
-                                          <p className="text-sm font-medium">Add New Person...</p>
-                                        </button>
-                                      ) : (
-                                        <div className="p-4 bg-slate-50 border-t border-slate-200" onClick={(e) => e.stopPropagation()}>
-                                          <p className="text-sm font-semibold text-slate-900 mb-3">Add New Team Member</p>
-                                          <input
-                                            type="text"
-                                            value={newPersonName}
-                                            onChange={(e) => setNewPersonName(e.target.value)}
-                                            placeholder="Full name"
-                                            className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            autoFocus
-                                          />
-                                          <input
-                                            type="text"
-                                            value={newPersonRole}
-                                            onChange={(e) => setNewPersonRole(e.target.value)}
-                                            placeholder="Role/Title (optional)"
-                                            className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                          />
-                                          <div className="flex items-center gap-2">
-                                            <button
-                                              onClick={() => handleAddTeamMember(initiative.id, quarter.id)}
-                                              disabled={isSavingNewPerson || !newPersonName.trim()}
-                                              className="flex-1 px-4 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                              {isSavingNewPerson ? 'Saving...' : 'Add & Assign'}
-                                            </button>
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                setShowAddNewPerson(false)
-                                                setNewPersonName('')
-                                                setNewPersonRole('')
-                                              }}
-                                              className="px-4 py-2.5 bg-slate-200 text-slate-700 text-sm rounded-lg hover:bg-slate-300"
-                                            >
-                                              Cancel
-                                            </button>
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
-            )
-          })}
-        </div>
-      )}
+            )}
 
-      {/* Completion Message */}
-      {twelveMonthInitiatives.length > 0 && unassignedInitiatives.length === 0 && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mt-4">
-          <p className="text-sm text-emerald-800">
-            ✓ All initiatives distributed across quarters! Make sure everyone is assigned.
-          </p>
+            {/* Kanban Board - Horizontal Columns */}
+            {twelveMonthInitiatives.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {/* Unassigned Column */}
+                <div className="md:col-span-2 lg:col-span-4 xl:col-span-1">
+                  <div className="bg-slate-50 rounded-lg border-2 border-dashed border-slate-300 p-4 h-full">
+                    <h4 className="font-semibold text-slate-700 text-sm mb-3 uppercase tracking-wider">
+                      Available
+                    </h4>
+                    <p className="text-xs text-slate-500 mb-3">
+                      {unassignedInitiatives.length} unassigned
+                    </p>
+                    <div className="space-y-2">
+                      {unassignedInitiatives.length === 0 ? (
+                        <p className="text-xs text-slate-500 text-center py-6">
+                          All initiatives assigned ✓
+                        </p>
+                      ) : (
+                        unassignedInitiatives.map((initiative) => {
+                          const isUserIdea = initiative.source === 'strategic_ideas'
+                          return (
+                            <div
+                              key={initiative.id}
+                              draggable
+                              onDragStart={() => handleDragStart(initiative.id, 'unassigned')}
+                              className={`group flex items-start gap-2 p-3 rounded-lg border-2 cursor-move transition-all ${
+                                isUserIdea
+                                  ? 'bg-[#948687]/30 border-[#948687]/80 hover:bg-[#948687]/40 hover:shadow-md'
+                                  : 'bg-[#4C5D75] border-[#4C5D75] shadow-md'
+                              }`}
+                            >
+                              <GripVertical className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
+                                isUserIdea ? 'text-gray-500' : 'text-white/60'
+                              } group-hover:${isUserIdea ? 'text-gray-700' : 'text-white'}`} />
+
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-bold leading-tight ${
+                                  isUserIdea ? 'text-gray-900' : 'text-white'
+                                }`}>
+                                  {initiative.title}
+                                </p>
+                                {initiative.description && (
+                                  <p className={`text-xs mt-1.5 leading-relaxed line-clamp-2 ${
+                                    isUserIdea ? 'text-gray-700' : 'text-white/90'
+                                  }`}>
+                                    {initiative.description}
+                                  </p>
+                                )}
+                                <span className={`inline-block mt-2 px-2 py-0.5 text-[10px] rounded font-semibold ${
+                                  isUserIdea
+                                    ? 'bg-[#3E3F57] text-white'
+                                    : 'bg-[#948687] text-white'
+                                }`}>
+                                  {isUserIdea ? 'YOUR IDEA' : 'ROADMAP'}
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quarter Columns */}
+                {QUARTERS.map((quarter) => {
+                  const status = getQuarterStatus(quarter.id)
+                  const items = annualPlanByQuarter[quarter.id] || []
+                  const isExpanded = expandedQuarters.has(quarter.id)
+                  const isFull = items.length >= MAX_PER_QUARTER
+                  const isPastQuarter = quarter.isPast
+                  const isCurrentQuarter = quarter.isCurrent
+
+                  return (
+                    <div key={quarter.id} className="lg:col-span-1">
+                      <div
+                        className={`rounded-lg border-2 p-4 min-h-96 transition-all ${
+                          isPastQuarter
+                            ? 'bg-gray-100 border-gray-300 opacity-60'
+                            : getStatusColor(status)
+                        }`}
+                        onDragOver={isPastQuarter ? undefined : handleDragOver}
+                        onDragLeave={isPastQuarter ? undefined : handleDragLeave}
+                        onDrop={isPastQuarter ? undefined : (e) => handleDrop(e, quarter.id)}
+                      >
+                        {/* Quarter Header */}
+                        <button
+                          onClick={() => !isPastQuarter && toggleQuarter(quarter.id)}
+                          className="w-full text-left mb-4 pb-3 border-b border-current border-opacity-20"
+                          disabled={isPastQuarter}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className={`font-bold text-sm uppercase tracking-wider ${isPastQuarter ? 'text-gray-500' : 'text-slate-900'}`}>
+                                  {quarter.label}
+                                </h4>
+                                {isPastQuarter && (
+                                  <span className="text-[10px] px-1.5 py-0.5 bg-gray-300 text-gray-600 rounded font-semibold">PAST</span>
+                                )}
+                                {isCurrentQuarter && !isPastQuarter && (
+                                  <span className="text-[10px] px-1.5 py-0.5 bg-blue-500 text-white rounded font-semibold">CURRENT</span>
+                                )}
+                              </div>
+                              <p className={`text-xs mt-1 ${isPastQuarter ? 'text-gray-500' : 'text-slate-600'}`}>
+                                {quarter.months} {quarter.startDate.getFullYear()}
+                              </p>
+                              <p className={`text-xs mt-0.5 ${isPastQuarter ? 'text-gray-400' : 'text-slate-500'}`}>
+                                {quarter.title}
+                              </p>
+                            </div>
+                            {isExpanded ? (
+                              <ChevronUp className="w-4 h-4 text-slate-600" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-slate-600" />
+                            )}
+                          </div>
+                          <p className={`text-xs font-medium mt-2 ${
+                            isFull ? 'text-amber-700' : 'text-slate-700'
+                          }`}>
+                            {items.length} / {MAX_PER_QUARTER} initiatives
+                            {isFull && ' (Full)'}
+                          </p>
+                        </button>
+
+                        {/* Drop Zone */}
+                        {isExpanded && (
+                          <div className="min-h-20">
+
+                            {items.length === 0 ? (
+                              <p className={`text-xs text-center py-6 ${isPastQuarter ? 'text-gray-400' : 'text-slate-500'}`}>
+                                {isPastQuarter ? 'Quarter has passed' : 'Drag initiatives here'}
+                              </p>
+                            ) : (
+                              <div className="space-y-2">
+                                {items.map((initiative, index) => {
+                                  const assignedMember = initiative.assignedTo ? getMemberById(initiative.assignedTo) : null
+                                  const isShowingAssignment = showAssignmentFor === initiative.id
+
+                                  return (
+                                    <div
+                                      key={initiative.id}
+                                      draggable
+                                      onDragStart={() => handleDragStart(initiative.id, quarter.id)}
+                                      className="p-3 bg-white rounded-lg border border-current border-opacity-30 cursor-move hover:shadow-md transition-all group"
+                                    >
+                                  <div className="flex items-start justify-between gap-2 mb-2">
+                                    <div className="flex items-start gap-2 flex-1">
+                                      <span className="text-xs font-bold text-current text-opacity-60 mt-0.5">
+                                        {index + 1}
+                                      </span>
+                                      <div className="flex-1">
+                                        <p className="text-xs font-medium text-slate-900 line-clamp-2 mb-1.5">
+                                          {initiative.title}
+                                        </p>
+                                        {initiative.priority && (
+                                          <span className={`inline-block text-xs px-1.5 py-0.5 rounded font-medium ${
+                                            initiative.priority === 'high'
+                                              ? 'bg-orange-100 text-orange-700'
+                                              : initiative.priority === 'medium'
+                                              ? 'bg-blue-100 text-blue-700'
+                                              : 'bg-slate-100 text-slate-600'
+                                          }`}>
+                                            {initiative.priority.toUpperCase()}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={() => handleRemoveFromQuarter(initiative.id, quarter.id)}
+                                      className="text-slate-300 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                                      title="Remove"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+  
+                                  {/* Person Assignment - Beautiful Design */}
+                                  <div className="relative">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setShowAssignmentFor(isShowingAssignment ? null : initiative.id)
+                                      }}
+                                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded border transition-colors ${
+                                        assignedMember
+                                          ? peopleAtCapacityByQuarter[quarter.id]?.has(assignedMember.id)
+                                            ? 'bg-red-50 border-red-200 hover:border-red-300'
+                                            : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                                          : 'bg-white border-dashed border-slate-300 hover:border-slate-400'
+                                      }`}
+                                    >
+                                      {assignedMember ? (
+                                        <>
+                                          <div className={`w-5 h-5 rounded-full ${assignedMember.color} flex items-center justify-center flex-shrink-0`}>
+                                            <span className="text-white text-xs font-bold">{assignedMember.initials}</span>
+                                          </div>
+                                          <span className="text-xs font-medium text-slate-900 flex-1 text-left">{assignedMember.name}</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
+                                            <UserPlus className="w-3 h-3 text-slate-400" />
+                                          </div>
+                                          <span className="text-xs text-slate-500 flex-1 text-left">Assign to...</span>
+                                        </>
+                                      )}
+                                      <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${isShowingAssignment ? 'rotate-180' : ''}`} />
+                                    </button>
+  
+                                    {/* Dropdown Menu */}
+                                    {isShowingAssignment && (
+                                      <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 max-h-80 overflow-y-auto min-w-[320px]">
+                                        {/* Existing Team Members */}
+                                        {teamMembers.map(member => {
+                                          const count = assignmentCountsByQuarter[quarter.id]?.[member.id] || 0
+                                          const isAtCapacity = count >= MAX_PER_PERSON
+                                          const isCurrentlyAssigned = initiative.assignedTo === member.id
+                                          const canAssign = !isAtCapacity || isCurrentlyAssigned
+  
+                                          return (
+                                            <button
+                                              key={member.id}
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                if (canAssign) {
+                                                  handleAssignPerson(initiative.id, quarter.id, member.id)
+                                                }
+                                              }}
+                                              disabled={!canAssign}
+                                              className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors ${
+                                                isCurrentlyAssigned ? 'bg-blue-50' : ''
+                                              } ${!canAssign ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            >
+                                              <div className={`w-8 h-8 rounded-full ${member.color} flex items-center justify-center flex-shrink-0`}>
+                                                <span className="text-white text-sm font-bold">{member.initials}</span>
+                                              </div>
+                                              <div className="flex-1">
+                                                <p className="text-sm font-medium text-slate-900">{member.name}</p>
+                                                <p className={`text-sm ${
+                                                  isAtCapacity ? 'text-red-600' : 'text-slate-500'
+                                                }`}>
+                                                  {count}/{MAX_PER_PERSON} {isAtCapacity && '(Full)'}
+                                                </p>
+                                              </div>
+                                              {isCurrentlyAssigned && (
+                                                <Check className="w-5 h-5 text-blue-600" />
+                                              )}
+                                            </button>
+                                          )
+                                        })}
+  
+                                        {/* Separator */}
+                                        {teamMembers.length > 0 && (
+                                          <div className="border-t border-slate-200 my-1"></div>
+                                        )}
+  
+                                        {/* Add New Person Option */}
+                                        {!showAddNewPerson ? (
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setShowAddNewPerson(true)
+                                            }}
+                                            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-blue-50 transition-colors text-blue-600"
+                                          >
+                                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                              <UserPlus className="w-4 h-4 text-blue-600" />
+                                            </div>
+                                            <p className="text-sm font-medium">Add New Person...</p>
+                                          </button>
+                                        ) : (
+                                          <div className="p-4 bg-slate-50 border-t border-slate-200" onClick={(e) => e.stopPropagation()}>
+                                            <p className="text-sm font-semibold text-slate-900 mb-3">Add New Team Member</p>
+                                            <input
+                                              type="text"
+                                              value={newPersonName}
+                                              onChange={(e) => setNewPersonName(e.target.value)}
+                                              placeholder="Full name"
+                                              className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                              autoFocus
+                                            />
+                                            <input
+                                              type="text"
+                                              value={newPersonRole}
+                                              onChange={(e) => setNewPersonRole(e.target.value)}
+                                              placeholder="Role/Title (optional)"
+                                              className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                            <div className="flex items-center gap-2">
+                                              <button
+                                                onClick={() => handleAddTeamMember(initiative.id, quarter.id)}
+                                                disabled={isSavingNewPerson || !newPersonName.trim()}
+                                                className="flex-1 px-4 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                              >
+                                                {isSavingNewPerson ? 'Saving...' : 'Add & Assign'}
+                                              </button>
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  setShowAddNewPerson(false)
+                                                  setNewPersonName('')
+                                                  setNewPersonRole('')
+                                                }}
+                                                className="px-4 py-2.5 bg-slate-200 text-slate-700 text-sm rounded-lg hover:bg-slate-300"
+                                              >
+                                                Cancel
+                                              </button>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                  )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Completion Message */}
+            {twelveMonthInitiatives.length > 0 && unassignedInitiatives.length === 0 && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mt-4">
+                <p className="text-sm text-emerald-800">
+                  ✓ All initiatives distributed across quarters! Make sure everyone is assigned.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
-      </div>
     </div>
   )
 }

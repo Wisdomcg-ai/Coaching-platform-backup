@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { FinancialData, CoreMetricsData, KPIData, StrategicInitiative, YearType } from '../types'
+import { FinancialData, CoreMetricsData, KPIData, StrategicInitiative, YearType, MonthlyTargetsData } from '../types'
 import { STANDARD_KPIS, INDUSTRY_KPIS } from '../utils/constants'
 import { FinancialService } from '../services/financial-service'
 import { KPIService } from '../services/kpi-service'
@@ -64,6 +64,12 @@ export function useStrategicPlanning() {
     q3: [],
     q4: []
   })
+
+  // Step 5: Quarterly Targets
+  const [quarterlyTargets, setQuarterlyTargets] = useState<Record<string, { q1: string; q2: string; q3: string; q4: string }>>({})
+
+  // Step 5: Monthly Targets (for 90-day sprint planning)
+  const [monthlyTargets, setMonthlyTargets] = useState<MonthlyTargetsData>({})
 
   // Step 6: 90-Day Sprint
   const [sprintFocus, setSprintFocus] = useState<StrategicInitiative[]>([])
@@ -201,14 +207,21 @@ export function useStrategicPlanning() {
       }
 
       console.log('[Strategic Planning] 💾 Saving to Supabase...')
+      console.log('[Strategic Planning] 📊 Annual Plan by Quarter:', {
+        q1: annualPlanByQuarter.q1?.map(i => ({ id: i.id, title: i.title, assignedTo: i.assignedTo })),
+        q2: annualPlanByQuarter.q2?.map(i => ({ id: i.id, title: i.title, assignedTo: i.assignedTo })),
+        q3: annualPlanByQuarter.q3?.map(i => ({ id: i.id, title: i.title, assignedTo: i.assignedTo })),
+        q4: annualPlanByQuarter.q4?.map(i => ({ id: i.id, title: i.title, assignedTo: i.assignedTo }))
+      })
 
-      // Save financial data and core metrics
+      // Save financial data, core metrics, and quarterly targets
       const financialResult = await FinancialService.saveFinancialGoals(
         businessId,
         userId,
         financialData,
         yearType,
-        coreMetrics
+        coreMetrics,
+        quarterlyTargets
       )
 
       if (!financialResult.success) {
@@ -348,6 +361,8 @@ export function useStrategicPlanning() {
           roadmapSuggestions,
           twelveMonthInitiatives,
           annualPlanByQuarter,
+          quarterlyTargets,
+          monthlyTargets,
           sprintFocus,
           sprintKeyActions,
           lastSaved: new Date().toISOString()
@@ -373,6 +388,7 @@ export function useStrategicPlanning() {
     roadmapSuggestions,
     twelveMonthInitiatives,
     annualPlanByQuarter,
+    quarterlyTargets,
     sprintFocus,
     sprintKeyActions
   ])
@@ -413,9 +429,13 @@ export function useStrategicPlanning() {
 
         console.log(`[Strategic Planning] 📥 Loading data for business: ${bizId}`)
 
-        // Load financial data and core metrics from Supabase
-        const { financialData: loadedFinancialData, coreMetrics: loadedCoreMetrics, yearType: loadedYearType } =
-          await FinancialService.loadFinancialGoals(bizId)
+        // Load financial data, core metrics, and quarterly targets from Supabase
+        const {
+          financialData: loadedFinancialData,
+          coreMetrics: loadedCoreMetrics,
+          yearType: loadedYearType,
+          quarterlyTargets: loadedQuarterlyTargets
+        } = await FinancialService.loadFinancialGoals(bizId)
 
         // Load KPIs from Supabase
         const loadedKPIs = await KPIService.getUserKPIs(bizId)
@@ -430,6 +450,11 @@ export function useStrategicPlanning() {
         if (loadedCoreMetrics) {
           setCoreMetrics(loadedCoreMetrics)
           console.log('[Strategic Planning] ✅ Loaded core metrics from Supabase')
+        }
+
+        if (loadedQuarterlyTargets && Object.keys(loadedQuarterlyTargets).length > 0) {
+          setQuarterlyTargets(loadedQuarterlyTargets)
+          console.log(`[Strategic Planning] ✅ Loaded quarterly targets from Supabase`)
         }
 
         if (loadedKPIs && loadedKPIs.length > 0) {
@@ -465,6 +490,8 @@ export function useStrategicPlanning() {
         const loadedQ2 = await StrategicPlanningService.loadInitiatives(bizId, 'q2')
         const loadedQ3 = await StrategicPlanningService.loadInitiatives(bizId, 'q3')
         const loadedQ4 = await StrategicPlanningService.loadInitiatives(bizId, 'q4')
+
+        console.log('[Strategic Planning] 🔍 Q2 loaded from database:', loadedQ2.map(i => ({ id: i.id, title: i.title, assignedTo: i.assignedTo })))
 
         setAnnualPlanByQuarter({
           q1: loadedQ1 || [],
@@ -515,6 +542,7 @@ export function useStrategicPlanning() {
     roadmapSuggestions,
     twelveMonthInitiatives,
     annualPlanByQuarter,
+    quarterlyTargets,
     sprintFocus,
     sprintKeyActions,
     businessId,
@@ -557,6 +585,10 @@ export function useStrategicPlanning() {
     // Step 5
     annualPlanByQuarter,
     setAnnualPlanByQuarter,
+    quarterlyTargets,
+    setQuarterlyTargets,
+    monthlyTargets,
+    setMonthlyTargets,
 
     // Step 6
     sprintFocus,
