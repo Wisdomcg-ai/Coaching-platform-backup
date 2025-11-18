@@ -92,7 +92,6 @@ const getNavigation = (userRole: 'coach' | 'client'): NavSection[] => {
         { label: 'Business Roadmap', href: '/business-roadmap', icon: Compass },
         { label: 'SWOT Analysis', href: '/swot', icon: FileText },
         { label: 'Goals & Targets', href: '/goals', icon: Award },
-        { label: '90-Day Planning', href: '/90-day-planning', icon: Mountain },
         { label: 'One-Page Plan', href: '/one-page-plan', icon: FileText },
         { label: 'Success Disciplines', href: '/success-disciplines', icon: Brain },
       ],

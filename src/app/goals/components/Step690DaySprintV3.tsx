@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   Target, Calendar, Briefcase, Users, Plus, Trash2, Edit2, ChevronDown, ChevronUp,
-  Clock, CheckCircle2, AlertCircle, Flag, TrendingUp, GripVertical, UserPlus
+  Clock, CheckCircle2, AlertCircle, Flag, TrendingUp, GripVertical, UserPlus, X
 } from 'lucide-react'
 import {
   StrategicInitiative,
@@ -73,6 +73,8 @@ interface Step6Props {
   kpis: KPIData[]
   yearType: YearType
   businessId: string
+  operationalActivities?: OperationalActivity[]
+  setOperationalActivities?: (activities: OperationalActivity[]) => void
 }
 
 export default function Step690DaySprintV3({
@@ -83,7 +85,9 @@ export default function Step690DaySprintV3({
   coreMetrics,
   kpis,
   yearType,
-  businessId
+  businessId,
+  operationalActivities,
+  setOperationalActivities
 }: Step6Props) {
   const [activeTab, setActiveTab] = useState<'monthly' | 'initiatives' | 'operational'>('monthly')
 
@@ -512,7 +516,10 @@ export default function Step690DaySprintV3({
           )}
 
           {activeTab === 'operational' && (
-            <OperationalPlanTab />
+            <OperationalPlanTab
+              operationalActivities={operationalActivities}
+              setOperationalActivities={setOperationalActivities}
+            />
           )}
         </div>
       </div>
@@ -2396,15 +2403,450 @@ function AddTeamMemberModal({ onClose, onAdd }: AddTeamMemberModalProps) {
 }
 
 // =============================================================================
-// OPERATIONAL PLAN TAB - Placeholder
+// OPERATIONAL PLAN TAB
 // =============================================================================
 
-function OperationalPlanTab() {
+interface OperationalActivity {
+  id: string
+  function: string
+  description: string
+  assignedTo?: string
+}
+
+const BUSINESS_FUNCTIONS = [
+  { id: 'marketing', name: 'Marketing', icon: '📢' },
+  { id: 'sales', name: 'Sales', icon: '💼' },
+  { id: 'people', name: 'People/Team', icon: '👥' },
+  { id: 'systems', name: 'Systems/Operations', icon: '⚙️' },
+  { id: 'finance', name: 'Finance', icon: '💰' },
+  { id: 'delivery', name: 'Service Delivery', icon: '🎯' }
+] as const
+
+interface OperationalPlanTabProps {
+  operationalActivities?: OperationalActivity[]
+  setOperationalActivities?: (activities: OperationalActivity[]) => void
+}
+
+function OperationalPlanTab({
+  operationalActivities: activitiesProp,
+  setOperationalActivities: setActivitiesProp
+}: OperationalPlanTabProps) {
+  // Use prop state if provided, otherwise fall back to local state
+  const [localActivities, setLocalActivities] = useState<OperationalActivity[]>([])
+  const activities = activitiesProp || localActivities
+  const setActivities = setActivitiesProp || setLocalActivities
+
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [showAssignmentFor, setShowAssignmentFor] = useState<string | null>(null)
+  const [showAddNewPerson, setShowAddNewPerson] = useState(false)
+  const [newPersonName, setNewPersonName] = useState('')
+  const [newPersonRole, setNewPersonRole] = useState('')
+  const [newPersonType, setNewPersonType] = useState<'employee' | 'contractor'>('employee')
+  const [isSavingNewPerson, setIsSavingNewPerson] = useState(false)
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number } | null>(null)
+  const assignButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
+
+  // Load team members from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('team_members')
+    if (stored) {
+      try {
+        const members = JSON.parse(stored)
+        setTeamMembers(members)
+      } catch (e) {
+        console.error('Failed to load team members')
+      }
+    }
+  }, [])
+
+  const addActivity = (functionId: string) => {
+    const newActivity: OperationalActivity = {
+      id: `activity-${Date.now()}`,
+      function: functionId,
+      description: '',
+      assignedTo: undefined
+    }
+    setActivities([...activities, newActivity])
+    setEditingId(newActivity.id)
+  }
+
+  const updateActivity = (id: string, updates: Partial<OperationalActivity>) => {
+    setActivities(activities.map(a => a.id === id ? { ...a, ...updates } : a))
+  }
+
+  const deleteActivity = (id: string) => {
+    setActivities(activities.filter(a => a.id !== id))
+  }
+
+  const getActivitiesForFunction = (functionId: string) => {
+    return activities.filter(a => a.function === functionId)
+  }
+
+  const handleAddTeamMember = (activityId: string) => {
+    if (!newPersonName.trim()) return
+
+    setIsSavingNewPerson(true)
+
+    try {
+      // Generate color for new member
+      const colorIndex = teamMembers.length % AVATAR_COLORS.length
+      const color = AVATAR_COLORS[colorIndex]
+
+      // Generate initials
+      const nameParts = newPersonName.trim().split(' ')
+      const initials = nameParts.length > 1
+        ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
+        : nameParts[0].substring(0, 2).toUpperCase()
+
+      const newMember: TeamMember = {
+        id: `role-${Date.now()}`,
+        name: newPersonName.trim(),
+        role: newPersonRole.trim() || undefined,
+        type: newPersonType,
+        initials,
+        color
+      }
+
+      const updatedMembers = [...teamMembers, newMember]
+      setTeamMembers(updatedMembers)
+
+      // Save to localStorage
+      localStorage.setItem('team_members', JSON.stringify(updatedMembers))
+
+      // Assign to the activity
+      updateActivity(activityId, { assignedTo: newMember.id })
+
+      // Reset form
+      setNewPersonName('')
+      setNewPersonRole('')
+      setNewPersonType('employee')
+      setShowAddNewPerson(false)
+      setShowAssignmentFor(null)
+    } catch (error) {
+      console.error('Failed to add team member:', error)
+    } finally {
+      setIsSavingNewPerson(false)
+    }
+  }
+
+  const handleAssignPerson = (activityId: string, memberId: string) => {
+    updateActivity(activityId, { assignedTo: memberId })
+    setShowAssignmentFor(null)
+  }
+
+  const getMemberById = (id: string) => teamMembers.find(m => m.id === id)
+
+  const deleteTeamMember = (memberId: string) => {
+    const updatedMembers = teamMembers.filter(m => m.id !== memberId)
+    setTeamMembers(updatedMembers)
+    localStorage.setItem('team_members', JSON.stringify(updatedMembers))
+
+    // Unassign any activities assigned to this member
+    setActivities(activities.map(a =>
+      a.assignedTo === memberId ? { ...a, assignedTo: undefined } : a
+    ))
+  }
+
   return (
-    <div className="text-center py-12 text-gray-600">
-      <Briefcase className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">Operational Plan</h3>
-      <p className="text-sm">To be designed later...</p>
+    <div className="space-y-6 overflow-visible">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-lg p-6 text-white">
+        <div className="flex items-center gap-3 mb-2">
+          <Briefcase className="w-6 h-6" />
+          <h2 className="text-2xl font-bold">Operational Plan</h2>
+        </div>
+        <p className="text-indigo-100">
+          Regular business activities that keep each function moving forward (not strategic projects)
+        </p>
+      </div>
+
+      {/* Business Functions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-visible">
+        {BUSINESS_FUNCTIONS.map((func) => {
+          const functionActivities = getActivitiesForFunction(func.id)
+
+          return (
+            <div key={func.id} className="bg-white rounded-lg border-2 border-gray-200 overflow-visible">
+              {/* Function Header */}
+              <div className="bg-blue-50 border-b-2 border-blue-200 px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">{func.icon}</span>
+                    <h3 className="text-lg font-bold text-blue-900">{func.name}</h3>
+                    <span className="text-sm text-gray-500">({functionActivities.length})</span>
+                  </div>
+                  <button
+                    onClick={() => addActivity(func.id)}
+                    className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium flex items-center gap-1"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              {/* Activities List */}
+              <div className="p-4 space-y-2 overflow-visible">
+                {functionActivities.length === 0 ? (
+                  <p className="text-center text-gray-500 py-8 text-sm">
+                    No operational activities yet. Click "Add Activity" to get started.
+                  </p>
+                ) : (
+                  functionActivities.map((activity) => (
+                    <div
+                      key={activity.id}
+                      className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors overflow-visible"
+                    >
+                      {/* Description */}
+                      <div className="flex-1">
+                        {editingId === activity.id ? (
+                          <input
+                            type="text"
+                            value={activity.description}
+                            onChange={(e) => updateActivity(activity.id, { description: e.target.value })}
+                            onBlur={() => setEditingId(null)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') setEditingId(null)
+                              if (e.key === 'Escape') setEditingId(null)
+                            }}
+                            autoFocus
+                            placeholder="Enter activity description..."
+                            className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        ) : (
+                          <div
+                            onClick={() => setEditingId(activity.id)}
+                            className="cursor-pointer"
+                          >
+                            {activity.description || (
+                              <span className="text-gray-400 italic">Click to add description...</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Assigned To */}
+                      <div className="w-36 relative">
+                        {(() => {
+                          const assignedMember = activity.assignedTo ? getMemberById(activity.assignedTo) : null
+                          const isShowingAssignment = showAssignmentFor === activity.id
+
+                          return (
+                            <>
+                              <button
+                                ref={(el) => {
+                                  if (el) assignButtonRefs.current.set(activity.id, el)
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (!isShowingAssignment) {
+                                    // Calculate position
+                                    const button = assignButtonRefs.current.get(activity.id)
+                                    if (button) {
+                                      const rect = button.getBoundingClientRect()
+                                      setDropdownPosition({
+                                        top: rect.bottom + 4,
+                                        left: rect.left
+                                      })
+                                    }
+                                    setShowAssignmentFor(activity.id)
+                                    setShowAddNewPerson(false)
+                                    setNewPersonName('')
+                                    setNewPersonRole('')
+                                    setNewPersonType('employee')
+                                  } else {
+                                    setShowAssignmentFor(null)
+                                    setDropdownPosition(null)
+                                  }
+                                }}
+                                className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                                  assignedMember
+                                    ? 'border-blue-200 bg-blue-50 hover:bg-blue-100'
+                                    : 'border-gray-300 bg-white hover:bg-gray-50'
+                                }`}
+                              >
+                                {assignedMember ? (
+                                  <>
+                                    <div className={`w-5 h-5 rounded-full ${assignedMember.color} flex items-center justify-center flex-shrink-0`}>
+                                      <span className="text-white text-xs font-bold">{assignedMember.initials}</span>
+                                    </div>
+                                    <span className="text-xs font-medium text-gray-900 flex-1 text-left truncate">{assignedMember.name}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                      <UserPlus className="w-3 h-3 text-gray-400" />
+                                    </div>
+                                    <span className="text-xs text-gray-500 flex-1 text-left">Assign to...</span>
+                                  </>
+                                )}
+                                <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${isShowingAssignment ? 'rotate-180' : ''}`} />
+                              </button>
+
+                              {/* Dropdown Menu */}
+                              {isShowingAssignment && dropdownPosition && (
+                                <div
+                                  className="fixed bg-white border border-gray-200 rounded-lg shadow-lg z-[9999] min-w-[280px]"
+                                  style={{
+                                    top: `${dropdownPosition.top}px`,
+                                    left: `${dropdownPosition.left}px`
+                                  }}
+                                >
+                                  {/* Scrollable Team Members List */}
+                                  <div className="max-h-[250px] overflow-y-auto">
+                                    {teamMembers.map(member => {
+                                      const isCurrentlyAssigned = activity.assignedTo === member.id
+
+                                      return (
+                                        <button
+                                          key={member.id}
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            handleAssignPerson(activity.id, member.id)
+                                          }}
+                                          className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
+                                            isCurrentlyAssigned ? 'bg-blue-50' : ''
+                                          }`}
+                                        >
+                                          <div className={`w-8 h-8 rounded-full ${member.color} flex items-center justify-center flex-shrink-0`}>
+                                            <span className="text-white text-sm font-bold">{member.initials}</span>
+                                          </div>
+                                          <div className="flex-1">
+                                            <p className="text-sm font-medium text-gray-900">{member.name}</p>
+                                            {member.role && (
+                                              <p className="text-xs text-gray-500">{member.role}</p>
+                                            )}
+                                          </div>
+                                          {isCurrentlyAssigned && (
+                                            <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                                          )}
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+
+                                  {/* Separator */}
+                                  {teamMembers.length > 0 && (
+                                    <div className="border-t border-gray-200"></div>
+                                  )}
+
+                                  {/* Add New Person Option */}
+                                  {!showAddNewPerson ? (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setShowAddNewPerson(true)
+                                      }}
+                                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-blue-50 transition-colors text-blue-600"
+                                    >
+                                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                        <UserPlus className="w-4 h-4 text-blue-600" />
+                                      </div>
+                                      <p className="text-sm font-medium">Add New Person...</p>
+                                    </button>
+                                  ) : (
+                                    <div className="p-4 bg-gray-50 border-t border-gray-200" onClick={(e) => e.stopPropagation()}>
+                                      <p className="text-sm font-semibold text-gray-900 mb-3">Add New Team Member</p>
+                                      <input
+                                        type="text"
+                                        value={newPersonName}
+                                        onChange={(e) => setNewPersonName(e.target.value)}
+                                        placeholder="Full name"
+                                        className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        autoFocus
+                                        onClick={(e) => e.stopPropagation()}
+                                      />
+                                      <div className="mb-2">
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
+                                        <div className="flex gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setNewPersonType('employee')
+                                            }}
+                                            className={`flex-1 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                                              newPersonType === 'employee'
+                                                ? 'bg-blue-600 text-white border-blue-600'
+                                                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                                            }`}
+                                          >
+                                            Employee
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setNewPersonType('contractor')
+                                            }}
+                                            className={`flex-1 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                                              newPersonType === 'contractor'
+                                                ? 'bg-blue-600 text-white border-blue-600'
+                                                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                                            }`}
+                                          >
+                                            Contractor
+                                          </button>
+                                        </div>
+                                      </div>
+                                      <input
+                                        type="text"
+                                        value={newPersonRole}
+                                        onChange={(e) => setNewPersonRole(e.target.value)}
+                                        placeholder="Role/Title (optional)"
+                                        className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        onClick={(e) => e.stopPropagation()}
+                                      />
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            handleAddTeamMember(activity.id)
+                                          }}
+                                          disabled={isSavingNewPerson || !newPersonName.trim()}
+                                          className="flex-1 px-4 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                          {isSavingNewPerson ? 'Saving...' : 'Add & Assign'}
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setShowAddNewPerson(false)
+                                            setNewPersonName('')
+                                            setNewPersonRole('')
+                                            setNewPersonType('employee')
+                                          }}
+                                          className="px-4 py-2.5 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </>
+                          )
+                        })()}
+                      </div>
+
+                      {/* Delete Button */}
+                      <button
+                        onClick={() => deleteActivity(activity.id)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete activity"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

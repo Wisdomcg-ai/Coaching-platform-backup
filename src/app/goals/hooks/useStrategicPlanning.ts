@@ -7,6 +7,7 @@ import { STANDARD_KPIS, INDUSTRY_KPIS } from '../utils/constants'
 import { FinancialService } from '../services/financial-service'
 import { KPIService } from '../services/kpi-service'
 import { StrategicPlanningService } from '../services/strategic-planning-service'
+import { OperationalActivitiesService, OperationalActivity } from '../services/operational-activities-service'
 import { createClient } from '@/lib/supabase/client'
 
 interface KeyAction {
@@ -74,6 +75,9 @@ export function useStrategicPlanning() {
   // Step 6: 90-Day Sprint
   const [sprintFocus, setSprintFocus] = useState<StrategicInitiative[]>([])
   const [sprintKeyActions, setSprintKeyActions] = useState<KeyAction[]>([])
+
+  // Operational Activities
+  const [operationalActivities, setOperationalActivities] = useState<OperationalActivity[]>([])
 
   // Update financial value with auto-calculation
   const updateFinancialValue = useCallback(
@@ -350,6 +354,18 @@ export function useStrategicPlanning() {
         return false
       }
 
+      // Save operational activities
+      const operationalActivitiesResult = await OperationalActivitiesService.saveActivities(
+        businessId,
+        userId,
+        operationalActivities
+      )
+
+      if (!operationalActivitiesResult.success) {
+        setError(`Failed to save operational activities: ${operationalActivitiesResult.error}`)
+        return false
+      }
+
       // Also save to localStorage as backup
       if (typeof window !== 'undefined') {
         const allData = {
@@ -365,6 +381,7 @@ export function useStrategicPlanning() {
           monthlyTargets,
           sprintFocus,
           sprintKeyActions,
+          operationalActivities,
           lastSaved: new Date().toISOString()
         }
         localStorage.setItem('strategicPlan', JSON.stringify(allData))
@@ -390,7 +407,8 @@ export function useStrategicPlanning() {
     annualPlanByQuarter,
     quarterlyTargets,
     sprintFocus,
-    sprintKeyActions
+    sprintKeyActions,
+    operationalActivities
   ])
 
   // Load data from Supabase on mount
@@ -514,6 +532,13 @@ export function useStrategicPlanning() {
           console.log(`[Strategic Planning] ✅ Loaded ${loadedSprintActions.length} sprint key actions from Supabase`)
         }
 
+        // Load operational activities
+        const loadedOperationalActivities = await OperationalActivitiesService.loadActivities(bizId)
+        if (loadedOperationalActivities && loadedOperationalActivities.length > 0) {
+          setOperationalActivities(loadedOperationalActivities)
+          console.log(`[Strategic Planning] ✅ Loaded ${loadedOperationalActivities.length} operational activities from Supabase`)
+        }
+
         setIsLoading(false)
       } catch (err) {
         console.error('[Strategic Planning] ❌ Error loading data:', err)
@@ -545,6 +570,7 @@ export function useStrategicPlanning() {
     quarterlyTargets,
     sprintFocus,
     sprintKeyActions,
+    operationalActivities,
     businessId,
     userId,
     isLoading,
@@ -595,6 +621,10 @@ export function useStrategicPlanning() {
     setSprintFocus,
     sprintKeyActions,
     setSprintKeyActions,
+
+    // Operational Activities
+    operationalActivities,
+    setOperationalActivities,
 
     // Save
     saveAllData

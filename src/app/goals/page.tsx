@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useStrategicPlanning } from './hooks/useStrategicPlanning'
 import Step1GoalsAndKPIs from './components/Step1GoalsAndKPIs'
 import Step2StrategicIdeas from './components/Step2StrategicIdeas'
@@ -59,6 +60,8 @@ const STEPS: StepInfo[] = [
 ]
 
 export default function StrategicPlanningPage() {
+  const searchParams = useSearchParams()
+
   // Hydration fix: ensure state matches between server and client
   const [mounted, setMounted] = useState(false)
   const [currentStep, setCurrentStep] = useState<StepNumber>(1)
@@ -67,7 +70,16 @@ export default function StrategicPlanningPage() {
   // Only render interactive content after mounting
   useEffect(() => {
     setMounted(true)
-  }, [])
+
+    // Check for step parameter in URL
+    const stepParam = searchParams.get('step')
+    if (stepParam) {
+      const stepNum = parseInt(stepParam)
+      if (stepNum >= 1 && stepNum <= 5) {
+        setCurrentStep(stepNum as StepNumber)
+      }
+    }
+  }, [searchParams])
 
   // Load all data using the hook
   const {
@@ -99,6 +111,8 @@ export default function StrategicPlanningPage() {
     setSprintFocus,
     sprintKeyActions,
     setSprintKeyActions,
+    operationalActivities,
+    setOperationalActivities,
     saveAllData
   } = useStrategicPlanning()
 
@@ -117,7 +131,8 @@ export default function StrategicPlanningPage() {
         twelveMonthInitiatives ||
         annualPlanByQuarter ||
         sprintFocus ||
-        sprintKeyActions
+        sprintKeyActions ||
+        operationalActivities
       )) {
         setIsSaving(true)
         await saveAllData()
@@ -138,6 +153,7 @@ export default function StrategicPlanningPage() {
     annualPlanByQuarter,
     sprintFocus,
     sprintKeyActions,
+    operationalActivities,
     saveAllData
   ])
 
@@ -375,6 +391,8 @@ export default function StrategicPlanningPage() {
                 kpis={kpis}
                 yearType={yearType}
                 businessId={businessId}
+                operationalActivities={operationalActivities}
+                setOperationalActivities={setOperationalActivities}
               />
             </div>
           )}
