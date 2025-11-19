@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Save, Loader2, TrendingUp, TrendingDown } from 'lucide-react'
+import { Loader2, Lock, Unlock, TrendingUp, TrendingDown, Minus, Settings } from 'lucide-react'
 import WeeklyMetricsService, { WeeklyMetricsSnapshot } from './services/weekly-metrics-service'
+import DashboardPreferencesService, { DashboardPreferences } from './services/dashboard-preferences-service'
+import ManageMetricsModal from './components/ManageMetricsModal'
 import { FinancialService } from '../goals/services/financial-service'
 import { KPIService } from '../goals/services/kpi-service'
 import type { FinancialData, CoreMetricsData, KPIData, YearType } from '../goals/types'
@@ -14,7 +16,6 @@ export default function BusinessDashboardPage() {
   const supabase = createClient()
   const [mounted, setMounted] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
 
   const [businessId, setBusinessId] = useState('')
   const [userId, setUserId] = useState('')
@@ -32,6 +33,16 @@ export default function BusinessDashboardPage() {
 
   // Expanded quarters state (e.g., ['2024-Q3', '2024-Q2'])
   const [expandedQuarters, setExpandedQuarters] = useState<string[]>([])
+
+  // Past weeks editing lock state
+  const [pastWeeksUnlocked, setPastWeeksUnlocked] = useState(false)
+
+  // View mode: 'quarter' shows current quarter only, 'year' shows all quarters
+  const [viewMode, setViewMode] = useState<'quarter' | 'year'>('quarter')
+
+  // Dashboard preferences (which metrics are visible)
+  const [dashboardPreferences, setDashboardPreferences] = useState<DashboardPreferences | null>(null)
+  const [isManageMetricsOpen, setIsManageMetricsOpen] = useState(false)
 
   // Goals/Targets
   const [financialData, setFinancialData] = useState<FinancialData | null>(null)
@@ -112,6 +123,10 @@ export default function BusinessDashboardPage() {
       setCoreMetrics(loadedCore)
       setKpis(loadedKPIs)
 
+      // Load dashboard preferences
+      const { preferences } = await DashboardPreferencesService.loadPreferences(bizId, uid)
+      setDashboardPreferences(preferences)
+
       // Set year type from financial data
       const actualYearType = loadedYearType || 'FY'
       setYearType(actualYearType)
@@ -167,23 +182,32 @@ export default function BusinessDashboardPage() {
     }
   }
 
-  const handleSave = async () => {
+  // Update and auto-save current week snapshot
+  const updateCurrentSnapshot = async (updates: Partial<WeeklyMetricsSnapshot>) => {
     if (!currentSnapshot) return
 
-    setIsSaving(true)
-    const result = await WeeklyMetricsService.saveSnapshot(currentSnapshot)
-    if (result.success) {
-      // Reload snapshots to update the table
-      const recentSnapshots = await WeeklyMetricsService.getRecentSnapshots(businessId, 8)
-      setSnapshots(recentSnapshots)
-    }
-    setIsSaving(false)
+    const updatedSnapshot = { ...currentSnapshot, ...updates }
+
+    // Update in state
+    setCurrentSnapshot(updatedSnapshot)
+
+    // Auto-save to database
+    await WeeklyMetricsService.saveSnapshot(updatedSnapshot)
   }
 
-  const updateCurrentSnapshot = (updates: Partial<WeeklyMetricsSnapshot>) => {
-    if (currentSnapshot) {
-      setCurrentSnapshot({ ...currentSnapshot, ...updates })
-    }
+  // Update and auto-save past week snapshot
+  const updatePastSnapshot = async (snapshot: WeeklyMetricsSnapshot | null, updates: Partial<WeeklyMetricsSnapshot>) => {
+    if (!snapshot) return
+
+    const updatedSnapshot = { ...snapshot, ...updates }
+
+    // Update in state
+    setSnapshots(prev => prev.map(s =>
+      s.week_ending_date === snapshot.week_ending_date ? updatedSnapshot : s
+    ))
+
+    // Auto-save to database
+    await WeeklyMetricsService.saveSnapshot(updatedSnapshot)
   }
 
   const formatCurrency = (value: number | undefined | null) => {
@@ -217,6 +241,25 @@ export default function BusinessDashboardPage() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
+  // Save dashboard preferences
+  const savePreferences = async (preferences: DashboardPreferences) => {
+    const result = await DashboardPreferencesService.savePreferences(preferences)
+    if (result.success) {
+      setDashboardPreferences(preferences)
+      console.log('[Dashboard] Preferences saved successfully')
+    } else {
+      console.error('[Dashboard] Failed to save preferences:', result.error)
+    }
+  }
+
+  // Handle KPI creation from modal
+  const handleKpiCreated = async () => {
+    console.log('[Dashboard] KPI created, reloading KPIs...')
+    // Reload KPIs to show the newly created one
+    const loadedKPIs = await KPIService.getUserKPIs(businessId)
+    setKpis(loadedKPIs)
+  }
+
   // Toggle quarter expansion
   const toggleQuarter = (quarterKey: string) => {
     setExpandedQuarters(prev =>
@@ -224,6 +267,24 @@ export default function BusinessDashboardPage() {
         ? prev.filter(q => q !== quarterKey)
         : [...prev, quarterKey]
     )
+  }
+
+  // Check if a week is editable (current week always editable, past weeks only if unlocked, future weeks never editable)
+  const isWeekEditable = (isCurrentWeek: boolean, weekDate?: string): boolean => {
+    if (isCurrentWeek) return true
+
+    // If no week date provided, assume not editable
+    if (!weekDate) return false
+
+    // Check if this week is in the past
+    const currentWeekDate = weekPreference === 'ending'
+      ? WeeklyMetricsService.getWeekEnding()
+      : WeeklyMetricsService.getWeekBeginning()
+
+    const isPastWeek = weekDate < currentWeekDate
+
+    // Only allow editing past weeks if unlocked
+    return isPastWeek && pastWeeksUnlocked
   }
 
   // Calculate QTD (Quarter-to-Date) total for a metric
@@ -242,11 +303,46 @@ export default function BusinessDashboardPage() {
     }, 0)
   }
 
+  // Calculate quarter progress
+  const getQuarterProgress = (quarterInfo: any) => {
+    if (!quarterInfo) return { currentWeek: 0, totalWeeks: 0, percentComplete: 0 }
+
+    const currentWeekDate = weekPreference === 'ending'
+      ? WeeklyMetricsService.getWeekEnding()
+      : WeeklyMetricsService.getWeekBeginning()
+
+    const allWeeks = WeeklyMetricsService.getWeeksInRange(
+      quarterInfo.startDate,
+      quarterInfo.endDate,
+      weekPreference
+    )
+
+    const totalWeeks = allWeeks.length
+    const completedWeeks = allWeeks.filter(week => week <= currentWeekDate).length
+    const percentComplete = totalWeeks > 0 ? Math.round((completedWeeks / totalWeeks) * 100) : 0
+
+    return { currentWeek: completedWeeks, totalWeeks, percentComplete }
+  }
+
+  // Calculate if metric is on track (green), at risk (yellow), or behind (red)
+  const getTrendStatus = (actual: number, target: number, percentComplete: number): 'ahead' | 'on-track' | 'behind' => {
+    if (target === 0) return 'on-track'
+
+    const expectedAtThisPoint = (target * percentComplete) / 100
+    const percentOfExpected = (actual / expectedAtThisPoint) * 100
+
+    if (percentOfExpected >= 95) return 'ahead' // Within 95%+ of where we should be
+    if (percentOfExpected >= 85) return 'on-track' // Within 85-95%
+    return 'behind' // Less than 85%
+  }
+
   // Build quarter columns based on fiscal/calendar year
   const allQuarterInfos = calculateQuarters(yearType, planYear)
 
-  // Filter to only show past and current quarters (not future quarters)
-  const quarterInfos = allQuarterInfos.filter(q => q.isPast || q.isCurrent)
+  // Filter quarters based on view mode
+  const quarterInfos = viewMode === 'quarter'
+    ? allQuarterInfos.filter(q => q.isCurrent) // Show only current quarter
+    : allQuarterInfos.filter(q => q.isPast || q.isCurrent) // Show past and current quarters
 
   // Find current quarter
   const currentQuarterInfo = quarterInfos.find(q => q.isCurrent)
@@ -382,19 +478,22 @@ export default function BusinessDashboardPage() {
             </div>
 
             <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400"
+              onClick={() => setPastWeeksUnlocked(!pastWeeksUnlocked)}
+              className={`flex items-center space-x-2 px-6 py-3 rounded-lg transition-colors ${
+                pastWeeksUnlocked
+                  ? 'bg-amber-600 text-white hover:bg-amber-700'
+                  : 'bg-gray-600 text-white hover:bg-gray-700'
+              }`}
             >
-              {isSaving ? (
+              {pastWeeksUnlocked ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Saving...</span>
+                  <Unlock className="w-5 h-5" />
+                  <span>Lock Past Weeks</span>
                 </>
               ) : (
                 <>
-                  <Save className="w-5 h-5" />
-                  <span>Save This Week</span>
+                  <Lock className="w-5 h-5" />
+                  <span>Edit Past Weeks</span>
                 </>
               )}
             </button>
@@ -428,15 +527,212 @@ export default function BusinessDashboardPage() {
           </div>
         </div>
 
+        {/* Quarter Progress Summary Card */}
+        {currentQuarterInfo && (() => {
+          const progress = getQuarterProgress(currentQuarterInfo)
+          const quarterWeeks = WeeklyMetricsService.getWeeksInRange(
+            currentQuarterInfo.startDate,
+            currentQuarterInfo.endDate,
+            weekPreference
+          )
+          const quarterSnapshots = quarterWeeks
+            .map(date => snapshots.find(s => s.week_ending_date === date))
+            .filter(Boolean) as WeeklyMetricsSnapshot[]
+
+          // Calculate QTD actuals
+          const revenueQTD = calculateQTD(quarterSnapshots, 'revenue_actual')
+          const grossProfitQTD = calculateQTD(quarterSnapshots, 'gross_profit_actual')
+          const netProfitQTD = calculateQTD(quarterSnapshots, 'net_profit_actual')
+
+          // Get quarter targets
+          const revenueTarget = (financialData?.revenue?.year1 || 0) / 4
+          const grossProfitTarget = (financialData?.grossProfit?.year1 || 0) / 4
+          const netProfitTarget = (financialData?.netProfit?.year1 || 0) / 4
+
+          // Calculate trends
+          const revenueTrend = getTrendStatus(revenueQTD, revenueTarget, progress.percentComplete)
+          const grossProfitTrend = getTrendStatus(grossProfitQTD, grossProfitTarget, progress.percentComplete)
+          const netProfitTrend = getTrendStatus(netProfitQTD, netProfitTarget, progress.percentComplete)
+
+          const getTrendIcon = (trend: string) => {
+            if (trend === 'ahead') return <TrendingUp className="w-5 h-5 text-green-600" />
+            if (trend === 'behind') return <TrendingDown className="w-5 h-5 text-red-600" />
+            return <Minus className="w-5 h-5 text-yellow-600" />
+          }
+
+          const getTrendColor = (trend: string) => {
+            if (trend === 'ahead') return 'bg-green-50 border-green-200'
+            if (trend === 'behind') return 'bg-red-50 border-red-200'
+            return 'bg-yellow-50 border-yellow-200'
+          }
+
+          const getTrendLabel = (trend: string) => {
+            if (trend === 'ahead') return 'Ahead of Pace'
+            if (trend === 'behind') return 'Behind Pace'
+            return 'On Track'
+          }
+
+          return (
+            <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">{currentQuarterInfo.label} Progress</h2>
+                  <p className="text-gray-600">
+                    Week {progress.currentWeek} of {progress.totalWeeks} ({progress.percentComplete}% complete)
+                  </p>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm text-gray-600">{currentQuarterInfo.months}</div>
+                  <div className="w-48 h-2 bg-gray-200 rounded-full mt-2">
+                    <div
+                      className="h-2 bg-blue-600 rounded-full transition-all"
+                      style={{ width: `${progress.percentComplete}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Revenue Card */}
+                <div className={`p-4 rounded-lg border-2 ${getTrendColor(revenueTrend)}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-semibold text-gray-700">Revenue</h3>
+                    {getTrendIcon(revenueTrend)}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Target:</span>
+                      <span className="font-semibold">{formatCurrency(revenueTarget)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Actual (QTD):</span>
+                      <span className="font-semibold">{formatCurrency(revenueQTD)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">% of Target:</span>
+                      <span className="font-semibold">
+                        {revenueTarget > 0 ? Math.round((revenueQTD / revenueTarget) * 100) : 0}%
+                      </span>
+                    </div>
+                    <div className="pt-2 border-t mt-2">
+                      <span className="text-xs font-medium">{getTrendLabel(revenueTrend)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Gross Profit Card */}
+                <div className={`p-4 rounded-lg border-2 ${getTrendColor(grossProfitTrend)}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-semibold text-gray-700">Gross Profit</h3>
+                    {getTrendIcon(grossProfitTrend)}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Target:</span>
+                      <span className="font-semibold">{formatCurrency(grossProfitTarget)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Actual (QTD):</span>
+                      <span className="font-semibold">{formatCurrency(grossProfitQTD)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">% of Target:</span>
+                      <span className="font-semibold">
+                        {grossProfitTarget > 0 ? Math.round((grossProfitQTD / grossProfitTarget) * 100) : 0}%
+                      </span>
+                    </div>
+                    <div className="pt-2 border-t mt-2">
+                      <span className="text-xs font-medium">{getTrendLabel(grossProfitTrend)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Net Profit Card */}
+                <div className={`p-4 rounded-lg border-2 ${getTrendColor(netProfitTrend)}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-semibold text-gray-700">Net Profit</h3>
+                    {getTrendIcon(netProfitTrend)}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Target:</span>
+                      <span className="font-semibold">{formatCurrency(netProfitTarget)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Actual (QTD):</span>
+                      <span className="font-semibold">{formatCurrency(netProfitQTD)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">% of Target:</span>
+                      <span className="font-semibold">
+                        {netProfitTarget > 0 ? Math.round((netProfitQTD / netProfitTarget) * 100) : 0}%
+                      </span>
+                    </div>
+                    <div className="pt-2 border-t mt-2">
+                      <span className="text-xs font-medium">{getTrendLabel(netProfitTrend)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Unified Dashboard Table */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="p-6 border-b border-gray-200">
-            <h2 className="text-2xl font-bold text-gray-900">Business Metrics Dashboard</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Business Metrics Dashboard</h2>
+
+              <div className="flex items-center gap-3">
+                {/* View Mode Toggle */}
+                <div className="inline-flex rounded-lg border border-gray-300 bg-gray-50">
+                  <button
+                    onClick={() => setViewMode('quarter')}
+                    className={`px-4 py-2 text-sm font-medium rounded-l-lg transition-colors ${
+                      viewMode === 'quarter'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    Current Quarter
+                  </button>
+                  <button
+                    onClick={() => setViewMode('year')}
+                    className={`px-4 py-2 text-sm font-medium rounded-r-lg transition-colors ${
+                      viewMode === 'year'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    Current Year
+                  </button>
+                </div>
+
+                {/* Manage Metrics Button */}
+                <button
+                  onClick={() => setIsManageMetricsOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span>Manage Metrics</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <form onSubmit={(e) => e.preventDefault()}>
             <div className="overflow-x-auto">
               <table className="w-full table-fixed">
+              <colgroup>
+                <col style={{ width: '200px', minWidth: '200px', maxWidth: '200px' }} />
+                <col style={{ width: '140px', minWidth: '140px', maxWidth: '140px' }} />
+                <col style={{ width: '120px', minWidth: '120px', maxWidth: '120px' }} />
+                <col style={{ width: '120px', minWidth: '120px', maxWidth: '120px' }} />
+                {columns.map((col, idx) => (
+                  <col key={col.quarterKey || col.date || idx} style={{ width: col.type === 'week' ? '144px' : '128px' }} />
+                ))}
+              </colgroup>
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider sticky left-0 bg-gray-50 z-20" style={{ width: '200px', minWidth: '200px', maxWidth: '200px' }}>
@@ -447,6 +743,9 @@ export default function BusinessDashboardPage() {
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider sticky left-[340px] bg-gray-50 z-20" style={{ width: '120px', minWidth: '120px', maxWidth: '120px' }}>
                     Q{currentQuarter} Target
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider sticky left-[460px] bg-gray-50 z-20" style={{ width: '120px', minWidth: '120px', maxWidth: '120px' }}>
+                    QTD Actual
                   </th>
                   {columns.map((col, idx) => {
                     if (col.type === 'quarter-collapsed') {
@@ -490,7 +789,7 @@ export default function BusinessDashboardPage() {
                   <td className="px-6 py-3 text-left text-sm font-bold text-gray-900 uppercase tracking-wider sticky left-0 bg-gray-100 z-10" style={{ width: '200px', minWidth: '200px', maxWidth: '200px' }}>
                     Financial Goals
                   </td>
-                  <td colSpan={2 + columns.length} className="px-4 py-3 bg-gray-100"></td>
+                  <td colSpan={3 + columns.length} className="px-4 py-3 bg-gray-100"></td>
                 </tr>
 
                 {/* Revenue */}
@@ -504,14 +803,48 @@ export default function BusinessDashboardPage() {
                   <td className="px-4 py-4 text-sm text-right text-gray-600 font-semibold sticky bg-white z-10" style={{ left: '340px', width: '120px', minWidth: '120px', maxWidth: '120px' }}>
                     {formatCurrency((financialData?.revenue?.year1 || 0) / 4)}
                   </td>
+                  {(() => {
+                    if (!currentQuarterInfo) return <td className="px-4 py-4 text-sm text-right sticky bg-white z-10" style={{ left: '460px', width: '120px', minWidth: '120px', maxWidth: '120px' }}></td>
+
+                    const quarterWeeks = WeeklyMetricsService.getWeeksInRange(
+                      currentQuarterInfo.startDate,
+                      currentQuarterInfo.endDate,
+                      weekPreference
+                    )
+                    const quarterSnapshots = quarterWeeks
+                      .map(date => snapshots.find(s => s.week_ending_date === date))
+                      .filter(Boolean) as WeeklyMetricsSnapshot[]
+
+                    const qtd = calculateQTD(quarterSnapshots, 'revenue_actual')
+                    const target = (financialData?.revenue?.year1 || 0) / 4
+                    const progress = getQuarterProgress(currentQuarterInfo)
+                    const trend = getTrendStatus(qtd, target, progress.percentComplete)
+                    const bgColor = trend === 'ahead' ? 'bg-green-50' : trend === 'behind' ? 'bg-red-50' : 'bg-yellow-50'
+
+                    return (
+                      <td className={`px-4 py-4 text-sm text-right font-semibold sticky z-10 ${bgColor}`} style={{ left: '460px', width: '120px', minWidth: '120px', maxWidth: '120px' }}>
+                        {formatCurrency(qtd)}
+                      </td>
+                    )
+                  })()}
                   {columns.map((col, idx) => {
                     if (col.type === 'quarter-collapsed') {
                       const qtd = calculateQTD(col.quarterSnapshots || [], 'revenue_actual')
+                      const target = (financialData?.revenue?.year1 || 0) / 4
+                      const progress = currentQuarterInfo ? getQuarterProgress(currentQuarterInfo) : { percentComplete: 0 }
+                      const trend = getTrendStatus(qtd, target, progress.percentComplete)
+                      const bgColor = trend === 'ahead' ? 'bg-green-50' : trend === 'behind' ? 'bg-red-50' : 'bg-yellow-50'
+                      const TrendIcon = trend === 'ahead' ? TrendingUp : trend === 'behind' ? TrendingDown : Minus
+                      const iconColor = trend === 'ahead' ? 'text-green-600' : trend === 'behind' ? 'text-red-600' : 'text-yellow-600'
+
                       return (
-                        <td key={col.quarterKey} className="px-3 py-4 text-sm text-center bg-gray-50 cursor-pointer hover:bg-gray-100"
+                        <td key={col.quarterKey} className={`px-3 py-4 text-sm text-center ${bgColor} cursor-pointer hover:opacity-80`}
                             onClick={() => toggleQuarter(col.quarterKey!)}>
                           <div className="flex flex-col items-center">
-                            <span className="text-gray-900 font-medium">{formatCurrency(qtd)}</span>
+                            <span className="text-gray-900 font-medium flex items-center">
+                              {formatCurrency(qtd)}
+                              <TrendIcon className={`w-3 h-3 ml-1 ${iconColor}`} />
+                            </span>
                             <span className="text-xs text-gray-500">QTD</span>
                           </div>
                         </td>
@@ -521,13 +854,20 @@ export default function BusinessDashboardPage() {
                         <td key={col.quarterKey} className="px-3 py-4 text-sm text-center bg-blue-50 border-l-2 border-blue-200"></td>
                       )
                     } else {
+                      const isEditable = isWeekEditable(col.isCurrentWeek || false, col.date)
                       return (
                         <td key={col.date || idx} className={`px-3 py-4 text-sm text-center ${col.isCurrentWeek ? 'bg-blue-50' : ''}`}>
-                          {col.isCurrentWeek ? (
+                          {isEditable ? (
                             <input
                               type="text"
-                              value={formatCurrency(currentSnapshot?.revenue_actual || 0)}
-                              onChange={(e) => updateCurrentSnapshot({ revenue_actual: parseDollarInput(e.target.value) })}
+                              value={formatCurrency(col.isCurrentWeek ? currentSnapshot?.revenue_actual || 0 : col.snapshot?.revenue_actual || 0)}
+                              onChange={(e) => {
+                                if (col.isCurrentWeek) {
+                                  updateCurrentSnapshot({ revenue_actual: parseDollarInput(e.target.value) })
+                                } else {
+                                  updatePastSnapshot(col.snapshot || null, { revenue_actual: parseDollarInput(e.target.value) })
+                                }
+                              }}
                               onKeyDown={handleKeyDown}
                               className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-300 transition-colors"
                               placeholder="$0"
@@ -552,14 +892,48 @@ export default function BusinessDashboardPage() {
                   <td className="px-4 py-4 text-sm text-right text-gray-600 font-semibold sticky bg-white z-10" style={{ left: '340px', width: '120px', minWidth: '120px', maxWidth: '120px' }}>
                     {formatCurrency((financialData?.grossProfit?.year1 || 0) / 4)}
                   </td>
+                  {(() => {
+                    if (!currentQuarterInfo) return <td className="px-4 py-4 text-sm text-right sticky bg-white z-10" style={{ left: '460px', width: '120px', minWidth: '120px', maxWidth: '120px' }}></td>
+
+                    const quarterWeeks = WeeklyMetricsService.getWeeksInRange(
+                      currentQuarterInfo.startDate,
+                      currentQuarterInfo.endDate,
+                      weekPreference
+                    )
+                    const quarterSnapshots = quarterWeeks
+                      .map(date => snapshots.find(s => s.week_ending_date === date))
+                      .filter(Boolean) as WeeklyMetricsSnapshot[]
+
+                    const qtd = calculateQTD(quarterSnapshots, 'gross_profit_actual')
+                    const target = (financialData?.grossProfit?.year1 || 0) / 4
+                    const progress = getQuarterProgress(currentQuarterInfo)
+                    const trend = getTrendStatus(qtd, target, progress.percentComplete)
+                    const bgColor = trend === 'ahead' ? 'bg-green-50' : trend === 'behind' ? 'bg-red-50' : 'bg-yellow-50'
+
+                    return (
+                      <td className={`px-4 py-4 text-sm text-right font-semibold sticky z-10 ${bgColor}`} style={{ left: '460px', width: '120px', minWidth: '120px', maxWidth: '120px' }}>
+                        {formatCurrency(qtd)}
+                      </td>
+                    )
+                  })()}
                   {columns.map((col, idx) => {
                     if (col.type === 'quarter-collapsed') {
                       const qtd = calculateQTD(col.quarterSnapshots || [], 'gross_profit_actual')
+                      const target = (financialData?.grossProfit?.year1 || 0) / 4
+                      const progress = currentQuarterInfo ? getQuarterProgress(currentQuarterInfo) : { percentComplete: 0 }
+                      const trend = getTrendStatus(qtd, target, progress.percentComplete)
+                      const bgColor = trend === 'ahead' ? 'bg-green-50' : trend === 'behind' ? 'bg-red-50' : 'bg-yellow-50'
+                      const TrendIcon = trend === 'ahead' ? TrendingUp : trend === 'behind' ? TrendingDown : Minus
+                      const iconColor = trend === 'ahead' ? 'text-green-600' : trend === 'behind' ? 'text-red-600' : 'text-yellow-600'
+
                       return (
-                        <td key={col.quarterKey} className="px-3 py-4 text-sm text-center bg-gray-50 cursor-pointer hover:bg-gray-100"
+                        <td key={col.quarterKey} className={`px-3 py-4 text-sm text-center ${bgColor} cursor-pointer hover:opacity-80`}
                             onClick={() => toggleQuarter(col.quarterKey!)}>
                           <div className="flex flex-col items-center">
-                            <span className="text-gray-900 font-medium">{formatCurrency(qtd)}</span>
+                            <span className="text-gray-900 font-medium flex items-center">
+                              {formatCurrency(qtd)}
+                              <TrendIcon className={`w-3 h-3 ml-1 ${iconColor}`} />
+                            </span>
                             <span className="text-xs text-gray-500">QTD</span>
                           </div>
                         </td>
@@ -569,19 +943,26 @@ export default function BusinessDashboardPage() {
                         <td key={col.quarterKey} className="px-3 py-4 text-sm text-center bg-blue-50 border-l-2 border-blue-200"></td>
                       )
                     } else {
+                      const isEditable = isWeekEditable(col.isCurrentWeek || false, col.date)
                       return (
                         <td key={col.date || idx} className={`px-3 py-4 text-sm text-center ${col.isCurrentWeek ? 'bg-blue-50' : ''}`}>
-                          {col.isCurrentWeek ? (
+                          {isEditable ? (
                             <input
                               type="text"
-                              value={formatCurrency(currentSnapshot?.gross_profit_actual || 0)}
-                              onChange={(e) => updateCurrentSnapshot({ gross_profit_actual: parseDollarInput(e.target.value) })}
+                              value={formatCurrency(col.isCurrentWeek ? currentSnapshot?.gross_profit_actual || 0 : col.snapshot?.gross_profit_actual || 0)}
+                              onChange={(e) => {
+                                if (col.isCurrentWeek) {
+                                  updateCurrentSnapshot({ gross_profit_actual: parseDollarInput(e.target.value) })
+                                } else {
+                                  updatePastSnapshot(col.snapshot || null, { gross_profit_actual: parseDollarInput(e.target.value) })
+                                }
+                              }}
                               onKeyDown={handleKeyDown}
                               className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-300 transition-colors"
                               placeholder="$0"
                             />
                           ) : (
-                            <span className="text-gray-900 text-xs">{formatCurrency(col.snapshot?.gross_profit_actual)}</span>
+                            <span className="text-gray-900 text-sm">{formatCurrency(col.snapshot?.gross_profit_actual)}</span>
                           )}
                         </td>
                       )
@@ -600,14 +981,48 @@ export default function BusinessDashboardPage() {
                   <td className="px-4 py-4 text-sm text-right text-gray-600 font-semibold sticky bg-white z-10" style={{ left: '340px', width: '120px', minWidth: '120px', maxWidth: '120px' }}>
                     {formatCurrency((financialData?.netProfit?.year1 || 0) / 4)}
                   </td>
+                  {(() => {
+                    if (!currentQuarterInfo) return <td className="px-4 py-4 text-sm text-right sticky bg-white z-10" style={{ left: '460px', width: '120px', minWidth: '120px', maxWidth: '120px' }}></td>
+
+                    const quarterWeeks = WeeklyMetricsService.getWeeksInRange(
+                      currentQuarterInfo.startDate,
+                      currentQuarterInfo.endDate,
+                      weekPreference
+                    )
+                    const quarterSnapshots = quarterWeeks
+                      .map(date => snapshots.find(s => s.week_ending_date === date))
+                      .filter(Boolean) as WeeklyMetricsSnapshot[]
+
+                    const qtd = calculateQTD(quarterSnapshots, 'net_profit_actual')
+                    const target = (financialData?.netProfit?.year1 || 0) / 4
+                    const progress = getQuarterProgress(currentQuarterInfo)
+                    const trend = getTrendStatus(qtd, target, progress.percentComplete)
+                    const bgColor = trend === 'ahead' ? 'bg-green-50' : trend === 'behind' ? 'bg-red-50' : 'bg-yellow-50'
+
+                    return (
+                      <td className={`px-4 py-4 text-sm text-right font-semibold sticky z-10 ${bgColor}`} style={{ left: '460px', width: '120px', minWidth: '120px', maxWidth: '120px' }}>
+                        {formatCurrency(qtd)}
+                      </td>
+                    )
+                  })()}
                   {columns.map((col, idx) => {
                     if (col.type === 'quarter-collapsed') {
                       const qtd = calculateQTD(col.quarterSnapshots || [], 'net_profit_actual')
+                      const target = (financialData?.netProfit?.year1 || 0) / 4
+                      const progress = currentQuarterInfo ? getQuarterProgress(currentQuarterInfo) : { percentComplete: 0 }
+                      const trend = getTrendStatus(qtd, target, progress.percentComplete)
+                      const bgColor = trend === 'ahead' ? 'bg-green-50' : trend === 'behind' ? 'bg-red-50' : 'bg-yellow-50'
+                      const TrendIcon = trend === 'ahead' ? TrendingUp : trend === 'behind' ? TrendingDown : Minus
+                      const iconColor = trend === 'ahead' ? 'text-green-600' : trend === 'behind' ? 'text-red-600' : 'text-yellow-600'
+
                       return (
-                        <td key={col.quarterKey} className="px-3 py-4 text-sm text-center bg-gray-50 cursor-pointer hover:bg-gray-100"
+                        <td key={col.quarterKey} className={`px-3 py-4 text-sm text-center ${bgColor} cursor-pointer hover:opacity-80`}
                             onClick={() => toggleQuarter(col.quarterKey!)}>
                           <div className="flex flex-col items-center">
-                            <span className="text-gray-900 font-medium">{formatCurrency(qtd)}</span>
+                            <span className="text-gray-900 font-medium flex items-center">
+                              {formatCurrency(qtd)}
+                              <TrendIcon className={`w-3 h-3 ml-1 ${iconColor}`} />
+                            </span>
                             <span className="text-xs text-gray-500">QTD</span>
                           </div>
                         </td>
@@ -617,19 +1032,26 @@ export default function BusinessDashboardPage() {
                         <td key={col.quarterKey} className="px-3 py-4 text-sm text-center bg-blue-50 border-l-2 border-blue-200"></td>
                       )
                     } else {
+                      const isEditable = isWeekEditable(col.isCurrentWeek || false, col.date)
                       return (
                         <td key={col.date || idx} className={`px-3 py-4 text-sm text-center ${col.isCurrentWeek ? 'bg-blue-50' : ''}`}>
-                          {col.isCurrentWeek ? (
+                          {isEditable ? (
                             <input
                               type="text"
-                              value={formatCurrency(currentSnapshot?.net_profit_actual || 0)}
-                              onChange={(e) => updateCurrentSnapshot({ net_profit_actual: parseDollarInput(e.target.value) })}
+                              value={formatCurrency(col.isCurrentWeek ? currentSnapshot?.net_profit_actual || 0 : col.snapshot?.net_profit_actual || 0)}
+                              onChange={(e) => {
+                                if (col.isCurrentWeek) {
+                                  updateCurrentSnapshot({ net_profit_actual: parseDollarInput(e.target.value) })
+                                } else {
+                                  updatePastSnapshot(col.snapshot || null, { net_profit_actual: parseDollarInput(e.target.value) })
+                                }
+                              }}
                               onKeyDown={handleKeyDown}
                               className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-300 transition-colors"
                               placeholder="$0"
                             />
                           ) : (
-                            <span className="text-gray-900 text-xs">{formatCurrency(col.snapshot?.net_profit_actual)}</span>
+                            <span className="text-gray-900 text-sm">{formatCurrency(col.snapshot?.net_profit_actual)}</span>
                           )}
                         </td>
                       )
@@ -642,9 +1064,10 @@ export default function BusinessDashboardPage() {
                   <td className="px-6 py-3 text-left text-sm font-bold text-gray-900 uppercase tracking-wider sticky left-0 bg-gray-100 z-10" style={{ width: '200px', minWidth: '200px', maxWidth: '200px' }}>
                     Core Metrics
                   </td>
-                  <td colSpan={2 + columns.length} className="px-4 py-3 bg-gray-100"></td>
+                  <td colSpan={3 + columns.length} className="px-4 py-3 bg-gray-100"></td>
                 </tr>
                 {/* Leads */}
+                {DashboardPreferencesService.isMetricVisible('leads', dashboardPreferences) && (
                 <tr className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900 sticky left-0 bg-white z-10" style={{ width: '200px', minWidth: '200px', maxWidth: '200px' }}>
                     Leads per Month
@@ -655,14 +1078,48 @@ export default function BusinessDashboardPage() {
                   <td className="px-4 py-4 text-sm text-right text-gray-600 font-semibold sticky bg-white z-10" style={{ left: '340px', width: '120px', minWidth: '120px', maxWidth: '120px' }}>
                     {Math.round((coreMetrics?.leadsPerMonth?.year1 || 0) / 4)}
                   </td>
+                  {(() => {
+                    if (!currentQuarterInfo) return <td className="px-4 py-4 text-sm text-right sticky bg-white z-10" style={{ left: '460px', width: '120px', minWidth: '120px', maxWidth: '120px' }}></td>
+
+                    const quarterWeeks = WeeklyMetricsService.getWeeksInRange(
+                      currentQuarterInfo.startDate,
+                      currentQuarterInfo.endDate,
+                      weekPreference
+                    )
+                    const quarterSnapshots = quarterWeeks
+                      .map(date => snapshots.find(s => s.week_ending_date === date))
+                      .filter(Boolean) as WeeklyMetricsSnapshot[]
+
+                    const qtd = calculateQTD(quarterSnapshots, 'leads_actual')
+                    const target = Math.round((coreMetrics?.leadsPerMonth?.year1 || 0) / 4)
+                    const progress = getQuarterProgress(currentQuarterInfo)
+                    const trend = getTrendStatus(qtd, target, progress.percentComplete)
+                    const bgColor = trend === 'ahead' ? 'bg-green-50' : trend === 'behind' ? 'bg-red-50' : 'bg-yellow-50'
+
+                    return (
+                      <td className={`px-4 py-4 text-sm text-right font-semibold sticky z-10 ${bgColor}`} style={{ left: '460px', width: '120px', minWidth: '120px', maxWidth: '120px' }}>
+                        {formatNumber(qtd)}
+                      </td>
+                    )
+                  })()}
                   {columns.map((col, idx) => {
                     if (col.type === 'quarter-collapsed') {
                       const qtd = calculateQTD(col.quarterSnapshots || [], 'leads_actual')
+                      const target = Math.round((coreMetrics?.leadsPerMonth?.year1 || 0) / 4)
+                      const progress = currentQuarterInfo ? getQuarterProgress(currentQuarterInfo) : { percentComplete: 0 }
+                      const trend = getTrendStatus(qtd, target, progress.percentComplete)
+                      const bgColor = trend === 'ahead' ? 'bg-green-50' : trend === 'behind' ? 'bg-red-50' : 'bg-yellow-50'
+                      const TrendIcon = trend === 'ahead' ? TrendingUp : trend === 'behind' ? TrendingDown : Minus
+                      const iconColor = trend === 'ahead' ? 'text-green-600' : trend === 'behind' ? 'text-red-600' : 'text-yellow-600'
+
                       return (
-                        <td key={col.quarterKey} className="px-3 py-4 text-sm text-center bg-gray-50 cursor-pointer hover:bg-gray-100"
+                        <td key={col.quarterKey} className={`px-3 py-4 text-sm text-center ${bgColor} cursor-pointer hover:opacity-80`}
                             onClick={() => toggleQuarter(col.quarterKey!)}>
                           <div className="flex flex-col items-center">
-                            <span className="text-gray-900 font-medium">{formatNumber(qtd)}</span>
+                            <span className="text-gray-900 font-medium flex items-center">
+                              {formatNumber(qtd)}
+                              <TrendIcon className={`w-3 h-3 ml-1 ${iconColor}`} />
+                            </span>
                             <span className="text-xs text-gray-500">QTD</span>
                           </div>
                         </td>
@@ -672,27 +1129,36 @@ export default function BusinessDashboardPage() {
                         <td key={col.quarterKey} className="px-3 py-4 text-sm text-center bg-blue-50 border-l-2 border-blue-200"></td>
                       )
                     } else {
+                      const isEditable = isWeekEditable(col.isCurrentWeek || false, col.date)
                       return (
                         <td key={col.date || idx} className={`px-3 py-4 text-sm text-center ${col.isCurrentWeek ? 'bg-blue-50' : ''}`}>
-                          {col.isCurrentWeek ? (
+                          {isEditable ? (
                             <input
                               type="number"
-                              value={currentSnapshot?.leads_actual || ''}
-                              onChange={(e) => updateCurrentSnapshot({ leads_actual: parseInt(e.target.value) || 0 })}
+                              value={col.isCurrentWeek ? currentSnapshot?.leads_actual || '' : col.snapshot?.leads_actual || ''}
+                              onChange={(e) => {
+                                if (col.isCurrentWeek) {
+                                  updateCurrentSnapshot({ leads_actual: parseInt(e.target.value) || 0 })
+                                } else {
+                                  updatePastSnapshot(col.snapshot || null, { leads_actual: parseInt(e.target.value) || 0 })
+                                }
+                              }}
                               onKeyDown={handleKeyDown}
                               className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-300 transition-colors"
                               placeholder="0"
                             />
                           ) : (
-                            <span className="text-gray-900 text-xs">{formatNumber(col.snapshot?.leads_actual)}</span>
+                            <span className="text-gray-900 text-sm">{formatNumber(col.snapshot?.leads_actual)}</span>
                           )}
                         </td>
                       )
                     }
                   })}
                 </tr>
+                )}
 
                 {/* Conversion Rate */}
+                {DashboardPreferencesService.isMetricVisible('conversion_rate', dashboardPreferences) && (
                 <tr className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900 sticky left-0 bg-white z-10" style={{ width: '200px', minWidth: '200px', maxWidth: '200px' }}>
                     Conversion Rate
@@ -703,16 +1169,52 @@ export default function BusinessDashboardPage() {
                   <td className="px-4 py-4 text-sm text-right text-gray-600 font-semibold sticky bg-white z-10" style={{ left: '340px', width: '120px', minWidth: '120px', maxWidth: '120px' }}>
                     {coreMetrics?.conversionRate?.year1 || 0}%
                   </td>
+                  {(() => {
+                    if (!currentQuarterInfo) return <td className="px-4 py-4 text-sm text-right sticky bg-white z-10" style={{ left: '460px', width: '120px', minWidth: '120px', maxWidth: '120px' }}></td>
+
+                    const quarterWeeks = WeeklyMetricsService.getWeeksInRange(
+                      currentQuarterInfo.startDate,
+                      currentQuarterInfo.endDate,
+                      weekPreference
+                    )
+                    const quarterSnapshots = quarterWeeks
+                      .map(date => snapshots.find(s => s.week_ending_date === date))
+                      .filter(Boolean) as WeeklyMetricsSnapshot[]
+
+                    const qtdCount = quarterSnapshots.filter(s => s.conversion_rate_actual).length
+                    const qtdSum = quarterSnapshots.reduce((sum, s) => sum + (s.conversion_rate_actual || 0), 0)
+                    const qtdAvg = qtdCount > 0 ? qtdSum / qtdCount : 0
+                    const target = coreMetrics?.conversionRate?.year1 || 0
+                    const progress = getQuarterProgress(currentQuarterInfo)
+                    const trend = getTrendStatus(qtdAvg, target, progress.percentComplete)
+                    const bgColor = trend === 'ahead' ? 'bg-green-50' : trend === 'behind' ? 'bg-red-50' : 'bg-yellow-50'
+
+                    return (
+                      <td className={`px-4 py-4 text-sm text-right font-semibold sticky z-10 ${bgColor}`} style={{ left: '460px', width: '120px', minWidth: '120px', maxWidth: '120px' }}>
+                        {qtdAvg > 0 ? `${qtdAvg.toFixed(1)}%` : ''}
+                      </td>
+                    )
+                  })()}
                   {columns.map((col, idx) => {
                     if (col.type === 'quarter-collapsed') {
                       const qtdCount = col.quarterSnapshots?.filter(s => s.conversion_rate_actual).length || 0
                       const qtdSum = col.quarterSnapshots?.reduce((sum, s) => sum + (s.conversion_rate_actual || 0), 0) || 0
                       const qtdAvg = qtdCount > 0 ? qtdSum / qtdCount : 0
+                      const target = coreMetrics?.conversionRate?.year1 || 0
+                      const progress = currentQuarterInfo ? getQuarterProgress(currentQuarterInfo) : { percentComplete: 0 }
+                      const trend = getTrendStatus(qtdAvg, target, progress.percentComplete)
+                      const bgColor = trend === 'ahead' ? 'bg-green-50' : trend === 'behind' ? 'bg-red-50' : 'bg-yellow-50'
+                      const TrendIcon = trend === 'ahead' ? TrendingUp : trend === 'behind' ? TrendingDown : Minus
+                      const iconColor = trend === 'ahead' ? 'text-green-600' : trend === 'behind' ? 'text-red-600' : 'text-yellow-600'
+
                       return (
-                        <td key={col.quarterKey} className="px-3 py-4 text-sm text-center bg-gray-50 cursor-pointer hover:bg-gray-100"
+                        <td key={col.quarterKey} className={`px-3 py-4 text-sm text-center ${bgColor} cursor-pointer hover:opacity-80`}
                             onClick={() => toggleQuarter(col.quarterKey!)}>
                           <div className="flex flex-col items-center">
-                            <span className="text-gray-900 font-medium">{qtdAvg > 0 ? `${qtdAvg.toFixed(1)}%` : ''}</span>
+                            <span className="text-gray-900 font-medium flex items-center">
+                              {qtdAvg > 0 ? `${qtdAvg.toFixed(1)}%` : ''}
+                              {qtdAvg > 0 && <TrendIcon className={`w-3 h-3 ml-1 ${iconColor}`} />}
+                            </span>
                             <span className="text-xs text-gray-500">Avg</span>
                           </div>
                         </td>
@@ -722,30 +1224,38 @@ export default function BusinessDashboardPage() {
                         <td key={col.quarterKey} className="px-3 py-4 text-sm text-center bg-blue-50 border-l-2 border-blue-200"></td>
                       )
                     } else {
+                      const isEditable = isWeekEditable(col.isCurrentWeek || false, col.date)
+                      const snapshotData = col.isCurrentWeek ? currentSnapshot : col.snapshot
                       return (
                         <td key={col.date || idx} className={`px-3 py-4 text-sm text-center ${col.isCurrentWeek ? 'bg-blue-50' : ''}`}>
-                          {col.isCurrentWeek ? (
+                          {isEditable ? (
                             <input
                               type="text"
-                              value={currentSnapshot?.conversion_rate_actual ? `${currentSnapshot.conversion_rate_actual}%` : ''}
+                              value={snapshotData?.conversion_rate_actual ? `${snapshotData.conversion_rate_actual}%` : ''}
                               onChange={(e) => {
                                 const numValue = parseFloat(e.target.value.replace('%', '')) || 0
-                                updateCurrentSnapshot({ conversion_rate_actual: numValue })
+                                if (col.isCurrentWeek) {
+                                  updateCurrentSnapshot({ conversion_rate_actual: numValue })
+                                } else {
+                                  updatePastSnapshot(col.snapshot || null, { conversion_rate_actual: numValue })
+                                }
                               }}
                               onKeyDown={handleKeyDown}
                               className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-300 transition-colors"
                               placeholder="0%"
                             />
                           ) : (
-                            <span className="text-gray-900 text-xs">{col.snapshot?.conversion_rate_actual ? `${col.snapshot.conversion_rate_actual}%` : ''}</span>
+                            <span className="text-gray-900 text-sm">{col.snapshot?.conversion_rate_actual ? `${col.snapshot.conversion_rate_actual}%` : ''}</span>
                           )}
                         </td>
                       )
                     }
                   })}
                 </tr>
+                )}
 
                 {/* Avg Transaction Value */}
+                {DashboardPreferencesService.isMetricVisible('avg_transaction', dashboardPreferences) && (
                 <tr className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900 sticky left-0 bg-white z-10" style={{ width: '200px', minWidth: '200px', maxWidth: '200px' }}>
                     Avg Transaction Value
@@ -756,16 +1266,52 @@ export default function BusinessDashboardPage() {
                   <td className="px-4 py-4 text-sm text-right text-gray-600 font-semibold sticky bg-white z-10" style={{ left: '340px', width: '120px', minWidth: '120px', maxWidth: '120px' }}>
                     {formatCurrency((coreMetrics?.avgTransactionValue?.year1 || 0) / 4)}
                   </td>
+                  {(() => {
+                    if (!currentQuarterInfo) return <td className="px-4 py-4 text-sm text-right sticky bg-white z-10" style={{ left: '460px', width: '120px', minWidth: '120px', maxWidth: '120px' }}></td>
+
+                    const quarterWeeks = WeeklyMetricsService.getWeeksInRange(
+                      currentQuarterInfo.startDate,
+                      currentQuarterInfo.endDate,
+                      weekPreference
+                    )
+                    const quarterSnapshots = quarterWeeks
+                      .map(date => snapshots.find(s => s.week_ending_date === date))
+                      .filter(Boolean) as WeeklyMetricsSnapshot[]
+
+                    const qtdCount = quarterSnapshots.filter(s => s.avg_transaction_value_actual).length
+                    const qtdSum = quarterSnapshots.reduce((sum, s) => sum + (s.avg_transaction_value_actual || 0), 0)
+                    const qtdAvg = qtdCount > 0 ? qtdSum / qtdCount : 0
+                    const target = (coreMetrics?.avgTransactionValue?.year1 || 0) / 4
+                    const progress = getQuarterProgress(currentQuarterInfo)
+                    const trend = getTrendStatus(qtdAvg, target, progress.percentComplete)
+                    const bgColor = trend === 'ahead' ? 'bg-green-50' : trend === 'behind' ? 'bg-red-50' : 'bg-yellow-50'
+
+                    return (
+                      <td className={`px-4 py-4 text-sm text-right font-semibold sticky z-10 ${bgColor}`} style={{ left: '460px', width: '120px', minWidth: '120px', maxWidth: '120px' }}>
+                        {formatCurrency(qtdAvg)}
+                      </td>
+                    )
+                  })()}
                   {columns.map((col, idx) => {
                     if (col.type === 'quarter-collapsed') {
                       const qtdCount = col.quarterSnapshots?.filter(s => s.avg_transaction_value_actual).length || 0
                       const qtdSum = col.quarterSnapshots?.reduce((sum, s) => sum + (s.avg_transaction_value_actual || 0), 0) || 0
                       const qtdAvg = qtdCount > 0 ? qtdSum / qtdCount : 0
+                      const target = (coreMetrics?.avgTransactionValue?.year1 || 0) / 4
+                      const progress = currentQuarterInfo ? getQuarterProgress(currentQuarterInfo) : { percentComplete: 0 }
+                      const trend = getTrendStatus(qtdAvg, target, progress.percentComplete)
+                      const bgColor = trend === 'ahead' ? 'bg-green-50' : trend === 'behind' ? 'bg-red-50' : 'bg-yellow-50'
+                      const TrendIcon = trend === 'ahead' ? TrendingUp : trend === 'behind' ? TrendingDown : Minus
+                      const iconColor = trend === 'ahead' ? 'text-green-600' : trend === 'behind' ? 'text-red-600' : 'text-yellow-600'
+
                       return (
-                        <td key={col.quarterKey} className="px-3 py-4 text-sm text-center bg-gray-50 cursor-pointer hover:bg-gray-100"
+                        <td key={col.quarterKey} className={`px-3 py-4 text-sm text-center ${bgColor} cursor-pointer hover:opacity-80`}
                             onClick={() => toggleQuarter(col.quarterKey!)}>
                           <div className="flex flex-col items-center">
-                            <span className="text-gray-900 font-medium">{formatCurrency(qtdAvg)}</span>
+                            <span className="text-gray-900 font-medium flex items-center">
+                              {formatCurrency(qtdAvg)}
+                              {qtdAvg > 0 && <TrendIcon className={`w-3 h-3 ml-1 ${iconColor}`} />}
+                            </span>
                             <span className="text-xs text-gray-500">Avg</span>
                           </div>
                         </td>
@@ -775,27 +1321,36 @@ export default function BusinessDashboardPage() {
                         <td key={col.quarterKey} className="px-3 py-4 text-sm text-center bg-blue-50 border-l-2 border-blue-200"></td>
                       )
                     } else {
+                      const isEditable = isWeekEditable(col.isCurrentWeek || false, col.date)
                       return (
                         <td key={col.date || idx} className={`px-3 py-4 text-sm text-center ${col.isCurrentWeek ? 'bg-blue-50' : ''}`}>
-                          {col.isCurrentWeek ? (
+                          {isEditable ? (
                             <input
                               type="text"
-                              value={formatCurrency(currentSnapshot?.avg_transaction_value_actual || 0)}
-                              onChange={(e) => updateCurrentSnapshot({ avg_transaction_value_actual: parseDollarInput(e.target.value) })}
+                              value={formatCurrency(col.isCurrentWeek ? currentSnapshot?.avg_transaction_value_actual || 0 : col.snapshot?.avg_transaction_value_actual || 0)}
+                              onChange={(e) => {
+                                if (col.isCurrentWeek) {
+                                  updateCurrentSnapshot({ avg_transaction_value_actual: parseDollarInput(e.target.value) })
+                                } else {
+                                  updatePastSnapshot(col.snapshot || null, { avg_transaction_value_actual: parseDollarInput(e.target.value) })
+                                }
+                              }}
                               onKeyDown={handleKeyDown}
                               className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-300 transition-colors"
                               placeholder="$0"
                             />
                           ) : (
-                            <span className="text-gray-900 text-xs">{formatCurrency(col.snapshot?.avg_transaction_value_actual)}</span>
+                            <span className="text-gray-900 text-sm">{formatCurrency(col.snapshot?.avg_transaction_value_actual)}</span>
                           )}
                         </td>
                       )
                     }
                   })}
                 </tr>
+                )}
 
                 {/* Team Headcount */}
+                {DashboardPreferencesService.isMetricVisible('team_headcount', dashboardPreferences) && (
                 <tr className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900 sticky left-0 bg-white z-10" style={{ width: '200px', minWidth: '200px', maxWidth: '200px' }}>
                     Team Headcount
@@ -806,15 +1361,50 @@ export default function BusinessDashboardPage() {
                   <td className="px-4 py-4 text-sm text-right text-gray-600 font-semibold sticky bg-white z-10" style={{ left: '340px', width: '120px', minWidth: '120px', maxWidth: '120px' }}>
                     {Math.round((coreMetrics?.teamHeadcount?.year1 || 0) / 4)}
                   </td>
+                  {(() => {
+                    if (!currentQuarterInfo) return <td className="px-4 py-4 text-sm text-right sticky bg-white z-10" style={{ left: '460px', width: '120px', minWidth: '120px', maxWidth: '120px' }}></td>
+
+                    const quarterWeeks = WeeklyMetricsService.getWeeksInRange(
+                      currentQuarterInfo.startDate,
+                      currentQuarterInfo.endDate,
+                      weekPreference
+                    )
+                    const quarterSnapshots = quarterWeeks
+                      .map(date => snapshots.find(s => s.week_ending_date === date))
+                      .filter(Boolean) as WeeklyMetricsSnapshot[]
+
+                    const lastSnapshot = quarterSnapshots[quarterSnapshots.length - 1]
+                    const headcount = lastSnapshot?.team_headcount_actual || 0
+                    const target = Math.round((coreMetrics?.teamHeadcount?.year1 || 0) / 4)
+                    const progress = getQuarterProgress(currentQuarterInfo)
+                    const trend = getTrendStatus(headcount, target, progress.percentComplete)
+                    const bgColor = trend === 'ahead' ? 'bg-green-50' : trend === 'behind' ? 'bg-red-50' : 'bg-yellow-50'
+
+                    return (
+                      <td className={`px-4 py-4 text-sm text-right font-semibold sticky z-10 ${bgColor}`} style={{ left: '460px', width: '120px', minWidth: '120px', maxWidth: '120px' }}>
+                        {formatNumber(headcount)}
+                      </td>
+                    )
+                  })()}
                   {columns.map((col, idx) => {
                     if (col.type === 'quarter-collapsed') {
                       const lastSnapshot = col.quarterSnapshots?.[col.quarterSnapshots.length - 1]
                       const headcount = lastSnapshot?.team_headcount_actual || 0
+                      const target = Math.round((coreMetrics?.teamHeadcount?.year1 || 0) / 4)
+                      const progress = currentQuarterInfo ? getQuarterProgress(currentQuarterInfo) : { percentComplete: 0 }
+                      const trend = getTrendStatus(headcount, target, progress.percentComplete)
+                      const bgColor = trend === 'ahead' ? 'bg-green-50' : trend === 'behind' ? 'bg-red-50' : 'bg-yellow-50'
+                      const TrendIcon = trend === 'ahead' ? TrendingUp : trend === 'behind' ? TrendingDown : Minus
+                      const iconColor = trend === 'ahead' ? 'text-green-600' : trend === 'behind' ? 'text-red-600' : 'text-yellow-600'
+
                       return (
-                        <td key={col.quarterKey} className="px-3 py-4 text-sm text-center bg-gray-50 cursor-pointer hover:bg-gray-100"
+                        <td key={col.quarterKey} className={`px-3 py-4 text-sm text-center ${bgColor} cursor-pointer hover:opacity-80`}
                             onClick={() => toggleQuarter(col.quarterKey!)}>
                           <div className="flex flex-col items-center">
-                            <span className="text-gray-900 font-medium">{formatNumber(headcount)}</span>
+                            <span className="text-gray-900 font-medium flex items-center">
+                              {formatNumber(headcount)}
+                              {headcount > 0 && <TrendIcon className={`w-3 h-3 ml-1 ${iconColor}`} />}
+                            </span>
                             <span className="text-xs text-gray-500">Latest</span>
                           </div>
                         </td>
@@ -824,38 +1414,141 @@ export default function BusinessDashboardPage() {
                         <td key={col.quarterKey} className="px-3 py-4 text-sm text-center bg-blue-50 border-l-2 border-blue-200"></td>
                       )
                     } else {
+                      const isEditable = isWeekEditable(col.isCurrentWeek || false, col.date)
                       return (
                         <td key={col.date || idx} className={`px-3 py-4 text-sm text-center ${col.isCurrentWeek ? 'bg-blue-50' : ''}`}>
-                          {col.isCurrentWeek ? (
+                          {isEditable ? (
                             <input
                               type="number"
-                              value={currentSnapshot?.team_headcount_actual || ''}
-                              onChange={(e) => updateCurrentSnapshot({ team_headcount_actual: parseInt(e.target.value) || 0 })}
+                              value={col.isCurrentWeek ? currentSnapshot?.team_headcount_actual || '' : col.snapshot?.team_headcount_actual || ''}
+                              onChange={(e) => {
+                                if (col.isCurrentWeek) {
+                                  updateCurrentSnapshot({ team_headcount_actual: parseInt(e.target.value) || 0 })
+                                } else {
+                                  updatePastSnapshot(col.snapshot || null, { team_headcount_actual: parseInt(e.target.value) || 0 })
+                                }
+                              }}
                               onKeyDown={handleKeyDown}
                               className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-300 transition-colors"
                               placeholder="0"
                             />
                           ) : (
-                            <span className="text-gray-900 text-xs">{formatNumber(col.snapshot?.team_headcount_actual)}</span>
+                            <span className="text-gray-900 text-sm">{formatNumber(col.snapshot?.team_headcount_actual)}</span>
                           )}
                         </td>
                       )
                     }
                   })}
                 </tr>
+                )}
+
+                {/* Owner Hours per Week */}
+                {DashboardPreferencesService.isMetricVisible('owner_hours', dashboardPreferences) && (
+                <tr className="hover:bg-gray-50">
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900 sticky left-0 bg-white z-10" style={{ width: '200px', minWidth: '200px', maxWidth: '200px' }}>
+                    Owner Hours per Week
+                  </td>
+                  <td className="px-4 py-4 text-sm text-right text-gray-600 font-semibold sticky bg-white z-10" style={{ left: '200px', width: '140px', minWidth: '140px', maxWidth: '140px' }}>
+                    {coreMetrics?.ownerHoursPerWeek?.year1 || 0}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-right text-gray-600 font-semibold sticky bg-white z-10" style={{ left: '340px', width: '120px', minWidth: '120px', maxWidth: '120px' }}>
+                    {Math.round((coreMetrics?.ownerHoursPerWeek?.year1 || 0) / 4)}
+                  </td>
+                  {(() => {
+                    if (!currentQuarterInfo) return <td className="px-4 py-4 text-sm text-right sticky bg-white z-10" style={{ left: '460px', width: '120px', minWidth: '120px', maxWidth: '120px' }}></td>
+
+                    const quarterWeeks = WeeklyMetricsService.getWeeksInRange(
+                      currentQuarterInfo.startDate,
+                      currentQuarterInfo.endDate,
+                      weekPreference
+                    )
+                    const quarterSnapshots = quarterWeeks
+                      .map(date => snapshots.find(s => s.week_ending_date === date))
+                      .filter(Boolean) as WeeklyMetricsSnapshot[]
+
+                    const lastSnapshot = quarterSnapshots[quarterSnapshots.length - 1]
+                    const hours = lastSnapshot?.owner_hours_actual || 0
+                    const target = Math.round((coreMetrics?.ownerHoursPerWeek?.year1 || 0) / 4)
+                    const progress = getQuarterProgress(currentQuarterInfo)
+                    const trend = getTrendStatus(hours, target, progress.percentComplete)
+                    const bgColor = trend === 'ahead' ? 'bg-green-50' : trend === 'behind' ? 'bg-red-50' : 'bg-yellow-50'
+
+                    return (
+                      <td className={`px-4 py-4 text-sm text-right font-semibold sticky z-10 ${bgColor}`} style={{ left: '460px', width: '120px', minWidth: '120px', maxWidth: '120px' }}>
+                        {formatNumber(hours)}
+                      </td>
+                    )
+                  })()}
+                  {columns.map((col, idx) => {
+                    if (col.type === 'quarter-collapsed') {
+                      const lastSnapshot = col.quarterSnapshots?.[col.quarterSnapshots.length - 1]
+                      const hours = lastSnapshot?.owner_hours_actual || 0
+                      const target = Math.round((coreMetrics?.ownerHoursPerWeek?.year1 || 0) / 4)
+                      const progress = currentQuarterInfo ? getQuarterProgress(currentQuarterInfo) : { percentComplete: 0 }
+                      const trend = getTrendStatus(hours, target, progress.percentComplete)
+                      const bgColor = trend === 'ahead' ? 'bg-green-50' : trend === 'behind' ? 'bg-red-50' : 'bg-yellow-50'
+                      const TrendIcon = trend === 'ahead' ? TrendingUp : trend === 'behind' ? TrendingDown : Minus
+                      const iconColor = trend === 'ahead' ? 'text-green-600' : trend === 'behind' ? 'text-red-600' : 'text-yellow-600'
+
+                      return (
+                        <td key={col.quarterKey} className={`px-3 py-4 text-sm text-center ${bgColor} cursor-pointer hover:opacity-80`}
+                            onClick={() => toggleQuarter(col.quarterKey!)}>
+                          <div className="flex flex-col items-center">
+                            <span className="text-gray-900 font-medium flex items-center">
+                              {formatNumber(hours)}
+                              {hours > 0 && <TrendIcon className={`w-3 h-3 ml-1 ${iconColor}`} />}
+                            </span>
+                            <span className="text-xs text-gray-500">Latest</span>
+                          </div>
+                        </td>
+                      )
+                    } else if (col.type === 'quarter-header') {
+                      return (
+                        <td key={col.quarterKey} className="px-3 py-4 text-sm text-center bg-blue-50 border-l-2 border-blue-200"></td>
+                      )
+                    } else {
+                      const isEditable = isWeekEditable(col.isCurrentWeek || false, col.date)
+                      return (
+                        <td key={col.date || idx} className={`px-3 py-4 text-sm text-center ${col.isCurrentWeek ? 'bg-blue-50' : ''}`}>
+                          {isEditable ? (
+                            <input
+                              type="number"
+                              value={col.isCurrentWeek ? currentSnapshot?.owner_hours_actual || '' : col.snapshot?.owner_hours_actual || ''}
+                              onChange={(e) => {
+                                if (col.isCurrentWeek) {
+                                  updateCurrentSnapshot({ owner_hours_actual: parseFloat(e.target.value) || 0 })
+                                } else {
+                                  updatePastSnapshot(col.snapshot || null, { owner_hours_actual: parseFloat(e.target.value) || 0 })
+                                }
+                              }}
+                              onKeyDown={handleKeyDown}
+                              className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-300 transition-colors"
+                              placeholder="0"
+                            />
+                          ) : (
+                            <span className="text-gray-900 text-sm">{formatNumber(col.snapshot?.owner_hours_actual)}</span>
+                          )}
+                        </td>
+                      )
+                    }
+                  })}
+                </tr>
+                )}
 
                 {/* Custom KPIs Section Header */}
-                {kpis.length > 0 && (
+                {kpis.filter(kpi => DashboardPreferencesService.isKpiVisible(kpi.id, dashboardPreferences)).length > 0 && (
                   <tr className="bg-gray-100">
                     <td className="px-6 py-3 text-left text-sm font-bold text-gray-900 uppercase tracking-wider sticky left-0 bg-gray-100 z-10" style={{ width: '200px', minWidth: '200px', maxWidth: '200px' }}>
                       Custom KPIs
                     </td>
-                    <td colSpan={2 + columns.length} className="px-4 py-3 bg-gray-100"></td>
+                    <td colSpan={3 + columns.length} className="px-4 py-3 bg-gray-100"></td>
                   </tr>
                 )}
 
                 {/* Custom KPI Rows */}
-                {kpis.map((kpi) => (
+                {kpis
+                  .filter(kpi => DashboardPreferencesService.isKpiVisible(kpi.id, dashboardPreferences))
+                  .map((kpi) => (
                     <tr key={kpi.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm font-medium text-gray-900 sticky left-0 bg-white z-10" style={{ width: '200px', minWidth: '200px', maxWidth: '200px' }}>
                         {kpi.name}
@@ -870,20 +1563,84 @@ export default function BusinessDashboardPage() {
                          kpi.unit === 'percentage' ? `${Math.round(kpi.year1Target / 4)}%` :
                          formatNumber(Math.round(kpi.year1Target / 4))}
                       </td>
+                      {(() => {
+                        if (!currentQuarterInfo) return <td className="px-4 py-4 text-sm text-right sticky bg-white z-10" style={{ left: '460px', width: '120px', minWidth: '120px', maxWidth: '120px' }}></td>
+
+                        const quarterWeeks = WeeklyMetricsService.getWeeksInRange(
+                          currentQuarterInfo.startDate,
+                          currentQuarterInfo.endDate,
+                          weekPreference
+                        )
+                        const quarterSnapshots = quarterWeeks
+                          .map(date => snapshots.find(s => s.week_ending_date === date))
+                          .filter(Boolean) as WeeklyMetricsSnapshot[]
+
+                        let qtd: number
+                        if (kpi.unit === 'percentage') {
+                          const qtdCount = quarterSnapshots.filter(s => s.kpi_actuals?.[kpi.id]).length
+                          const qtdSum = quarterSnapshots.reduce((sum, s) => sum + (s.kpi_actuals?.[kpi.id] || 0), 0)
+                          qtd = qtdCount > 0 ? qtdSum / qtdCount : 0
+                        } else {
+                          qtd = calculateKpiQTD(quarterSnapshots, kpi.id)
+                        }
+
+                        const target = Math.round(kpi.year1Target / 4)
+                        const progress = getQuarterProgress(currentQuarterInfo)
+                        const trend = getTrendStatus(qtd, target, progress.percentComplete)
+                        const bgColor = trend === 'ahead' ? 'bg-green-50' : trend === 'behind' ? 'bg-red-50' : 'bg-yellow-50'
+
+                        const formattedQtd = qtd ? (
+                          kpi.unit === 'currency' ? formatCurrency(qtd) :
+                          kpi.unit === 'percentage' ? `${qtd.toFixed(1)}%` :
+                          formatNumber(qtd)
+                        ) : ''
+
+                        return (
+                          <td className={`px-4 py-4 text-sm text-right font-semibold sticky z-10 ${bgColor}`} style={{ left: '460px', width: '120px', minWidth: '120px', maxWidth: '120px' }}>
+                            {formattedQtd}
+                          </td>
+                        )
+                      })()}
                       {columns.map((col, idx) => {
                         if (col.type === 'quarter-collapsed') {
-                          const qtd = calculateKpiQTD(col.quarterSnapshots || [], kpi.id)
+                          // Calculate QTD based on unit type
+                          let qtd: number
+                          let label: string
+
+                          if (kpi.unit === 'percentage') {
+                            // For percentages, calculate average
+                            const qtdCount = col.quarterSnapshots?.filter(s => s.kpi_actuals?.[kpi.id]).length || 0
+                            const qtdSum = col.quarterSnapshots?.reduce((sum, s) => sum + (s.kpi_actuals?.[kpi.id] || 0), 0) || 0
+                            qtd = qtdCount > 0 ? qtdSum / qtdCount : 0
+                            label = 'Avg'
+                          } else {
+                            // For currency and number, sum
+                            qtd = calculateKpiQTD(col.quarterSnapshots || [], kpi.id)
+                            label = 'QTD'
+                          }
+
+                          const target = Math.round(kpi.year1Target / 4)
+                          const progress = currentQuarterInfo ? getQuarterProgress(currentQuarterInfo) : { percentComplete: 0 }
+                          const trend = getTrendStatus(qtd, target, progress.percentComplete)
+                          const bgColor = trend === 'ahead' ? 'bg-green-50' : trend === 'behind' ? 'bg-red-50' : 'bg-yellow-50'
+                          const TrendIcon = trend === 'ahead' ? TrendingUp : trend === 'behind' ? TrendingDown : Minus
+                          const iconColor = trend === 'ahead' ? 'text-green-600' : trend === 'behind' ? 'text-red-600' : 'text-yellow-600'
+
                           const formattedQtd = qtd ? (
                             kpi.unit === 'currency' ? formatCurrency(qtd) :
-                            kpi.unit === 'percentage' ? `${qtd}%` :
+                            kpi.unit === 'percentage' ? `${qtd.toFixed(1)}%` :
                             formatNumber(qtd)
                           ) : ''
+
                           return (
-                            <td key={col.quarterKey} className="px-3 py-4 text-sm text-center bg-gray-50 cursor-pointer hover:bg-gray-100"
+                            <td key={col.quarterKey} className={`px-3 py-4 text-sm text-center ${bgColor} cursor-pointer hover:opacity-80`}
                                 onClick={() => toggleQuarter(col.quarterKey!)}>
                               <div className="flex flex-col items-center">
-                                <span className="text-gray-900 font-medium">{formattedQtd}</span>
-                                <span className="text-xs text-gray-500">QTD</span>
+                                <span className="text-gray-900 font-medium flex items-center">
+                                  {formattedQtd}
+                                  {qtd > 0 && <TrendIcon className={`w-3 h-3 ml-1 ${iconColor}`} />}
+                                </span>
+                                <span className="text-xs text-gray-500">{label}</span>
                               </div>
                             </td>
                           )
@@ -892,19 +1649,28 @@ export default function BusinessDashboardPage() {
                             <td key={col.quarterKey} className="px-3 py-4 text-sm text-center bg-blue-50 border-l-2 border-blue-200"></td>
                           )
                         } else {
-                          const value = col.snapshot?.kpi_actuals?.[kpi.id]
+                          const isEditable = isWeekEditable(col.isCurrentWeek || false, col.date)
+                          const snapshotData = col.isCurrentWeek ? currentSnapshot : col.snapshot
+                          const value = snapshotData?.kpi_actuals?.[kpi.id]
                           return (
                             <td key={col.date || idx} className={`px-3 py-4 text-sm text-center ${col.isCurrentWeek ? 'bg-blue-50' : ''}`}>
-                              {col.isCurrentWeek ? (
+                              {isEditable ? (
                                 <>
                                   {kpi.unit === 'currency' ? (
                                     <input
                                       type="text"
-                                      value={formatCurrency(currentSnapshot?.kpi_actuals?.[kpi.id] || 0)}
+                                      value={formatCurrency(value || 0)}
                                       onChange={(e) => {
-                                        const newKpiActuals = { ...currentSnapshot?.kpi_actuals }
-                                        newKpiActuals[kpi.id] = parseDollarInput(e.target.value)
-                                        updateCurrentSnapshot({ kpi_actuals: newKpiActuals })
+                                        const parsedValue = parseDollarInput(e.target.value)
+                                        if (col.isCurrentWeek) {
+                                          const newKpiActuals = { ...currentSnapshot?.kpi_actuals }
+                                          newKpiActuals[kpi.id] = parsedValue
+                                          updateCurrentSnapshot({ kpi_actuals: newKpiActuals })
+                                        } else {
+                                          const newKpiActuals = { ...col.snapshot?.kpi_actuals }
+                                          newKpiActuals[kpi.id] = parsedValue
+                                          updatePastSnapshot(col.snapshot || null, { kpi_actuals: newKpiActuals })
+                                        }
                                       }}
                                       onKeyDown={handleKeyDown}
                                       className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-300 transition-colors"
@@ -913,12 +1679,18 @@ export default function BusinessDashboardPage() {
                                   ) : kpi.unit === 'percentage' ? (
                                     <input
                                       type="text"
-                                      value={currentSnapshot?.kpi_actuals?.[kpi.id] ? `${currentSnapshot.kpi_actuals[kpi.id]}%` : ''}
+                                      value={value ? `${value}%` : ''}
                                       onChange={(e) => {
                                         const numValue = parseFloat(e.target.value.replace('%', '')) || 0
-                                        const newKpiActuals = { ...currentSnapshot?.kpi_actuals }
-                                        newKpiActuals[kpi.id] = numValue
-                                        updateCurrentSnapshot({ kpi_actuals: newKpiActuals })
+                                        if (col.isCurrentWeek) {
+                                          const newKpiActuals = { ...currentSnapshot?.kpi_actuals }
+                                          newKpiActuals[kpi.id] = numValue
+                                          updateCurrentSnapshot({ kpi_actuals: newKpiActuals })
+                                        } else {
+                                          const newKpiActuals = { ...col.snapshot?.kpi_actuals }
+                                          newKpiActuals[kpi.id] = numValue
+                                          updatePastSnapshot(col.snapshot || null, { kpi_actuals: newKpiActuals })
+                                        }
                                       }}
                                       onKeyDown={handleKeyDown}
                                       className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-300 transition-colors"
@@ -927,11 +1699,18 @@ export default function BusinessDashboardPage() {
                                   ) : (
                                     <input
                                       type="number"
-                                      value={currentSnapshot?.kpi_actuals?.[kpi.id] || ''}
+                                      value={value || ''}
                                       onChange={(e) => {
-                                        const newKpiActuals = { ...currentSnapshot?.kpi_actuals }
-                                        newKpiActuals[kpi.id] = parseFloat(e.target.value) || 0
-                                        updateCurrentSnapshot({ kpi_actuals: newKpiActuals })
+                                        const parsedValue = parseFloat(e.target.value) || 0
+                                        if (col.isCurrentWeek) {
+                                          const newKpiActuals = { ...currentSnapshot?.kpi_actuals }
+                                          newKpiActuals[kpi.id] = parsedValue
+                                          updateCurrentSnapshot({ kpi_actuals: newKpiActuals })
+                                        } else {
+                                          const newKpiActuals = { ...col.snapshot?.kpi_actuals }
+                                          newKpiActuals[kpi.id] = parsedValue
+                                          updatePastSnapshot(col.snapshot || null, { kpi_actuals: newKpiActuals })
+                                        }
                                       }}
                                       onKeyDown={handleKeyDown}
                                       className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-300 transition-colors"
@@ -940,7 +1719,7 @@ export default function BusinessDashboardPage() {
                                   )}
                                 </>
                               ) : (
-                                <span className="text-gray-900 text-xs">
+                                <span className="text-gray-900 text-sm">
                                   {value ? (
                                     kpi.unit === 'currency' ? formatCurrency(value) :
                                     kpi.unit === 'percentage' ? `${value}%` :
@@ -959,6 +1738,20 @@ export default function BusinessDashboardPage() {
           </div>
           </form>
         </div>
+
+        {/* Manage Metrics Modal */}
+        {dashboardPreferences && (
+          <ManageMetricsModal
+            isOpen={isManageMetricsOpen}
+            onClose={() => setIsManageMetricsOpen(false)}
+            preferences={dashboardPreferences}
+            kpis={kpis}
+            onSave={savePreferences}
+            businessId={businessId}
+            userId={userId}
+            onKpiCreated={handleKpiCreated}
+          />
+        )}
       </div>
     </div>
   )
