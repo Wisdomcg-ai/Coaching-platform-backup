@@ -8,12 +8,11 @@ const supabase = createClient(
 
 /**
  * GET /api/annual-plan?user_id=xxx
- * Fetches the user's annual plan data including 12-month targets
+ * Fetches the user's annual plan data including Year 1 targets from Goals & Targets wizard
  *
- * This API combines data from multiple sources:
- * 1. Assessment data (12-month revenue/profit targets)
+ * This API fetches data from:
+ * 1. business_financial_goals table (Year 1 targets from Goals & Targets wizard)
  * 2. Strategic initiatives (selected for annual plan)
- * 3. Strategic plans table (if exists)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -24,86 +23,69 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'user_id is required' }, { status: 400 })
     }
 
-    // 1. Get the latest assessment with 12-month targets
-    const { data: assessment, error: assessmentError } = await supabase
-      .from('assessments')
-      .select('*')
+    // 1. Get business profile to find business_id
+    const { data: businessProfile } = await supabase
+      .from('business_profiles')
+      .select('id, business_name, annual_revenue')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(1)
       .maybeSingle()
 
-    // Extract 12-month targets from assessment
-    let revenueTarget = null
-    let profitTarget = null
-    let assessmentDate = null
-
-    if (assessment && !assessmentError) {
-      assessmentDate = assessment.created_at
-
-      // Check various possible field names in the answers JSONB
-      if (assessment.answers) {
-        revenueTarget =
-          assessment.answers.targetRevenue ||
-          assessment.answers.target_revenue ||
-          assessment.answers.revenue_target ||
-          assessment.answers['12_month_revenue_target']
-
-        profitTarget =
-          assessment.answers.targetProfit ||
-          assessment.answers.target_profit ||
-          assessment.answers.profit_target ||
-          assessment.answers['12_month_profit_target']
-      }
+    if (!businessProfile) {
+      return NextResponse.json({
+        error: 'No business profile found',
+        revenue_target: null,
+        profit_target: null,
+        source: 'none'
+      }, { status: 404 })
     }
 
-    // 2. Get strategic initiatives selected for annual plan
-    const { data: initiatives, error: initiativesError } = await supabase
+    // 2. Get financial goals from Goals & Targets wizard
+    const { data: financialGoals, error: goalsError } = await supabase
+      .from('business_financial_goals')
+      .select('*')
+      .eq('business_id', businessProfile.id)
+      .maybeSingle()
+
+    // Extract Year 1 targets (12-month targets)
+    let revenueTarget = null
+    let profitTarget = null
+    let goalsDate = null
+
+    if (financialGoals && !goalsError) {
+      revenueTarget = financialGoals.revenue_year1 || null
+      profitTarget = financialGoals.net_profit_year1 || null
+      goalsDate = financialGoals.updated_at
+    }
+
+    // 3. Get strategic initiatives selected for annual plan
+    const { data: initiatives } = await supabase
       .from('strategic_initiatives')
       .select('*')
       .eq('user_id', userId)
       .eq('selected_for_annual_plan', true)
       .order('created_at', { ascending: false })
 
-    // 3. Try to get strategic plan (if exists)
-    const { data: strategicPlan, error: planError } = await supabase
-      .from('strategic_plans')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    // 4. Get business profile for context
-    const { data: businessProfile } = await supabase
-      .from('business_profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle()
-
     // Prepare response
     const annualPlanData = {
-      // Financial targets
+      // Financial targets (Year 1 from Goals & Targets wizard)
       revenue_target: revenueTarget,
       profit_target: profitTarget,
 
       // Source information
-      has_assessment: !!assessment,
-      assessment_date: assessmentDate,
-      has_strategic_plan: !!strategicPlan,
-      strategic_plan_id: strategicPlan?.id || null,
+      has_financial_goals: !!financialGoals,
+      goals_date: goalsDate,
 
       // Strategic context
       initiatives_count: initiatives?.length || 0,
       initiatives: initiatives || [],
 
       // Business context
-      business_name: businessProfile?.business_name || '',
-      current_revenue: businessProfile?.annual_revenue || null,
+      business_name: businessProfile.business_name || '',
+      business_id: businessProfile.id,
+      current_revenue: businessProfile.annual_revenue || null,
 
       // Metadata
-      source: assessment ? 'assessment' : strategicPlan ? 'strategic_plan' : 'none'
+      source: financialGoals ? 'goals_wizard' : 'none'
     }
 
     return NextResponse.json(annualPlanData)

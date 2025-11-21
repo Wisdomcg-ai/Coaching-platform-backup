@@ -682,18 +682,18 @@ export default function FinancialForecastPage() {
       // Check if we have data to import
       if (!annualPlanData.revenue_target && !annualPlanData.profit_target) {
         alert(
-          'No annual plan targets found. Please complete your business assessment first to set 12-month targets, or enter goals manually.'
+          'No annual plan targets found. Please complete the Goals & Targets wizard first to set Year 1 targets, or enter goals manually.'
         )
         setIsSaving(false)
         return
       }
 
       // Show confirmation dialog with what will be imported
-      const confirmMessage = `Import the following from your Annual Plan?\n\n` +
-        `Revenue Target: ${annualPlanData.revenue_target ? `$${annualPlanData.revenue_target.toLocaleString()}` : 'Not set'}\n` +
-        `Profit Target: ${annualPlanData.profit_target ? `$${annualPlanData.profit_target.toLocaleString()}` : 'Not set'}\n` +
-        `Source: ${annualPlanData.source === 'assessment' ? 'Business Assessment' : 'Strategic Plan'}\n` +
-        (annualPlanData.assessment_date ? `Date: ${new Date(annualPlanData.assessment_date).toLocaleDateString()}` : '') +
+      const confirmMessage = `Import the following from your Goals & Targets wizard?\n\n` +
+        `Revenue Target (Year 1): ${annualPlanData.revenue_target ? `$${annualPlanData.revenue_target.toLocaleString()}` : 'Not set'}\n` +
+        `Net Profit Target (Year 1): ${annualPlanData.profit_target ? `$${annualPlanData.profit_target.toLocaleString()}` : 'Not set'}\n` +
+        `Source: Goals & Targets Wizard\n` +
+        (annualPlanData.goals_date ? `Last Updated: ${new Date(annualPlanData.goals_date).toLocaleDateString()}` : '') +
         `\n\nThis will update your current forecast goals.`
 
       if (!confirm(confirmMessage)) {
@@ -715,8 +715,8 @@ export default function FinancialForecastPage() {
           revenue_goal: revenueGoal,
           gross_profit_goal: estimatedGrossProfit,
           net_profit_goal: netProfitGoal,
-          goal_source: annualPlanData.source === 'assessment' ? 'annual_plan' : 'manual',
-          annual_plan_id: annualPlanData.strategic_plan_id,
+          goal_source: 'goals_wizard',
+          annual_plan_id: annualPlanData.business_id,
           updated_at: new Date().toISOString()
         })
         .eq('id', forecast.id)
@@ -731,12 +731,12 @@ export default function FinancialForecastPage() {
           revenue_goal: revenueGoal,
           gross_profit_goal: estimatedGrossProfit,
           net_profit_goal: netProfitGoal,
-          goal_source: annualPlanData.source === 'assessment' ? 'annual_plan' : 'manual',
-          annual_plan_id: annualPlanData.strategic_plan_id
+          goal_source: 'goals_wizard',
+          annual_plan_id: annualPlanData.business_id
         })
 
         alert(
-          `Successfully imported goals from your ${annualPlanData.source === 'assessment' ? 'assessment' : 'strategic plan'}!\n\n` +
+          `Successfully imported goals from your Goals & Targets wizard!\n\n` +
           `Revenue: $${revenueGoal.toLocaleString()}\n` +
           `Estimated Gross Profit: $${estimatedGrossProfit.toLocaleString()}\n` +
           `Net Profit: $${netProfitGoal.toLocaleString()}\n\n` +
