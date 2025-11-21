@@ -140,12 +140,12 @@ export default function FinancialForecastPage() {
       const xeroConn = await ForecastService.getXeroConnection(bizId)
       setXeroConnection(xeroConn)
 
-      // Load scenarios if we have a forecast
-      if (loadedForecast?.id) {
-        await loadScenarios(loadedForecast.id)
-      }
-
       setIsLoading(false)
+
+      // Load scenarios if we have a forecast (run after loading to not block UI)
+      if (loadedForecast?.id) {
+        loadScenarios(loadedForecast.id).catch(console.error)
+      }
     } catch (err) {
       console.error('[Forecast] Error in loadInitialData:', err)
       setError(err instanceof Error ? err.message : 'Failed to load forecast data')
@@ -156,9 +156,13 @@ export default function FinancialForecastPage() {
   // Scenario management functions
   const loadScenarios = async (forecastId: string) => {
     try {
-      const response = await fetch(`/api/forecasts/scenarios?forecast_id=${forecastId}`)
+      const response = await fetch(`/api/forecasts/scenarios?forecast_id=${forecastId}`, {
+        credentials: 'include'
+      })
       if (!response.ok) {
-        throw new Error('Failed to fetch scenarios')
+        // Scenarios are optional - just log and continue
+        console.log('Scenarios not available (this is fine - feature is optional)')
+        return
       }
       const data = await response.json()
       setScenarios(data.scenarios || [])
@@ -172,7 +176,8 @@ export default function FinancialForecastPage() {
         setActiveScenario(data.scenarios[0])
       }
     } catch (error) {
-      console.error('Error loading scenarios:', error)
+      // Scenarios are optional - just log and continue
+      console.log('Scenarios feature not available:', error)
     }
   }
 
