@@ -11,6 +11,7 @@ import PLForecastTable from './components/PLForecastTable'
 import PayrollTable from './components/PayrollTable'
 import AssumptionsTab from './components/AssumptionsTab'
 import CompletenessChecker from './components/CompletenessChecker'
+import AuditLogViewer from './components/AuditLogViewer'
 
 export default function FinancialForecastPage() {
   const supabase = createClient()
@@ -25,7 +26,7 @@ export default function FinancialForecastPage() {
   const [employees, setEmployees] = useState<ForecastEmployee[]>([])
   const [xeroConnection, setXeroConnection] = useState<XeroConnection | null>(null)
 
-  const [activeTab, setActiveTab] = useState<'assumptions' | 'pl' | 'payroll'>('assumptions')
+  const [activeTab, setActiveTab] = useState<'assumptions' | 'pl' | 'payroll' | 'history'>('assumptions')
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
@@ -687,6 +688,19 @@ export default function FinancialForecastPage() {
                   <span>Payroll & Staff</span>
                 </div>
               </button>
+              <button
+                onClick={() => setActiveTab('history')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'history'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center space-x-2">
+                  <Settings className="w-4 h-4" />
+                  <span>Change History</span>
+                </div>
+              </button>
             </nav>
           </div>
         </div>
@@ -718,6 +732,10 @@ export default function FinancialForecastPage() {
             employees={employees}
             onSave={handleSaveEmployees}
           />
+        )}
+
+        {activeTab === 'history' && forecast?.id && (
+          <AuditLogViewer forecastId={forecast.id} />
         )}
       </div>
     </div>
