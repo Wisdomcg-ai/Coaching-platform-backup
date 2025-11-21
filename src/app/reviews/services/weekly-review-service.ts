@@ -87,8 +87,12 @@ export class WeeklyReviewService {
   static getWeekEnd(date: Date = new Date()): string {
     const d = new Date(date)
     const day = d.getDay()
-    const diff = d.getDate() - day + (day === 0 ? 0 : 7)
-    d.setDate(diff)
+    // Calculate days to add to get to Sunday
+    // If Sunday (0), add 0 days
+    // If Monday (1), add 6 days
+    // If Tuesday (2), add 5 days, etc.
+    const daysToAdd = day === 0 ? 0 : 7 - day
+    d.setDate(d.getDate() + daysToAdd)
     return d.toISOString().split('T')[0]
   }
 

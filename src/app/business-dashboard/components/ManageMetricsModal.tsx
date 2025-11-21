@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { X, Plus } from 'lucide-react'
 import type { DashboardPreferences } from '../services/dashboard-preferences-service'
 import type { KPIData } from '@/app/goals/types'

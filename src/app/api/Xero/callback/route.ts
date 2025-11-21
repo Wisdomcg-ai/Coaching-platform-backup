@@ -14,8 +14,8 @@ const supabase = createClient(
 const XERO_CLIENT_ID = process.env.XERO_CLIENT_ID!;
 const XERO_CLIENT_SECRET = process.env.XERO_CLIENT_SECRET!;
 const REDIRECT_URI = process.env.NODE_ENV === 'production'
-  ? 'https://your-domain.com/api/xero/callback'  // Update this with your real domain
-  : 'http://localhost:3000/api/xero/callback';
+  ? 'https://your-domain.com/api/Xero/callback'  // Update this with your real domain
+  : 'http://localhost:3002/api/Xero/callback';
 
 // Xero token URL
 const XERO_TOKEN_URL = 'https://identity.xero.com/connect/token';
@@ -32,12 +32,16 @@ export async function GET(request: NextRequest) {
     // Check for errors from Xero
     if (error) {
       console.error('Xero returned error:', error);
-      return NextResponse.redirect('/integrations?error=xero_denied');
+      return NextResponse.redirect(
+        new URL('/xero-connect?error=xero_denied', request.url)
+      );
     }
 
     if (!code || !state) {
       console.error('Missing code or state');
-      return NextResponse.redirect('/integrations?error=missing_params');
+      return NextResponse.redirect(
+        new URL('/xero-connect?error=missing_params', request.url)
+      );
     }
 
     // Decode the state to get business_id
@@ -47,7 +51,9 @@ export async function GET(request: NextRequest) {
       businessId = stateData.business_id;
     } catch (e) {
       console.error('Invalid state:', e);
-      return NextResponse.redirect('/integrations?error=invalid_state');
+      return NextResponse.redirect(
+        new URL('/xero-connect?error=invalid_state', request.url)
+      );
     }
 
     // Step 1: Exchange code for tokens
@@ -76,7 +82,9 @@ export async function GET(request: NextRequest) {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
       console.error('Token exchange failed:', errorText);
-      return NextResponse.redirect('/integrations?error=token_exchange_failed');
+      return NextResponse.redirect(
+        new URL('/xero-connect?error=token_exchange_failed', request.url)
+      );
     }
 
     const tokens = await tokenResponse.json();
@@ -84,7 +92,7 @@ export async function GET(request: NextRequest) {
 
     // Step 2: Get tenant information
     console.log('Getting tenant information...');
-    
+
     const connectionsResponse = await fetch(XERO_CONNECTIONS_URL, {
       method: 'GET',
       headers: {
@@ -95,14 +103,18 @@ export async function GET(request: NextRequest) {
 
     if (!connectionsResponse.ok) {
       console.error('Failed to get connections');
-      return NextResponse.redirect('/integrations?error=connections_failed');
+      return NextResponse.redirect(
+        new URL('/xero-connect?error=connections_failed', request.url)
+      );
     }
 
     const connections = await connectionsResponse.json();
-    
+
     if (!connections || connections.length === 0) {
       console.error('No Xero organizations found');
-      return NextResponse.redirect('/integrations?error=no_organizations');
+      return NextResponse.redirect(
+        new URL('/xero-connect?error=no_organizations', request.url)
+      );
     }
 
     // Use the first organization (tenant)
@@ -113,13 +125,29 @@ export async function GET(request: NextRequest) {
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + tokens.expires_in);
 
-    // Step 4: Save to database
+    // Step 4: Get user_id from business profile or use the state
+    // For now, we'll extract it from the business_id lookup
+    const { data: businessProfile } = await supabase
+      .from('business_profiles')
+      .select('user_id')
+      .eq('id', businessId)
+      .single();
+
+    const userId = businessProfile?.user_id;
+    if (!userId) {
+      console.error('Could not find user_id for business');
+      return NextResponse.redirect(
+        new URL('/xero-connect?error=user_not_found', request.url)
+      );
+    }
+
+    // Step 5: Save to database
     console.log('Saving connection to database...');
-    
-    // First, delete any existing connection for this business
+
+    // First, deactivate any existing connection for this business
     await supabase
       .from('xero_connections')
-      .delete()
+      .update({ is_active: false })
       .eq('business_id', businessId);
 
     // Insert the new connection
@@ -127,26 +155,33 @@ export async function GET(request: NextRequest) {
       .from('xero_connections')
       .insert({
         business_id: businessId,
+        user_id: userId,
         tenant_id: tenant.tenantId,
         tenant_name: tenant.tenantName,
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
         expires_at: expiresAt.toISOString(),
-        connection_status: 'active'
+        is_active: true
       });
 
     if (dbError) {
       console.error('Database error:', dbError);
-      return NextResponse.redirect('/integrations?error=database_error');
+      return NextResponse.redirect(
+        new URL('/xero-connect?error=database_error', request.url)
+      );
     }
 
     console.log('Connection saved successfully');
 
-    // Redirect back to the integrations page with success
-    return NextResponse.redirect('/integrations?success=connected');
-    
+    // Redirect back to xero-connect page with success
+    return NextResponse.redirect(
+      new URL('/xero-connect?success=connected', request.url)
+    );
+
   } catch (error) {
     console.error('Callback error:', error);
-    return NextResponse.redirect('/integrations?error=unknown_error');
+    return NextResponse.redirect(
+      new URL('/xero-connect?error=unknown_error', request.url)
+    );
   }
 }

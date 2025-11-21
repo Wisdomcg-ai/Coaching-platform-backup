@@ -1,113 +1,118 @@
-// /app/xero-connect/page.tsx
-// This page lets you connect a business to Xero
-// Copy this ENTIRE file exactly as shown
-
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { createClient } from '@/lib/supabase/client';
+import { Loader2, ExternalLink, CheckCircle2, XCircle } from 'lucide-react';
 
 export default function XeroConnectPage() {
-  const [businesses, setBusinesses] = useState<any[]>([]);
-  const [selectedBusiness, setSelectedBusiness] = useState('');
-  const [connections, setConnections] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const supabase = createClient();
+  const [businessId, setBusinessId] = useState('');
+  const [userId, setUserId] = useState('');
+  const [businessName, setBusinessName] = useState('');
+  const [connection, setConnection] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
 
-  // Load businesses when page loads
+  // Load user and business when page loads
   useEffect(() => {
-    loadBusinesses();
-    loadConnections();
+    loadUserAndBusiness();
+
+    // Check for success/error in URL params
+    const params = new URLSearchParams(window.location.search);
+    const success = params.get('success');
+    const error = params.get('error');
+
+    if (success === 'connected') {
+      setMessage('Successfully connected to Xero!');
+    } else if (error) {
+      const errorMessages: { [key: string]: string } = {
+        'xero_denied': 'Connection denied. Please try again.',
+        'missing_params': 'Invalid connection parameters.',
+        'invalid_state': 'Invalid connection state.',
+        'token_exchange_failed': 'Failed to exchange authorization code.',
+        'connections_failed': 'Failed to get Xero organizations.',
+        'no_organizations': 'No Xero organizations found.',
+        'user_not_found': 'User account not found.',
+        'database_error': 'Failed to save connection.',
+        'unknown_error': 'An unknown error occurred.'
+      };
+      setMessage(errorMessages[error] || 'An error occurred during connection.');
+    }
   }, []);
 
-  // Function to load businesses from database
-  async function loadBusinesses() {
-    const { data, error } = await supabase
-      .from('businesses')
-      .select('id, name')
-      .order('name');
-
-    if (error) {
-      console.error('Error loading businesses:', error);
-      setMessage('Error loading businesses');
-    } else {
-      setBusinesses(data || []);
-      if (data && data.length > 0) {
-        setSelectedBusiness(data[0].id);
+  // Function to load current user and their business
+  async function loadUserAndBusiness() {
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setMessage('Please log in first');
+        setLoading(false);
+        return;
       }
+
+      setUserId(user.id);
+
+      // Get business profile
+      const { data: profile, error: profileError } = await supabase
+        .from('business_profiles')
+        .select('id, business_name')
+        .eq('user_id', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        console.error('Error loading business profile:', profileError);
+        setMessage('Error loading business profile');
+        setLoading(false);
+        return;
+      }
+
+      setBusinessId(profile.id);
+      setBusinessName(profile.business_name || 'Your Business');
+
+      // Load existing connection
+      await loadConnection(profile.id);
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading user/business:', error);
+      setMessage('Error loading data');
+      setLoading(false);
     }
   }
 
-  // Function to load existing connections
-  async function loadConnections() {
+  // Function to load existing connection
+  async function loadConnection(bizId: string) {
     const { data, error } = await supabase
       .from('xero_connections')
-      .select('*, businesses(name)')
-      .order('created_at', { ascending: false });
+      .select('*')
+      .eq('business_id', bizId)
+      .eq('is_active', true)
+      .single();
 
-    if (error) {
-      console.error('Error loading connections:', error);
-    } else {
-      setConnections(data || []);
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error('Error loading connection:', error);
+    } else if (data) {
+      setConnection(data);
     }
   }
 
   // Function to start Xero connection
   async function connectToXero() {
-    if (!selectedBusiness) {
-      setMessage('Please select a business first');
+    if (!businessId) {
+      setMessage('Business ID not found');
       return;
     }
 
     setLoading(true);
     setMessage('Redirecting to Xero...');
 
-    // Store the business ID in localStorage so we can retrieve it after redirect
-    localStorage.setItem('xero_business_id', selectedBusiness);
-
-    // Redirect to Xero OAuth
-    // We'll create this API route next
-    window.location.href = `/api/xero/auth?business_id=${selectedBusiness}`;
-  }
-
-  // Function to sync data from Xero
-  async function syncXeroData(businessId: string) {
-    setLoading(true);
-    setMessage('Syncing data from Xero...');
-
-    try {
-      const response = await fetch('/api/xero/sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ business_id: businessId }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setMessage('✅ Sync complete!');
-        loadConnections(); // Reload connections to show updated sync time
-      } else {
-        setMessage(`❌ Error: ${data.error}`);
-      }
-    } catch (error) {
-      setMessage('❌ Failed to sync data');
-      console.error('Sync error:', error);
-    } finally {
-      setLoading(false);
-    }
+    // Redirect to Xero OAuth (note: capital X in Xero)
+    window.location.href = `/api/Xero/auth?business_id=${businessId}`;
   }
 
   // Function to disconnect from Xero
-  async function disconnectXero(connectionId: string) {
+  async function disconnectXero() {
     if (!confirm('Are you sure you want to disconnect from Xero?')) {
       return;
     }
@@ -115,125 +120,144 @@ export default function XeroConnectPage() {
     setLoading(true);
     const { error } = await supabase
       .from('xero_connections')
-      .delete()
-      .eq('id', connectionId);
+      .update({ is_active: false })
+      .eq('business_id', businessId);
 
     if (error) {
-      setMessage('❌ Failed to disconnect');
+      setMessage('Failed to disconnect');
+      console.error('Disconnect error:', error);
     } else {
-      setMessage('✅ Disconnected from Xero');
-      loadConnections();
+      setMessage('Disconnected from Xero');
+      setConnection(null);
     }
     setLoading(false);
   }
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-8">Xero Integration</h1>
+    <div className="min-h-screen bg-gray-50 p-8">
+      <div className="max-w-3xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Xero Integration</h1>
+          <p className="text-gray-600">Connect your Xero account to import financial data</p>
+        </div>
 
-      {/* Connection Form */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 className="text-xl font-semibold mb-4">Connect a Business to Xero</h2>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Select Business
-            </label>
-            <select
-              value={selectedBusiness}
-              onChange={(e) => setSelectedBusiness(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              disabled={loading}
-            >
-              <option value="">-- Select a business --</option>
-              {businesses.map((business) => (
-                <option key={business.id} value={business.id}>
-                  {business.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        {/* Connection Status Card */}
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          {connection ? (
+            // Connected State
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <CheckCircle2 className="w-8 h-8 text-green-500" />
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">Connected to Xero</h2>
+                    <p className="text-sm text-gray-600">{businessName}</p>
+                  </div>
+                </div>
+              </div>
 
-          <button
-            onClick={connectToXero}
-            disabled={loading || !selectedBusiness}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
-          >
-            {loading ? 'Processing...' : 'Connect to Xero'}
-          </button>
+              <div className="border-t pt-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Xero Organization:</span>
+                  <span className="font-medium text-gray-900">{connection.tenant_name}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Connected:</span>
+                  <span className="font-medium text-gray-900">
+                    {new Date(connection.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+                {connection.last_synced_at && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Last Synced:</span>
+                    <span className="font-medium text-gray-900">
+                      {new Date(connection.last_synced_at).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t pt-4 flex space-x-3">
+                <button
+                  onClick={() => window.location.href = '/finances/forecast'}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  Go to Financial Forecast
+                </button>
+                <button
+                  onClick={disconnectXero}
+                  disabled={loading}
+                  className="px-4 py-2 text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium disabled:opacity-50"
+                >
+                  Disconnect
+                </button>
+              </div>
+            </div>
+          ) : (
+            // Not Connected State
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3">
+                <XCircle className="w-8 h-8 text-gray-400" />
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">Not Connected</h2>
+                  <p className="text-sm text-gray-600">{businessName}</p>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <p className="text-sm text-gray-600 mb-4">
+                  Connect to Xero to automatically import your financial data including:
+                </p>
+                <ul className="text-sm text-gray-600 space-y-1 mb-4 ml-4">
+                  <li>• Profit & Loss statements</li>
+                  <li>• Chart of accounts</li>
+                  <li>• Transaction history</li>
+                  <li>• Bank balances</li>
+                </ul>
+                <button
+                  onClick={connectToXero}
+                  disabled={loading}
+                  className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 flex items-center justify-center space-x-2"
+                >
+                  <ExternalLink className="w-5 h-5" />
+                  <span>{loading ? 'Redirecting...' : 'Connect to Xero'}</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {message && (
-            <div className={`p-3 rounded-lg ${
-              message.includes('✅') ? 'bg-green-100 text-green-800' :
-              message.includes('❌') ? 'bg-red-100 text-red-800' :
-              'bg-blue-100 text-blue-800'
+            <div className={`mt-4 p-3 rounded-lg ${
+              message.includes('Successfully')
+                ? 'bg-green-100 text-green-800'
+                : message.includes('Disconnected') || message.includes('Failed') || message.includes('denied') || message.includes('error')
+                ? 'bg-red-100 text-red-800'
+                : 'bg-blue-100 text-blue-800'
             }`}>
               {message}
             </div>
           )}
         </div>
-      </div>
 
-      {/* Existing Connections */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">Existing Connections</h2>
-        
-        {connections.length === 0 ? (
-          <p className="text-gray-500">No connections yet</p>
-        ) : (
-          <div className="space-y-4">
-            {connections.map((connection) => (
-              <div key={connection.id} className="border rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-semibold">
-                      {connection.businesses?.name || 'Unknown Business'}
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      Organization: {connection.tenant_name}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Status: <span className={
-                        connection.connection_status === 'active' 
-                          ? 'text-green-600' 
-                          : 'text-red-600'
-                      }>
-                        {connection.connection_status}
-                      </span>
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Last sync: {connection.last_sync_at 
-                        ? new Date(connection.last_sync_at).toLocaleString() 
-                        : 'Never'}
-                    </p>
-                    {connection.unreconciled_count > 0 && (
-                      <p className="text-sm text-yellow-600">
-                        ⚠️ {connection.unreconciled_count} unreconciled transactions
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-x-2">
-                    <button
-                      onClick={() => syncXeroData(connection.business_id)}
-                      disabled={loading}
-                      className="px-4 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 text-sm"
-                    >
-                      Sync Now
-                    </button>
-                    <button
-                      onClick={() => disconnectXero(connection.id)}
-                      disabled={loading}
-                      className="px-4 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 text-sm"
-                    >
-                      Disconnect
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Help Text */}
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+          <p className="text-sm text-blue-800">
+            <strong>Note:</strong> You'll be redirected to Xero to authorize access.
+            Make sure you're logged into the correct Xero organization before connecting.
+          </p>
+        </div>
       </div>
     </div>
   );

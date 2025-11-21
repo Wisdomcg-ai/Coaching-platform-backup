@@ -1,12 +1,21 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { Plus, X, ChevronDown, ChevronRight, Calculator, TrendingUp, Lock, Unlock, Eye, Settings, FunctionSquare } from 'lucide-react'
+import React, { useState, useEffect, useRef } from 'react'
+import { Plus, X, ChevronDown, ChevronRight, Calculator, TrendingUp, Lock, Unlock, Eye, Settings, FunctionSquare, Undo2, Redo2 } from 'lucide-react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import type { FinancialForecast, PLLine, ForecastMethod } from '../types'
 import ForecastService from '../services/forecast-service'
 import { ForecastingEngine } from '../services/forecasting-engine'
 import OpExBulkControls from './OpExBulkControls'
 import OpExLineControls from './OpExLineControls'
+
+// History state for undo/redo
+interface HistoryState {
+  lines: PLLine[]
+  timestamp: number
+}
+
+const MAX_HISTORY = 50 // Keep last 50 states
 
 interface PLForecastTableProps {
   forecast: FinancialForecast
@@ -29,6 +38,14 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
   const [viewMode, setViewMode] = useState<'view' | 'setup'>('setup') // Toggle between view and setup modes
   const [showFormulas, setShowFormulas] = useState<boolean>(false) // Toggle to show formulas instead of values
   const [cellFormulas, setCellFormulas] = useState<Map<string, string>>(new Map()) // Track formulas by cell ID
+
+  // Undo/Redo state
+  const [history, setHistory] = useState<HistoryState[]>([])
+  const [historyIndex, setHistoryIndex] = useState<number>(-1)
+  const [isSaving, setIsSaving] = useState<boolean>(false)
+
+  // Virtualization ref
+  const tableContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     // Calculate analysis for lines that don't already have it
@@ -64,11 +81,73 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
     setMonthColumns(columns)
   }, [forecast, lines])
 
-  // Debounced save
+  // Initialize history with first state
   useEffect(() => {
-    const timer = setTimeout(() => {
+    if (plLines.length > 0 && history.length === 0) {
+      setHistory([{ lines: plLines, timestamp: Date.now() }])
+      setHistoryIndex(0)
+    }
+  }, [plLines])
+
+  // Save to history when lines change (for undo/redo)
+  const saveToHistory = (newLines: PLLine[]) => {
+    const newHistory = history.slice(0, historyIndex + 1)
+    newHistory.push({ lines: newLines, timestamp: Date.now() })
+
+    // Keep only last MAX_HISTORY states
+    if (newHistory.length > MAX_HISTORY) {
+      newHistory.shift()
+    }
+
+    setHistory(newHistory)
+    setHistoryIndex(newHistory.length - 1)
+  }
+
+  // Undo/Redo functions
+  const undo = () => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1
+      setHistoryIndex(newIndex)
+      setLines(history[newIndex].lines)
+    }
+  }
+
+  const redo = () => {
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1
+      setHistoryIndex(newIndex)
+      setLines(history[newIndex].lines)
+    }
+  }
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        undo()
+      } else if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault()
+        redo()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [historyIndex, history])
+
+  // Optimistic save with debouncing
+  useEffect(() => {
+    const timer = setTimeout(async () => {
       if (lines.length > 0 && lines !== plLines) {
-        onSave(lines)
+        setIsSaving(true)
+        try {
+          await onSave(lines)
+        } catch (error) {
+          console.error('Failed to save:', error)
+        } finally {
+          setIsSaving(false)
+        }
       }
     }, 1000)
 
@@ -97,16 +176,21 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
       is_manual: true
     }
 
-    setLines([...lines, newLine])
+    const updatedLines = [...lines, newLine]
+    saveToHistory(updatedLines)
+    setLines(updatedLines)
   }
 
   const removeLine = (index: number) => {
-    setLines(lines.filter((_, i) => i !== index))
+    const updatedLines = lines.filter((_, i) => i !== index)
+    saveToHistory(updatedLines)
+    setLines(updatedLines)
   }
 
   const updateLineName = (index: number, name: string) => {
     const updatedLines = [...lines]
     updatedLines[index].account_name = name
+    saveToHistory(updatedLines)
     setLines(updatedLines)
   }
 
@@ -162,6 +246,7 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
         updatedLines[index].actual_months[monthKey] = numValue
       }
     }
+    saveToHistory(updatedLines)
     setLines(updatedLines)
   }
 
@@ -438,9 +523,33 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
                 ? 'Viewing forecast results - Switch to Setup Mode to make changes'
                 : 'Setup Mode - Configure your forecast assumptions and methods'
               }
+              {isSaving && (
+                <span className="ml-2 text-blue-600 text-xs">
+                  • Saving...
+                </span>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-3">
+            {/* Undo/Redo Buttons */}
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={undo}
+                disabled={historyIndex <= 0}
+                className="flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white hover:text-gray-900 text-gray-600"
+                title="Undo (Ctrl+Z)"
+              >
+                <Undo2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={redo}
+                disabled={historyIndex >= history.length - 1}
+                className="flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white hover:text-gray-900 text-gray-600"
+                title="Redo (Ctrl+Y)"
+              >
+                <Redo2 className="w-4 h-4" />
+              </button>
+            </div>
             {/* View/Setup Mode Toggle */}
             <div className="flex items-center bg-gray-100 rounded-lg p-1">
               <button

@@ -649,24 +649,18 @@ export default function WeeklyReviewPage() {
           )}
         </div>
 
-        {/* Section 3: Weekly Disciplines Checklist */}
+        {/* Section 3: Weekly Checklist */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
             <CheckSquare className="w-6 h-6 text-blue-600 mr-3" />
-            Weekly Disciplines Checklist
+            Weekly Checklist
           </h2>
-
-          {/* DEBUG INFO */}
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-xs">
-            <strong>DEBUG:</strong> disciplines_completed length = {review.disciplines_completed?.length || 0}
-            <br />
-            <strong>Array:</strong> {JSON.stringify(review.disciplines_completed)}
-          </div>
 
           <div className="space-y-3">
             {review.disciplines_completed.map((discipline, idx) => {
               const isDefault = DEFAULT_DISCIPLINES.includes(discipline.discipline)
               const is90DayPlan = discipline.discipline === '90 day plan reviewed'
+              const isDashboard = discipline.discipline === 'Dashboard updated'
 
               return (
                 <div key={idx} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
@@ -683,6 +677,13 @@ export default function WeeklyReviewPage() {
                   {is90DayPlan ? (
                     <Link
                       href="/goals?step=5"
+                      className={`flex-1 ${discipline.completed ? 'text-gray-500 line-through' : 'text-blue-600 hover:text-blue-800'} underline`}
+                    >
+                      {discipline.discipline}
+                    </Link>
+                  ) : isDashboard ? (
+                    <Link
+                      href="/business-dashboard"
                       className={`flex-1 ${discipline.completed ? 'text-gray-500 line-through' : 'text-blue-600 hover:text-blue-800'} underline`}
                     >
                       {discipline.discipline}
@@ -724,47 +725,60 @@ export default function WeeklyReviewPage() {
           </div>
         </div>
 
-        {/* Section 4: Next Week Planning */}
+        {/* Section 4: Goals for Next Week */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-            <CalendarDays className="w-6 h-6 text-blue-600 mr-3" />
-            Next Week Planning
+            <Target className="w-6 h-6 text-blue-600 mr-3" />
+            Goals for Next Week
           </h2>
 
-          {/* Goals for Next Week */}
           <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
-              Goals for Next Week
-            </label>
-            <div className="space-y-2 mb-3">
-              {review.next_week_goals.map((goal, idx) => (
-                <div key={idx} className="flex items-center space-x-2 bg-blue-50 p-3 rounded-lg">
-                  <Target className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                  <span className="flex-1 text-gray-800">{goal}</span>
-                  <button
-                    onClick={() => removeNextWeekGoal(idx)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+            <div className="space-y-3">
+              {/* Always show at least 3 goal input fields */}
+              {Array.from({ length: Math.max(3, review.next_week_goals.length) }).map((_, idx) => (
+                <div key={idx} className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 flex-1">
+                    <span className="text-sm font-semibold text-gray-600 w-6">{idx + 1}.</span>
+                    <input
+                      type="text"
+                      value={review.next_week_goals[idx] || ''}
+                      onChange={(e) => {
+                        const updated = [...review.next_week_goals]
+                        if (e.target.value.trim()) {
+                          updated[idx] = e.target.value
+                        } else {
+                          // Remove the goal if it's cleared
+                          updated.splice(idx, 1)
+                        }
+                        updateReview({ next_week_goals: updated })
+                      }}
+                      placeholder={`Goal ${idx + 1}${idx < 3 ? ' (required)' : ''}`}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  {idx >= 3 && review.next_week_goals[idx] && (
+                    <button
+                      onClick={() => removeNextWeekGoal(idx)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
               ))}
-            </div>
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                value={newGoal}
-                onChange={(e) => setNewGoal(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && addNextWeekGoal()}
-                placeholder="Add a goal for next week..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <button
-                onClick={addNextWeekGoal}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
+
+              {/* Add More Goal Button (only show if 3+ goals exist) */}
+              {review.next_week_goals.length >= 3 && (
+                <button
+                  onClick={() => {
+                    updateReview({ next_week_goals: [...review.next_week_goals, ''] })
+                  }}
+                  className="flex items-center space-x-2 px-4 py-2 text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>Add Another Goal</span>
+                </button>
+              )}
             </div>
           </div>
 
