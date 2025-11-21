@@ -14,6 +14,8 @@ import CompletenessChecker from './components/CompletenessChecker'
 import AuditLogViewer from './components/AuditLogViewer'
 import { LoadingState } from './components/LoadingState'
 import ErrorState from './components/ErrorState'
+import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
 export default function FinancialForecastPage() {
   const supabase = createClient()
@@ -31,11 +33,36 @@ export default function FinancialForecastPage() {
   const [activeTab, setActiveTab] = useState<'assumptions' | 'pl' | 'payroll' | 'history'>('assumptions')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
 
   useEffect(() => {
     setMounted(true)
     loadInitialData()
   }, [])
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts([
+    {
+      key: 's',
+      ctrl: true,
+      meta: true,
+      description: 'Save forecast',
+      callback: (e) => {
+        e.preventDefault()
+        // Trigger save based on current tab
+        if (activeTab === 'pl' && plLines.length > 0) {
+          handleSavePLLines(plLines)
+        }
+      }
+    },
+    {
+      key: '?',
+      description: 'Show keyboard shortcuts',
+      callback: () => {
+        setShowKeyboardHelp(true)
+      }
+    }
+  ])
 
   const loadInitialData = async () => {
     try {
@@ -789,6 +816,12 @@ export default function FinancialForecastPage() {
           <AuditLogViewer forecastId={forecast.id} />
         )}
       </div>
+
+      {/* Keyboard Shortcuts Help Modal */}
+      <KeyboardShortcutsHelp
+        isOpen={showKeyboardHelp}
+        onClose={() => setShowKeyboardHelp(false)}
+      />
     </div>
   )
 }
