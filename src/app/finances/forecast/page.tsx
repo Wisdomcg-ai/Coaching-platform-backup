@@ -433,15 +433,87 @@ export default function FinancialForecastPage() {
   }
 
   const handleImportGoalsFromAnnualPlan = async () => {
-    if (!businessId) return
+    if (!businessId || !forecast?.id) return
 
     setIsSaving(true)
     try {
-      // TODO: Implement API call to fetch goals from Annual Plan
-      alert('Import from Annual Plan - Coming soon! For now, please enter goals manually.')
+      // Fetch annual plan data from API
+      const response = await fetch('/api/annual-plan')
+      if (!response.ok) {
+        throw new Error('Failed to fetch annual plan data')
+      }
+
+      const annualPlanData = await response.json()
+
+      // Check if we have data to import
+      if (!annualPlanData.revenue_target && !annualPlanData.profit_target) {
+        alert(
+          'No annual plan targets found. Please complete your business assessment first to set 12-month targets, or enter goals manually.'
+        )
+        setIsSaving(false)
+        return
+      }
+
+      // Show confirmation dialog with what will be imported
+      const confirmMessage = `Import the following from your Annual Plan?\n\n` +
+        `Revenue Target: ${annualPlanData.revenue_target ? `$${annualPlanData.revenue_target.toLocaleString()}` : 'Not set'}\n` +
+        `Profit Target: ${annualPlanData.profit_target ? `$${annualPlanData.profit_target.toLocaleString()}` : 'Not set'}\n` +
+        `Source: ${annualPlanData.source === 'assessment' ? 'Business Assessment' : 'Strategic Plan'}\n` +
+        (annualPlanData.assessment_date ? `Date: ${new Date(annualPlanData.assessment_date).toLocaleDateString()}` : '') +
+        `\n\nThis will update your current forecast goals.`
+
+      if (!confirm(confirmMessage)) {
+        setIsSaving(false)
+        return
+      }
+
+      // Calculate gross profit from net profit (assuming standard 60% GP ratio if not specified)
+      const revenueGoal = annualPlanData.revenue_target || forecast.revenue_goal || 0
+      const netProfitGoal = annualPlanData.profit_target || 0
+
+      // Estimate gross profit as 60% of revenue if we have revenue but no GP
+      const estimatedGrossProfit = revenueGoal * 0.6
+
+      // Update forecast with imported goals
+      const { error } = await supabase
+        .from('financial_forecasts')
+        .update({
+          revenue_goal: revenueGoal,
+          gross_profit_goal: estimatedGrossProfit,
+          net_profit_goal: netProfitGoal,
+          goal_source: annualPlanData.source === 'assessment' ? 'annual_plan' : 'manual',
+          annual_plan_id: annualPlanData.strategic_plan_id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', forecast.id)
+
+      if (error) {
+        console.error('[Forecast] Error importing goals:', error)
+        alert('Error importing goals: ' + error.message)
+      } else {
+        // Update local state
+        setForecast({
+          ...forecast,
+          revenue_goal: revenueGoal,
+          gross_profit_goal: estimatedGrossProfit,
+          net_profit_goal: netProfitGoal,
+          goal_source: annualPlanData.source === 'assessment' ? 'annual_plan' : 'manual',
+          annual_plan_id: annualPlanData.strategic_plan_id
+        })
+
+        alert(
+          `Successfully imported goals from your ${annualPlanData.source === 'assessment' ? 'assessment' : 'strategic plan'}!\n\n` +
+          `Revenue: $${revenueGoal.toLocaleString()}\n` +
+          `Estimated Gross Profit: $${estimatedGrossProfit.toLocaleString()}\n` +
+          `Net Profit: $${netProfitGoal.toLocaleString()}\n\n` +
+          `You can now adjust these and set your COGS percentage.`
+        )
+
+        console.log('[Forecast] Goals imported successfully from annual plan')
+      }
     } catch (err) {
       console.error('[Forecast] Error importing goals:', err)
-      alert('Error importing goals from Annual Plan')
+      alert('Error importing goals from Annual Plan. Please try again or enter goals manually.')
     }
     setIsSaving(false)
   }

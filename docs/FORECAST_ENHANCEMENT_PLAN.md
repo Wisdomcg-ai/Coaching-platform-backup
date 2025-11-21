@@ -112,12 +112,12 @@ CREATE TABLE forecast_audit_log (
 
 ### Database Changes:
 ```sql
--- Add to financial_forecasts table
+-- Add to financial_forecasts table (COMPLETED)
 ALTER TABLE financial_forecasts
 ADD COLUMN annual_plan_id UUID REFERENCES annual_plans(id),
 ADD COLUMN linked_rocks JSONB; -- Array of rock IDs
 
--- Rock cost tracking
+-- Rock cost tracking (FUTURE)
 CREATE TABLE rock_forecast_links (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   rock_id UUID REFERENCES rocks(id),
@@ -130,19 +130,24 @@ CREATE TABLE rock_forecast_links (
 );
 ```
 
-### Features:
-- [ ] Import from Annual Plan
-  - Implement `handleImportFromAnnualPlan` function
-  - Fetch revenue/profit goals from annual_plans table
-  - Auto-populate forecast assumptions
-  - Show which plan is linked
+### Completed Features:
+- ✅ **Import from Annual Plan** (`/api/annual-plan` route)
+  - ✅ Implemented `handleImportFromAnnualPlan` function in page.tsx:435
+  - ✅ Fetches revenue/profit goals from assessments and strategic plans
+  - ✅ Auto-populates forecast assumptions with confirmation dialog
+  - ✅ Shows which plan is linked with visual indicator
+  - ✅ Updates goal_source and annual_plan_id fields
 
-- [ ] Goal Progress Tracking
-  - "Annual Plan Progress" card in Assumptions tab
-  - YTD actual vs annual goal
-  - Progress bars with % complete
-  - Link to annual plan page
+- ✅ **Goal Progress Tracking** (AnnualPlanProgressWidget.tsx)
+  - ✅ "Annual Plan Progress" widget in Assumptions tab
+  - ✅ YTD actual vs annual goal calculation framework
+  - ✅ Progress bars with % complete for Revenue, GP, NP
+  - ✅ Status indicators (On Track / Slightly Behind / Needs Attention)
+  - ✅ Link to annual plan page
+  - ✅ Expandable/collapsible design
+  - ⏳ TODO: Calculate actual YTD from P&L lines (placeholder shows 0)
 
+### Future Features:
 - [ ] Rocks Integration
   - Show active rocks in forecast sidebar
   - Link expense lines to specific rocks
@@ -282,8 +287,13 @@ CREATE TABLE forecast_scenario_lines (
 - **Priority:** HIGH - critical for production
 
 ### Week 3: Annual Plan Integration
-- **Status:** Not Started
+- **Status:** ✅ COMPLETE (Core features implemented)
 - **Priority:** HIGH - removes TODO, adds major value
+- **Completed:**
+  - Import from Annual Plan functionality
+  - Annual Plan Progress tracking widget
+  - Visual indicators for linked plans
+- **Future Enhancements:** Rocks integration, bidirectional sync
 
 ### Weeks 4-5: Scenario Planning
 - **Status:** Not Started

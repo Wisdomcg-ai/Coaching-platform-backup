@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Target, TrendingUp, Save, RefreshCw, AlertCircle, Sparkles } from 'lucide-react'
 import type { FinancialForecast, DistributionMethod } from '../types'
 import OpExBulkControls from './OpExBulkControls'
+import AnnualPlanProgressWidget from './AnnualPlanProgressWidget'
 import { ForecastValidationService, ValidationIssue } from '../services/validation-service'
 
 interface AssumptionsTabProps {
@@ -113,6 +114,18 @@ export default function AssumptionsTab({
           </button>
         </div>
 
+        {/* Import Indicator */}
+        {forecast.goal_source === 'annual_plan' && forecast.annual_plan_id && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-900">
+                Goals imported from Annual Plan
+              </span>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <div className="border border-gray-200 rounded-lg p-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -155,6 +168,11 @@ export default function AssumptionsTab({
           </div>
         </div>
       </div>
+
+      {/* Annual Plan Progress Widget */}
+      {hasGoals && forecast.annual_plan_id && (
+        <AnnualPlanProgressWidget forecast={forecast} />
+      )}
 
       {hasGoals && (
         <>
