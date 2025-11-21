@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Target, TrendingUp, Save, RefreshCw, AlertCircle, Sparkles } from 'lucide-react'
 import type { FinancialForecast, DistributionMethod } from '../types'
 import OpExBulkControls from './OpExBulkControls'
+import { ForecastValidationService, ValidationIssue } from '../services/validation-service'
 
 interface AssumptionsTabProps {
   forecast: FinancialForecast
@@ -48,6 +49,24 @@ export default function AssumptionsTab({
     }
     return 40
   })
+
+  // Validation state
+  const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([])
+
+  // Validate inputs in real-time
+  useEffect(() => {
+    const issues: ValidationIssue[] = []
+
+    // Validate revenue goal
+    const revenueIssue = ForecastValidationService.validateRevenueGoal(goals.revenue)
+    if (revenueIssue) issues.push(revenueIssue)
+
+    // Validate COGS percentage
+    const cogsIssue = ForecastValidationService.validateCogsPercentage(cogsPercentage)
+    if (cogsIssue) issues.push(cogsIssue)
+
+    setValidationIssues(issues)
+  }, [goals.revenue, cogsPercentage])
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -103,9 +122,24 @@ export default function AssumptionsTab({
               type="number"
               value={goals.revenue || ''}
               onChange={(e) => setGoals({ ...goals, revenue: parseFloat(e.target.value) || 0 })}
-              className="w-full px-3 py-2 text-lg font-bold text-gray-900 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+              className={`w-full px-3 py-2 text-lg font-bold text-gray-900 border rounded focus:ring-2 focus:ring-blue-500 ${
+                validationIssues.some(i => i.field === 'revenue_goal' && i.severity === 'error')
+                  ? 'border-red-300 bg-red-50'
+                  : validationIssues.some(i => i.field === 'revenue_goal' && i.severity === 'warning')
+                  ? 'border-yellow-300'
+                  : 'border-gray-300'
+              }`}
               placeholder="0"
             />
+            {validationIssues
+              .filter(i => i.field === 'revenue_goal')
+              .map((issue, idx) => (
+                <div key={idx} className={`mt-2 text-xs ${
+                  issue.severity === 'error' ? 'text-red-600' : 'text-yellow-600'
+                }`}>
+                  {issue.message}
+                </div>
+              ))}
           </div>
 
           <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
@@ -217,7 +251,13 @@ export default function AssumptionsTab({
                   type="number"
                   value={cogsPercentage}
                   onChange={(e) => setCogsPercentage(parseFloat(e.target.value) || 0)}
-                  className="w-20 px-3 py-2 text-sm font-bold text-gray-900 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                  className={`w-20 px-3 py-2 text-sm font-bold text-gray-900 border rounded focus:ring-2 focus:ring-blue-500 ${
+                    validationIssues.some(i => i.field === 'cogs_percentage' && i.severity === 'error')
+                      ? 'border-red-300 bg-red-50'
+                      : validationIssues.some(i => i.field === 'cogs_percentage' && i.severity === 'warning')
+                      ? 'border-yellow-300'
+                      : 'border-gray-300'
+                  }`}
                 />
                 <span className="text-sm font-medium text-gray-600">%</span>
               </div>
@@ -225,6 +265,15 @@ export default function AssumptionsTab({
                 COGS: {formatCurrency(goals.revenue * (cogsPercentage / 100))} |
                 GP Margin: {(100 - cogsPercentage).toFixed(1)}%
               </div>
+              {validationIssues
+                .filter(i => i.field === 'cogs_percentage')
+                .map((issue, idx) => (
+                  <div key={idx} className={`mt-2 text-xs ${
+                    issue.severity === 'error' ? 'text-red-600' : 'text-yellow-600'
+                  }`}>
+                    ⚠️ {issue.message} - {issue.suggestion}
+                  </div>
+                ))}
             </div>
 
             {/* OpEx Quick Setup */}

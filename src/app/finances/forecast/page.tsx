@@ -10,6 +10,7 @@ import type { FinancialForecast, PLLine, ForecastEmployee, XeroConnection, Distr
 import PLForecastTable from './components/PLForecastTable'
 import PayrollTable from './components/PayrollTable'
 import AssumptionsTab from './components/AssumptionsTab'
+import CompletenessChecker from './components/CompletenessChecker'
 
 export default function FinancialForecastPage() {
   const supabase = createClient()
@@ -627,6 +628,21 @@ export default function FinancialForecastPage() {
             )}
           </div>
         </div>
+
+        {/* Completeness Checker */}
+        {forecast && (
+          <CompletenessChecker
+            forecast={forecast}
+            plLines={plLines}
+            forecastMonthKeys={ForecastService.generateMonthColumns(
+              forecast.actual_start_month,
+              forecast.actual_end_month,
+              forecast.forecast_start_month,
+              forecast.forecast_end_month
+            ).filter(c => c.isForecast).map(c => c.key)}
+            className="mb-6"
+          />
+        )}
 
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow-sm mb-6">
