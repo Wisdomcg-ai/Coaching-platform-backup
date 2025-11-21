@@ -54,6 +54,23 @@ export default function AssumptionsTab({
   // Validation state
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([])
 
+  // Update state when forecast prop changes (e.g., after import)
+  useEffect(() => {
+    setGoals({
+      revenue: forecast.revenue_goal || 0,
+      grossProfit: forecast.gross_profit_goal || 0,
+      netProfit: forecast.net_profit_goal || 0
+    })
+
+    // Update COGS percentage if available
+    if (forecast.cogs_percentage !== undefined && forecast.cogs_percentage !== null) {
+      setCogsPercentage(forecast.cogs_percentage * 100)
+    } else if (forecast.revenue_goal && forecast.gross_profit_goal) {
+      const cogs = forecast.revenue_goal - forecast.gross_profit_goal
+      setCogsPercentage((cogs / forecast.revenue_goal) * 100)
+    }
+  }, [forecast.revenue_goal, forecast.gross_profit_goal, forecast.net_profit_goal, forecast.cogs_percentage])
+
   // Validate inputs in real-time
   useEffect(() => {
     const issues: ValidationIssue[] = []
@@ -78,14 +95,14 @@ export default function AssumptionsTab({
     }).format(value)
   }
 
-  // Auto-calculate GP (NP will be calculated from actual OpEx lines in P&L table)
+  // Auto-calculate GP from revenue and COGS%
   const calculatedGP = goals.revenue * (1 - cogsPercentage / 100)
 
   const handleSave = () => {
     onSave({
       revenue_goal: goals.revenue,
       gross_profit_goal: calculatedGP,
-      net_profit_goal: 0, // Will be calculated from P&L lines
+      net_profit_goal: goals.netProfit,
       revenue_distribution_method: distributionMethod,
       cogs_percentage: cogsPercentage / 100
     })
@@ -115,18 +132,18 @@ export default function AssumptionsTab({
         </div>
 
         {/* Import Indicator */}
-        {forecast.goal_source === 'annual_plan' && forecast.annual_plan_id && (
+        {forecast.goal_source === 'goals_wizard' && forecast.annual_plan_id && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-blue-600" />
               <span className="text-sm font-medium text-blue-900">
-                Goals imported from Annual Plan
+                Goals imported from Goals & Targets wizard
               </span>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div className="border border-gray-200 rounded-lg p-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Annual Revenue Goal
@@ -164,6 +181,22 @@ export default function AssumptionsTab({
             </div>
             <div className="text-xs text-gray-500 mt-1">
               Auto-calculated: {(100 - cogsPercentage).toFixed(1)}% margin
+            </div>
+          </div>
+
+          <div className="border border-gray-200 rounded-lg p-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Net Profit Goal
+            </label>
+            <input
+              type="number"
+              value={goals.netProfit || ''}
+              onChange={(e) => setGoals({ ...goals, netProfit: parseFloat(e.target.value) || 0 })}
+              className="w-full px-3 py-2 text-lg font-bold text-gray-900 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+              placeholder="0"
+            />
+            <div className="text-xs text-gray-500 mt-1">
+              Target profit after all expenses
             </div>
           </div>
         </div>
