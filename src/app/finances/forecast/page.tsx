@@ -14,6 +14,7 @@ import CompletenessChecker from './components/CompletenessChecker'
 import AuditLogViewer from './components/AuditLogViewer'
 import WhatIfAnalysisModal from './components/WhatIfAnalysisModal'
 import ScenarioSelector from './components/ScenarioSelector'
+import ExportControls from './components/ExportControls'
 import { LoadingState } from './components/LoadingState'
 import ErrorState from './components/ErrorState'
 import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp'
@@ -942,6 +943,9 @@ export default function FinancialForecastPage() {
                 <Lightbulb className="w-4 h-4" />
                 What-If Analysis
               </button>
+
+              {/* Export Controls */}
+              {forecast?.id && <ExportControls forecastId={forecast.id} />}
 
               {/* Saving Indicator */}
               {isSaving && (
