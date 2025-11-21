@@ -12,6 +12,8 @@ import PayrollTable from './components/PayrollTable'
 import AssumptionsTab from './components/AssumptionsTab'
 import CompletenessChecker from './components/CompletenessChecker'
 import AuditLogViewer from './components/AuditLogViewer'
+import { LoadingState } from './components/LoadingState'
+import ErrorState from './components/ErrorState'
 
 export default function FinancialForecastPage() {
   const supabase = createClient()
@@ -28,6 +30,7 @@ export default function FinancialForecastPage() {
 
   const [activeTab, setActiveTab] = useState<'assumptions' | 'pl' | 'payroll' | 'history'>('assumptions')
   const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -105,6 +108,7 @@ export default function FinancialForecastPage() {
       setIsLoading(false)
     } catch (err) {
       console.error('[Forecast] Error in loadInitialData:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load forecast data')
       setIsLoading(false)
     }
   }
@@ -112,16 +116,22 @@ export default function FinancialForecastPage() {
   const handleSavePLLines = async (updatedLines: PLLine[]) => {
     if (!forecast?.id) return
 
-    setIsSaving(true)
-    const result = await ForecastService.savePLLines(forecast.id, updatedLines)
-    setIsSaving(false)
+    try {
+      setIsSaving(true)
+      setError(null)
+      const result = await ForecastService.savePLLines(forecast.id, updatedLines)
 
-    if (result.success) {
-      setPlLines(updatedLines)
-      console.log('[Forecast] P&L lines saved')
-    } else {
-      console.error('[Forecast] Error saving P&L lines:', result.error)
-      alert('Error saving P&L lines: ' + result.error)
+      if (result.success) {
+        setPlLines(updatedLines)
+        console.log('[Forecast] P&L lines saved')
+      } else {
+        throw new Error(result.error || 'Failed to save P&L lines')
+      }
+    } catch (err) {
+      console.error('[Forecast] Error saving P&L lines:', err)
+      setError(err instanceof Error ? err.message : 'Failed to save P&L lines')
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -545,9 +555,50 @@ export default function FinancialForecastPage() {
     )
   }
 
+  // Loading state
+  if (!mounted || isLoading) {
+    return <LoadingState message="Loading your financial forecast..." />
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <ErrorState
+        error={error}
+        onRetry={() => {
+          setError(null)
+          loadInitialData()
+        }}
+        fullPage
+        title="Failed to Load Forecast"
+      />
+    )
+  }
+
+  // No forecast state
+  if (!forecast) {
+    return (
+      <LoadingState message="Creating your forecast..." />
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-[1600px] mx-auto">
+        {/* Error Banner */}
+        {error && !isLoading && (
+          <div className="mb-6">
+            <ErrorState
+              error={error}
+              onRetry={() => {
+                setError(null)
+                loadInitialData()
+              }}
+              title="Error"
+            />
+          </div>
+        )}
+
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
