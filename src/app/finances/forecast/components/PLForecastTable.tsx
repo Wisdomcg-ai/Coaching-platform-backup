@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Plus, X, ChevronDown, ChevronRight, Calculator, TrendingUp, Lock, Unlock, Eye, Settings } from 'lucide-react'
+import { Plus, X, ChevronDown, ChevronRight, Calculator, TrendingUp, Lock, Unlock, Eye, Settings, FunctionSquare } from 'lucide-react'
 import type { FinancialForecast, PLLine, ForecastMethod } from '../types'
 import ForecastService from '../services/forecast-service'
 import { ForecastingEngine } from '../services/forecasting-engine'
@@ -27,6 +27,8 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
   const [inputValue, setInputValue] = useState<string>('')
   const [historicalDataLocked, setHistoricalDataLocked] = useState<boolean>(true)
   const [viewMode, setViewMode] = useState<'view' | 'setup'>('setup') // Toggle between view and setup modes
+  const [showFormulas, setShowFormulas] = useState<boolean>(false) // Toggle to show formulas instead of values
+  const [cellFormulas, setCellFormulas] = useState<Map<string, string>>(new Map()) // Track formulas by cell ID
 
   useEffect(() => {
     // Calculate analysis for lines that don't already have it
@@ -129,17 +131,30 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
 
   const updateLineValue = (index: number, monthKey: string, value: number | string, isForecast: boolean) => {
     const updatedLines = [...lines]
+    const cellId = `${index}-${monthKey}`
 
     // Check if value is a formula (starts with =)
     if (typeof value === 'string' && value.trim().startsWith('=')) {
-      const result = evaluateFormula(value)
+      const formula = value.trim()
+      const result = evaluateFormula(formula)
+
+      // Store the formula
+      const newFormulas = new Map(cellFormulas)
+      newFormulas.set(cellId, formula)
+      setCellFormulas(newFormulas)
+
+      // Store the calculated result
       if (isForecast) {
         updatedLines[index].forecast_months[monthKey] = result
       } else {
         updatedLines[index].actual_months[monthKey] = result
       }
     } else {
-      // Regular number input
+      // Regular number input - remove any stored formula
+      const newFormulas = new Map(cellFormulas)
+      newFormulas.delete(cellId)
+      setCellFormulas(newFormulas)
+
       const numValue = typeof value === 'string' ? parseFloat(value) || 0 : value
       if (isForecast) {
         updatedLines[index].forecast_months[monthKey] = numValue
@@ -473,6 +488,22 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
                 </>
               )}
             </button>
+
+            {/* Show Formulas Toggle */}
+            {viewMode === 'setup' && cellFormulas.size > 0 && (
+              <button
+                onClick={() => setShowFormulas(!showFormulas)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  showFormulas
+                    ? 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                }`}
+                title={showFormulas ? 'Show values' : 'Show formulas'}
+              >
+                <FunctionSquare className="w-4 h-4" />
+                {showFormulas ? 'Show Values' : `Show Formulas (${cellFormulas.size})`}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -663,41 +694,54 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
                           return (
                             <React.Fragment key={col.key}>
                               <td className={`px-4 py-2 ${isLastActual ? 'border-r-2 border-gray-300' : ''}`}>
-                                <input
-                                  type="text"
-                                  value={isEditing ? inputValue : formatInputValue(value)}
-                                  disabled={isDisabled}
-                                  onFocus={() => {
-                                    if (!isDisabled) {
-                                      setEditingCell(cellKey)
-                                      setInputValue(String(value || ''))
-                                    }
-                                  }}
-                                  onBlur={() => {
-                                    const val = inputValue.trim()
-                                    // Process the value when user leaves the cell
-                                    if (val.startsWith('=')) {
-                                      updateLineValue(globalIdx, col.key, val, col.isForecast)
-                                    } else if (val) {
-                                      const cleaned = val.replace(/[^0-9.-]/g, '')
-                                      updateLineValue(globalIdx, col.key, parseFloat(cleaned) || 0, col.isForecast)
-                                    }
-                                    setEditingCell(null)
-                                    setInputValue('')
-                                  }}
-                                  onChange={(e) => {
-                                    setInputValue(e.target.value)
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.currentTarget.blur()
-                                    }
-                                  }}
-                                  className={`w-full px-2 py-1 text-sm text-right border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
-                                    isDisabled ? 'bg-gray-50 cursor-not-allowed text-gray-500' : ''
-                                  }`}
-                                  placeholder="$0 or =formula"
-                                />
+                                <div className="relative group">
+                                  {cellFormulas.has(cellKey) && !isEditing && (
+                                    <div className="absolute -left-1 top-0 bottom-0 flex items-center">
+                                      <div className="relative">
+                                        <FunctionSquare className="w-3 h-3 text-purple-600" />
+                                        <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50 bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap">
+                                          {cellFormulas.get(cellKey)}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                  <input
+                                    type="text"
+                                    value={isEditing ? inputValue : (showFormulas && cellFormulas.has(cellKey) ? cellFormulas.get(cellKey) : formatInputValue(value))}
+                                    disabled={isDisabled}
+                                    onFocus={() => {
+                                      if (!isDisabled) {
+                                        setEditingCell(cellKey)
+                                        // Show formula if it exists
+                                        setInputValue(cellFormulas.get(cellKey) || String(value || ''))
+                                      }
+                                    }}
+                                    onBlur={() => {
+                                      const val = inputValue.trim()
+                                      // Process the value when user leaves the cell
+                                      if (val.startsWith('=')) {
+                                        updateLineValue(globalIdx, col.key, val, col.isForecast)
+                                      } else if (val) {
+                                        const cleaned = val.replace(/[^0-9.-]/g, '')
+                                        updateLineValue(globalIdx, col.key, parseFloat(cleaned) || 0, col.isForecast)
+                                      }
+                                      setEditingCell(null)
+                                      setInputValue('')
+                                    }}
+                                    onChange={(e) => {
+                                      setInputValue(e.target.value)
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.currentTarget.blur()
+                                      }
+                                    }}
+                                    className={`w-full px-2 py-1 text-sm text-right border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
+                                      isDisabled ? 'bg-gray-50 cursor-not-allowed text-gray-500' : ''
+                                    } ${cellFormulas.has(cellKey) ? 'bg-purple-50' : ''}`}
+                                    placeholder="$0 or =formula"
+                                  />
+                                </div>
                               </td>
                               {isLastActual && viewMode === 'setup' && (
                                 <>
