@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { ExcelExportService } from '@/app/finances/forecast/services/excel-export-service'
 import { PDFExportService } from '@/app/finances/forecast/services/pdf-export-service'
@@ -9,7 +10,7 @@ import { PDFExportService } from '@/app/finances/forecast/services/pdf-export-se
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = createRouteHandlerClient({ cookies })
     const { searchParams } = new URL(request.url)
     const forecastId = searchParams.get('forecast_id')
     const format = searchParams.get('format') || 'pdf'
