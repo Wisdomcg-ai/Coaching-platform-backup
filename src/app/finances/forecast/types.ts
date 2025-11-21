@@ -119,7 +119,7 @@ export interface FinancialForecast {
   revenue_goal?: number
   gross_profit_goal?: number
   net_profit_goal?: number
-  goal_source?: 'annual_plan' | 'manual'
+  goal_source?: 'goals_wizard' | 'annual_plan' | 'manual'
   annual_plan_id?: string
   revenue_distribution_method?: DistributionMethod
   revenue_distribution_data?: { [monthKey: string]: number }
