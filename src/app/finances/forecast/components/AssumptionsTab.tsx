@@ -86,6 +86,30 @@ export default function AssumptionsTab({
     setValidationIssues(issues)
   }, [goals.revenue, cogsPercentage])
 
+  // Auto-save when goals or settings change (with debounce)
+  useEffect(() => {
+    // Don't auto-save if there are critical validation errors
+    const hasCriticalErrors = validationIssues.some(i => i.severity === 'error')
+    if (hasCriticalErrors) return
+
+    // Don't auto-save if goals haven't changed from the saved values
+    const hasChanges =
+      goals.revenue !== (forecast.revenue_goal || 0) ||
+      goals.netProfit !== (forecast.net_profit_goal || 0) ||
+      cogsPercentage !== ((forecast.cogs_percentage || 0) * 100) ||
+      distributionMethod !== (forecast.revenue_distribution_method || 'even')
+
+    if (!hasChanges) return
+
+    // Debounce auto-save by 1.5 seconds
+    const timer = setTimeout(() => {
+      handleSave()
+    }, 1500)
+
+    return () => clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goals.revenue, goals.netProfit, cogsPercentage, distributionMethod, validationIssues])
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',

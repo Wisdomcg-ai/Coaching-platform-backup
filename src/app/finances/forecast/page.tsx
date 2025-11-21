@@ -415,6 +415,9 @@ export default function FinancialForecastPage() {
   const handleBulkOpExIncrease = async (percentageIncrease: number) => {
     if (!forecast?.id) return
 
+    // Give a moment for auto-save to complete (if it was triggered)
+    await new Promise(resolve => setTimeout(resolve, 100))
+
     // Update all Operating Expenses lines with seasonal_pattern and the specified increase
     const updatedLines = plLines.map(line => {
       // Only apply to Operating Expenses lines
