@@ -5,10 +5,11 @@ import { Download, FileText, FileSpreadsheet, Loader2, ChevronDown } from 'lucid
 
 interface ExportControlsProps {
   forecastId: string
+  userId: string
   className?: string
 }
 
-export default function ExportControls({ forecastId, className = '' }: ExportControlsProps) {
+export default function ExportControls({ forecastId, userId, className = '' }: ExportControlsProps) {
   const [isExporting, setIsExporting] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [exportFormat, setExportFormat] = useState<'pdf' | 'excel' | null>(null)
@@ -19,7 +20,7 @@ export default function ExportControls({ forecastId, className = '' }: ExportCon
     setIsDropdownOpen(false)
 
     try {
-      const response = await fetch(`/api/forecasts/export?forecast_id=${forecastId}&format=${format}`)
+      const response = await fetch(`/api/forecasts/export?forecast_id=${forecastId}&user_id=${userId}&format=${format}`)
 
       if (!response.ok) {
         const error = await response.json()

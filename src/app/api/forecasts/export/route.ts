@@ -1,32 +1,30 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { ExcelExportService } from '@/app/finances/forecast/services/excel-export-service'
 import { PDFExportService } from '@/app/finances/forecast/services/pdf-export-service'
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
 /**
- * GET /api/forecasts/export?forecast_id=xxx&format=pdf|excel
+ * GET /api/forecasts/export?forecast_id=xxx&user_id=xxx&format=pdf|excel
  * Export forecast to PDF or Excel
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
     const { searchParams } = new URL(request.url)
     const forecastId = searchParams.get('forecast_id')
+    const userId = searchParams.get('user_id')
     const format = searchParams.get('format') || 'pdf'
 
-    if (!forecastId) {
-      return NextResponse.json({ error: 'forecast_id is required' }, { status: 400 })
+    if (!forecastId || !userId) {
+      return NextResponse.json({ error: 'forecast_id and user_id are required' }, { status: 400 })
     }
 
     if (!['pdf', 'excel'].includes(format)) {
       return NextResponse.json({ error: 'format must be "pdf" or "excel"' }, { status: 400 })
-    }
-
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Fetch forecast
@@ -34,7 +32,7 @@ export async function GET(request: NextRequest) {
       .from('financial_forecasts')
       .select('*')
       .eq('id', forecastId)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single()
 
     if (forecastError || !forecast) {
@@ -83,7 +81,10 @@ export async function GET(request: NextRequest) {
 
       const filename = `forecast_${forecast.fiscal_year}_${new Date().getTime()}.xlsx`
 
-      return new NextResponse(buffer, {
+      // Convert Buffer to Uint8Array for NextResponse
+      const uint8Array = new Uint8Array(buffer)
+
+      return new NextResponse(uint8Array, {
         status: 200,
         headers: {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

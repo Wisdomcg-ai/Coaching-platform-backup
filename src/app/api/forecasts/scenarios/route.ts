@@ -1,6 +1,10 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 /**
  * GET /api/forecasts/scenarios?forecast_id=xxx
@@ -8,18 +12,11 @@ import { NextRequest, NextResponse } from 'next/server'
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
     const { searchParams } = new URL(request.url)
     const forecastId = searchParams.get('forecast_id')
 
     if (!forecastId) {
       return NextResponse.json({ error: 'forecast_id is required' }, { status: 400 })
-    }
-
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Fetch scenarios
@@ -48,17 +45,10 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
-
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const body = await request.json()
     const {
       forecast_id,
+      user_id,
       name,
       description,
       revenue_multiplier = 1.0,
@@ -67,9 +57,9 @@ export async function POST(request: NextRequest) {
       scenario_type = 'planning'
     } = body
 
-    if (!forecast_id || !name) {
+    if (!forecast_id || !name || !user_id) {
       return NextResponse.json(
-        { error: 'forecast_id and name are required' },
+        { error: 'forecast_id, user_id, and name are required' },
         { status: 400 }
       )
     }
@@ -79,7 +69,7 @@ export async function POST(request: NextRequest) {
       .from('forecast_scenarios')
       .insert({
         forecast_id,
-        user_id: user.id,
+        user_id,
         name,
         description,
         scenario_type,
@@ -114,19 +104,11 @@ export async function POST(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
-
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const body = await request.json()
-    const { scenario_id, ...updates } = body
+    const { scenario_id, user_id, ...updates } = body
 
-    if (!scenario_id) {
-      return NextResponse.json({ error: 'scenario_id is required' }, { status: 400 })
+    if (!scenario_id || !user_id) {
+      return NextResponse.json({ error: 'scenario_id and user_id are required' }, { status: 400 })
     }
 
     // Update scenario
@@ -137,7 +119,7 @@ export async function PATCH(request: NextRequest) {
         updated_at: new Date().toISOString()
       })
       .eq('id', scenario_id)
-      .eq('user_id', user.id)
+      .eq('user_id', user_id)
       .select()
       .single()
 
@@ -158,23 +140,17 @@ export async function PATCH(request: NextRequest) {
 }
 
 /**
- * DELETE /api/forecasts/scenarios?scenario_id=xxx
+ * DELETE /api/forecasts/scenarios?scenario_id=xxx&user_id=xxx
  * Delete a scenario
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
     const { searchParams } = new URL(request.url)
     const scenarioId = searchParams.get('scenario_id')
+    const userId = searchParams.get('user_id')
 
-    if (!scenarioId) {
-      return NextResponse.json({ error: 'scenario_id is required' }, { status: 400 })
-    }
-
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!scenarioId || !userId) {
+      return NextResponse.json({ error: 'scenario_id and user_id are required' }, { status: 400 })
     }
 
     // Check if it's the baseline scenario
@@ -196,7 +172,7 @@ export async function DELETE(request: NextRequest) {
       .from('forecast_scenarios')
       .delete()
       .eq('id', scenarioId)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
 
     if (error) {
       console.error('Error deleting scenario:', error)

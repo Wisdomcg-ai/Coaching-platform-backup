@@ -155,10 +155,13 @@ export default function FinancialForecastPage() {
 
   // Scenario management functions
   const loadScenarios = async (forecastId: string) => {
+    if (!userId) {
+      console.log('Scenarios not loaded: userId not available yet')
+      return
+    }
+
     try {
-      const response = await fetch(`/api/forecasts/scenarios?forecast_id=${forecastId}`, {
-        credentials: 'include'
-      })
+      const response = await fetch(`/api/forecasts/scenarios?forecast_id=${forecastId}`)
       if (!response.ok) {
         // Scenarios are optional - just log and continue
         console.log('Scenarios not available (this is fine - feature is optional)')
@@ -182,7 +185,7 @@ export default function FinancialForecastPage() {
   }
 
   const handleCreateScenario = async () => {
-    if (!forecast?.id) return
+    if (!forecast?.id || !userId) return
 
     const scenarioName = prompt('Enter a name for the new scenario:', 'New Scenario')
     if (!scenarioName) return
@@ -193,6 +196,7 @@ export default function FinancialForecastPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           forecast_id: forecast.id,
+          user_id: userId,
           name: scenarioName,
           description: '',
           scenario_type: 'planning'
@@ -216,12 +220,15 @@ export default function FinancialForecastPage() {
     setActiveScenario(scenario)
 
     // Optionally set as active scenario in database
+    if (!userId) return
+
     try {
       await fetch('/api/forecasts/scenarios', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           scenario_id: scenario.id,
+          user_id: userId,
           is_active: true
         })
       })
@@ -231,7 +238,7 @@ export default function FinancialForecastPage() {
   }
 
   const handleDuplicateScenario = async (scenario: ForecastScenario) => {
-    if (!forecast?.id) return
+    if (!forecast?.id || !userId) return
 
     const newName = prompt('Enter a name for the duplicated scenario:', `${scenario.name} (Copy)`)
     if (!newName) return
@@ -242,6 +249,7 @@ export default function FinancialForecastPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           forecast_id: forecast.id,
+          user_id: userId,
           name: newName,
           description: scenario.description,
           revenue_multiplier: scenario.revenue_multiplier,
@@ -265,8 +273,10 @@ export default function FinancialForecastPage() {
   }
 
   const handleDeleteScenario = async (scenario: ForecastScenario) => {
+    if (!userId) return
+
     try {
-      const response = await fetch(`/api/forecasts/scenarios?scenario_id=${scenario.id}`, {
+      const response = await fetch(`/api/forecasts/scenarios?scenario_id=${scenario.id}&user_id=${userId}`, {
         method: 'DELETE'
       })
 
@@ -287,12 +297,15 @@ export default function FinancialForecastPage() {
   }
 
   const handleArchiveScenario = async (scenario: ForecastScenario) => {
+    if (!userId) return
+
     try {
       await fetch('/api/forecasts/scenarios', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           scenario_id: scenario.id,
+          user_id: userId,
           scenario_type: 'archived'
         })
       })
@@ -309,7 +322,7 @@ export default function FinancialForecastPage() {
   }
 
   const handleSaveWhatIfScenario = async (scenarioName: string, parameters: WhatIfParameters) => {
-    if (!forecast?.id) return
+    if (!forecast?.id || !userId) return
 
     try {
       const response = await fetch('/api/forecasts/scenarios', {
@@ -317,6 +330,7 @@ export default function FinancialForecastPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           forecast_id: forecast.id,
+          user_id: userId,
           name: scenarioName,
           description: `Revenue ${parameters.revenueChange > 0 ? '+' : ''}${parameters.revenueChange}%, COGS ${parameters.cogsChange > 0 ? '+' : ''}${parameters.cogsChange}pp, OpEx ${parameters.opexChange > 0 ? '+' : ''}${parameters.opexChange}%`,
           revenue_multiplier: 1 + (parameters.revenueChange / 100),
@@ -653,12 +667,12 @@ export default function FinancialForecastPage() {
   }
 
   const handleImportGoalsFromAnnualPlan = async () => {
-    if (!businessId || !forecast?.id) return
+    if (!businessId || !forecast?.id || !userId) return
 
     setIsSaving(true)
     try {
       // Fetch annual plan data from API
-      const response = await fetch('/api/annual-plan')
+      const response = await fetch(`/api/annual-plan?user_id=${userId}`)
       if (!response.ok) {
         throw new Error('Failed to fetch annual plan data')
       }
@@ -950,7 +964,7 @@ export default function FinancialForecastPage() {
               </button>
 
               {/* Export Controls */}
-              {forecast?.id && <ExportControls forecastId={forecast.id} />}
+              {forecast?.id && userId && <ExportControls forecastId={forecast.id} userId={userId} />}
 
               {/* Saving Indicator */}
               {isSaving && (

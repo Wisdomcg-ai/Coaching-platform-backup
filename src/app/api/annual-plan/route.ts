@@ -1,9 +1,13 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
 /**
- * GET /api/annual-plan
+ * GET /api/annual-plan?user_id=xxx
  * Fetches the user's annual plan data including 12-month targets
  *
  * This API combines data from multiple sources:
@@ -13,19 +17,18 @@ import { NextRequest, NextResponse } from 'next/server'
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const { searchParams } = new URL(request.url)
+    const userId = searchParams.get('user_id')
 
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!userId) {
+      return NextResponse.json({ error: 'user_id is required' }, { status: 400 })
     }
 
     // 1. Get the latest assessment with 12-month targets
     const { data: assessment, error: assessmentError } = await supabase
       .from('assessments')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -58,7 +61,7 @@ export async function GET(request: NextRequest) {
     const { data: initiatives, error: initiativesError } = await supabase
       .from('strategic_initiatives')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('selected_for_annual_plan', true)
       .order('created_at', { ascending: false })
 
@@ -66,7 +69,7 @@ export async function GET(request: NextRequest) {
     const { data: strategicPlan, error: planError } = await supabase
       .from('strategic_plans')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(1)
@@ -76,7 +79,7 @@ export async function GET(request: NextRequest) {
     const { data: businessProfile } = await supabase
       .from('business_profiles')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .maybeSingle()
 
     // Prepare response
