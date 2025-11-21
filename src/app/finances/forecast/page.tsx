@@ -140,12 +140,12 @@ export default function FinancialForecastPage() {
       const xeroConn = await ForecastService.getXeroConnection(bizId)
       setXeroConnection(xeroConn)
 
-      setIsLoading(false)
-
       // Load scenarios if we have a forecast
-      if (forecastData) {
-        await loadScenarios(forecastData.id)
+      if (loadedForecast?.id) {
+        await loadScenarios(loadedForecast.id)
       }
+
+      setIsLoading(false)
     } catch (err) {
       console.error('[Forecast] Error in loadInitialData:', err)
       setError(err instanceof Error ? err.message : 'Failed to load forecast data')
