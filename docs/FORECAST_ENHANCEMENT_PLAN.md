@@ -163,53 +163,90 @@ CREATE TABLE rock_forecast_links (
 
 ## 🎯 PHASE 4: Scenario Planning & What-If Analysis
 
-### Database Schema:
+### Database Schema: ✅ COMPLETED
 ```sql
--- Scenarios table
+-- Scenarios table (COMPLETED)
 CREATE TABLE forecast_scenarios (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   forecast_id UUID REFERENCES financial_forecasts(id),
   name VARCHAR(100) NOT NULL, -- "Conservative", "Realistic", "Optimistic"
   description TEXT,
-  scenario_type VARCHAR(50), -- "active", "planning"
+  scenario_type VARCHAR(50), -- "active", "planning", "archived"
   revenue_multiplier DECIMAL(5,2) DEFAULT 1.00,
   cogs_multiplier DECIMAL(5,2) DEFAULT 1.00,
   opex_multiplier DECIMAL(5,2) DEFAULT 1.00,
   is_active BOOLEAN DEFAULT false,
+  is_baseline BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Scenario line adjustments
+-- Scenario line adjustments (COMPLETED)
 CREATE TABLE forecast_scenario_lines (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   scenario_id UUID REFERENCES forecast_scenarios(id),
   pl_line_id UUID REFERENCES forecast_pl_lines(id),
   adjusted_forecast_months JSONB,
+  adjustment_reason TEXT,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
-### Features:
-- [ ] Scenario Management
-  - Create/edit/delete scenarios
-  - Scenario dropdown in header
-  - Set "Active Scenario" (default view)
-  - Copy scenario functionality
+### Completed Features:
+- ✅ **Database Infrastructure**
+  - ✅ forecast_scenarios table with multipliers and status tracking
+  - ✅ forecast_scenario_lines table for line-level adjustments
+  - ✅ RLS policies for secure access
+  - ✅ Triggers for single active scenario enforcement
+  - ✅ Audit log integration
+  - ✅ TypeScript types (ForecastScenario, ScenarioLine, WhatIfParameters)
 
-- [ ] What-If Analysis Tool
-  - Modal with sliders for key variables:
+- ✅ **Scenario Management API** (`/api/forecasts/scenarios`)
+  - ✅ GET - Fetch all scenarios for a forecast
+  - ✅ POST - Create new scenario
+  - ✅ PATCH - Update scenario (multipliers, active status)
+  - ✅ DELETE - Delete scenario (blocks baseline deletion)
+
+- ✅ **What-If Analysis Tool** (WhatIfAnalysisModal.tsx)
+  - ✅ Interactive modal with sliders for:
     - Revenue: -50% to +100%
-    - COGS %: -20% to +20%
+    - COGS %: -20% to +20% (percentage points)
     - OpEx: -20% to +50%
-  - Real-time impact calculation on:
-    - Gross Profit
-    - Net Profit
-    - Cash Position
-  - "Save as New Scenario" button
+  - ✅ Real-time impact calculation showing:
+    - Adjusted Revenue with change indicator
+    - Adjusted Gross Profit with margin %
+    - Adjusted Net Profit with margin %
+    - Color-coded impacts (green=positive, red=negative)
+  - ✅ Key insights panel with warnings:
+    - Large profit swings (>20%)
+    - Low gross margins (<30%)
+    - Loss scenarios
+  - ✅ "Save as New Scenario" functionality
+  - ✅ Reset to baseline button
+  - ✅ Beautiful gradient UI with color-coded sliders
 
-- [ ] Scenario Comparison
+- ✅ **Scenario Selector Component** (ScenarioSelector.tsx)
+  - ✅ Dropdown with all scenarios
+  - ✅ Visual indicators (color dots) for scenario types:
+    - Gray = Baseline
+    - Blue = Realistic
+    - Green = Optimistic (>5% revenue)
+    - Red = Conservative (<-5% revenue)
+  - ✅ Active scenario badge
+  - ✅ Hover actions: Duplicate, Archive, Delete
+  - ✅ Protection against deleting baseline
+  - ✅ "Create New Scenario" button
+  - ✅ Scenario description with multiplier summary
+
+### Pending Integration:
+- ⏳ Integrate What-If button into forecast page header
+- ⏳ Integrate Scenario Selector into page header
+- ⏳ Apply scenario multipliers to P&L calculations
+- ⏳ Save/load scenario data with forecast
+
+### Future Enhancements:
+- [ ] Scenario Comparison View
   - Side-by-side table (2-3 scenarios)
   - Highlight differences
   - Charts showing Net Profit across scenarios

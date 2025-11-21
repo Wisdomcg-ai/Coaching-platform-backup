@@ -167,3 +167,65 @@ export const PL_CATEGORIES = [
   'Other Income',
   'Other Expenses'
 ] as const
+
+// ============================================================================
+// Scenario Planning Types
+// ============================================================================
+
+export type ScenarioType = 'active' | 'planning' | 'archived'
+
+export type AdjustmentType = 'multiplier' | 'fixed'
+
+export interface ForecastScenario {
+  id?: string
+  forecast_id: string
+  user_id: string
+  name: string
+  description?: string
+  scenario_type: ScenarioType
+
+  // Multipliers (1.00 = 100%, 1.15 = +15%, 0.85 = -15%)
+  revenue_multiplier: number
+  cogs_multiplier: number
+  opex_multiplier: number
+
+  // Alternative: fixed value adjustments
+  revenue_adjustment_type?: AdjustmentType
+  revenue_fixed_value?: number
+
+  // Status
+  is_active: boolean
+  is_baseline: boolean
+
+  // Metadata
+  created_at?: string
+  updated_at?: string
+}
+
+export interface ScenarioLine {
+  id?: string
+  scenario_id: string
+  pl_line_id: string
+  adjusted_forecast_months: { [monthKey: string]: number }
+  adjustment_reason?: string
+  notes?: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface ScenarioComparison {
+  scenario: ForecastScenario
+  totalRevenue: number
+  totalCOGS: number
+  totalOpEx: number
+  grossProfit: number
+  netProfit: number
+  grossMargin: number
+  netMargin: number
+}
+
+export interface WhatIfParameters {
+  revenueChange: number // -50 to +100 (percentage)
+  cogsChange: number // -20 to +20 (percentage points)
+  opexChange: number // -20 to +50 (percentage)
+}
