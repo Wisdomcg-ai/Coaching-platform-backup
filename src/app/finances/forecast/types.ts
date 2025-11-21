@@ -93,6 +93,8 @@ export interface CategoryAssumptions {
   }
 }
 
+export type Currency = 'AUD' | 'USD' | 'NZD' | 'GBP' | 'EUR'
+
 export interface FinancialForecast {
   id?: string
   business_id: string
@@ -111,6 +113,7 @@ export interface FinancialForecast {
   xero_connection_id?: string
   created_at?: string
   updated_at?: string
+  currency?: Currency // Default: AUD
 
   // Goal-driven forecasting fields
   revenue_goal?: number
