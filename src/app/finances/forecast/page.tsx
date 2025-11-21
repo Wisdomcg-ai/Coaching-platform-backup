@@ -2,16 +2,18 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Loader2, TrendingUp, Users, Download, Upload, Link as LinkIcon, Settings, X } from 'lucide-react'
+import { Loader2, TrendingUp, Users, Download, Upload, Link as LinkIcon, Settings, X, Lightbulb } from 'lucide-react'
 import ForecastService from './services/forecast-service'
 import { ForecastGenerator } from './services/forecast-generator'
 import { ForecastingEngine } from './services/forecasting-engine'
-import type { FinancialForecast, PLLine, ForecastEmployee, XeroConnection, DistributionMethod, ForecastMethod } from './types'
+import type { FinancialForecast, PLLine, ForecastEmployee, XeroConnection, DistributionMethod, ForecastMethod, ForecastScenario, WhatIfParameters } from './types'
 import PLForecastTable from './components/PLForecastTable'
 import PayrollTable from './components/PayrollTable'
 import AssumptionsTab from './components/AssumptionsTab'
 import CompletenessChecker from './components/CompletenessChecker'
 import AuditLogViewer from './components/AuditLogViewer'
+import WhatIfAnalysisModal from './components/WhatIfAnalysisModal'
+import ScenarioSelector from './components/ScenarioSelector'
 import { LoadingState } from './components/LoadingState'
 import ErrorState from './components/ErrorState'
 import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp'
@@ -34,6 +36,11 @@ export default function FinancialForecastPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
+
+  // Scenario planning state
+  const [scenarios, setScenarios] = useState<ForecastScenario[]>([])
+  const [activeScenario, setActiveScenario] = useState<ForecastScenario | null>(null)
+  const [showWhatIfModal, setShowWhatIfModal] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -133,11 +140,218 @@ export default function FinancialForecastPage() {
       setXeroConnection(xeroConn)
 
       setIsLoading(false)
+
+      // Load scenarios if we have a forecast
+      if (forecastData) {
+        await loadScenarios(forecastData.id)
+      }
     } catch (err) {
       console.error('[Forecast] Error in loadInitialData:', err)
       setError(err instanceof Error ? err.message : 'Failed to load forecast data')
       setIsLoading(false)
     }
+  }
+
+  // Scenario management functions
+  const loadScenarios = async (forecastId: string) => {
+    try {
+      const response = await fetch(`/api/forecasts/scenarios?forecast_id=${forecastId}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch scenarios')
+      }
+      const data = await response.json()
+      setScenarios(data.scenarios || [])
+
+      // Set active scenario if one exists
+      const active = data.scenarios?.find((s: ForecastScenario) => s.is_active)
+      if (active) {
+        setActiveScenario(active)
+      } else if (data.scenarios?.length > 0) {
+        // Default to first scenario if none is active
+        setActiveScenario(data.scenarios[0])
+      }
+    } catch (error) {
+      console.error('Error loading scenarios:', error)
+    }
+  }
+
+  const handleCreateScenario = async () => {
+    if (!forecast?.id) return
+
+    const scenarioName = prompt('Enter a name for the new scenario:', 'New Scenario')
+    if (!scenarioName) return
+
+    try {
+      const response = await fetch('/api/forecasts/scenarios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          forecast_id: forecast.id,
+          name: scenarioName,
+          description: '',
+          scenario_type: 'planning'
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create scenario')
+      }
+
+      const data = await response.json()
+      setScenarios([...scenarios, data.scenario])
+      alert(`Scenario "${scenarioName}" created successfully!`)
+    } catch (error) {
+      console.error('Error creating scenario:', error)
+      alert('Failed to create scenario. Please try again.')
+    }
+  }
+
+  const handleSelectScenario = async (scenario: ForecastScenario) => {
+    setActiveScenario(scenario)
+
+    // Optionally set as active scenario in database
+    try {
+      await fetch('/api/forecasts/scenarios', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scenario_id: scenario.id,
+          is_active: true
+        })
+      })
+    } catch (error) {
+      console.error('Error updating active scenario:', error)
+    }
+  }
+
+  const handleDuplicateScenario = async (scenario: ForecastScenario) => {
+    if (!forecast?.id) return
+
+    const newName = prompt('Enter a name for the duplicated scenario:', `${scenario.name} (Copy)`)
+    if (!newName) return
+
+    try {
+      const response = await fetch('/api/forecasts/scenarios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          forecast_id: forecast.id,
+          name: newName,
+          description: scenario.description,
+          revenue_multiplier: scenario.revenue_multiplier,
+          cogs_multiplier: scenario.cogs_multiplier,
+          opex_multiplier: scenario.opex_multiplier,
+          scenario_type: 'planning'
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to duplicate scenario')
+      }
+
+      const data = await response.json()
+      setScenarios([...scenarios, data.scenario])
+      alert(`Scenario duplicated as "${newName}"`)
+    } catch (error) {
+      console.error('Error duplicating scenario:', error)
+      alert('Failed to duplicate scenario')
+    }
+  }
+
+  const handleDeleteScenario = async (scenario: ForecastScenario) => {
+    try {
+      const response = await fetch(`/api/forecasts/scenarios?scenario_id=${scenario.id}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete scenario')
+      }
+
+      setScenarios(scenarios.filter(s => s.id !== scenario.id))
+      if (activeScenario?.id === scenario.id) {
+        const remaining = scenarios.filter(s => s.id !== scenario.id)
+        setActiveScenario(remaining[0] || null)
+      }
+      alert(`Scenario "${scenario.name}" deleted`)
+    } catch (error) {
+      console.error('Error deleting scenario:', error)
+      alert('Failed to delete scenario')
+    }
+  }
+
+  const handleArchiveScenario = async (scenario: ForecastScenario) => {
+    try {
+      await fetch('/api/forecasts/scenarios', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scenario_id: scenario.id,
+          scenario_type: 'archived'
+        })
+      })
+
+      // Reload scenarios
+      if (forecast?.id) {
+        await loadScenarios(forecast.id)
+      }
+      alert(`Scenario "${scenario.name}" archived`)
+    } catch (error) {
+      console.error('Error archiving scenario:', error)
+      alert('Failed to archive scenario')
+    }
+  }
+
+  const handleSaveWhatIfScenario = async (scenarioName: string, parameters: WhatIfParameters) => {
+    if (!forecast?.id) return
+
+    try {
+      const response = await fetch('/api/forecasts/scenarios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          forecast_id: forecast.id,
+          name: scenarioName,
+          description: `Revenue ${parameters.revenueChange > 0 ? '+' : ''}${parameters.revenueChange}%, COGS ${parameters.cogsChange > 0 ? '+' : ''}${parameters.cogsChange}pp, OpEx ${parameters.opexChange > 0 ? '+' : ''}${parameters.opexChange}%`,
+          revenue_multiplier: 1 + (parameters.revenueChange / 100),
+          cogs_multiplier: 1 + (parameters.cogsChange / 100), // Approximation
+          opex_multiplier: 1 + (parameters.opexChange / 100),
+          scenario_type: 'planning'
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to save scenario')
+      }
+
+      const data = await response.json()
+      setScenarios([...scenarios, data.scenario])
+      alert(`Scenario "${scenarioName}" saved successfully!`)
+    } catch (error) {
+      console.error('Error saving what-if scenario:', error)
+      alert('Failed to save scenario')
+    }
+  }
+
+  // Calculate baseline totals for What-If analysis
+  const calculateBaselineTotals = () => {
+    let totalRevenue = 0
+    let totalCOGS = 0
+    let totalOpEx = 0
+
+    plLines.forEach(line => {
+      const forecastTotal = Object.values(line.forecast_months || {}).reduce((sum, val) => sum + (val || 0), 0)
+
+      if (line.category === 'Revenue') {
+        totalRevenue += forecastTotal
+      } else if (line.category === 'Cost of Sales') {
+        totalCOGS += forecastTotal
+      } else if (line.category === 'Operating Expenses') {
+        totalOpEx += forecastTotal
+      }
+    })
+
+    return { totalRevenue, totalCOGS, totalOpEx }
   }
 
   const handleSavePLLines = async (updatedLines: PLLine[]) => {
@@ -706,6 +920,30 @@ export default function FinancialForecastPage() {
               <p className="text-gray-600">{forecast.name}</p>
             </div>
             <div className="flex items-center space-x-3">
+              {/* Scenario Selector */}
+              {scenarios.length > 0 && (
+                <ScenarioSelector
+                  scenarios={scenarios}
+                  activeScenario={activeScenario}
+                  onSelectScenario={handleSelectScenario}
+                  onCreateScenario={handleCreateScenario}
+                  onDuplicateScenario={handleDuplicateScenario}
+                  onDeleteScenario={handleDeleteScenario}
+                  onArchiveScenario={handleArchiveScenario}
+                  className="w-64"
+                />
+              )}
+
+              {/* What-If Analysis Button */}
+              <button
+                onClick={() => setShowWhatIfModal(true)}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg"
+              >
+                <Lightbulb className="w-4 h-4" />
+                What-If Analysis
+              </button>
+
+              {/* Saving Indicator */}
               {isSaving && (
                 <div className="flex items-center text-gray-600">
                   <Loader2 className="animate-spin h-4 w-4 mr-2" />
@@ -894,6 +1132,19 @@ export default function FinancialForecastPage() {
         isOpen={showKeyboardHelp}
         onClose={() => setShowKeyboardHelp(false)}
       />
+
+      {/* What-If Analysis Modal */}
+      {forecast && (
+        <WhatIfAnalysisModal
+          isOpen={showWhatIfModal}
+          onClose={() => setShowWhatIfModal(false)}
+          forecast={forecast}
+          baselineRevenue={calculateBaselineTotals().totalRevenue}
+          baselineCOGS={calculateBaselineTotals().totalCOGS}
+          baselineOpEx={calculateBaselineTotals().totalOpEx}
+          onSaveAsScenario={handleSaveWhatIfScenario}
+        />
+      )}
     </div>
   )
 }
