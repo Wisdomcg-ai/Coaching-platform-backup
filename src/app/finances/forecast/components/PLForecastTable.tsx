@@ -43,6 +43,8 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
   const [history, setHistory] = useState<HistoryState[]>([])
   const [historyIndex, setHistoryIndex] = useState<number>(-1)
   const [isSaving, setIsSaving] = useState<boolean>(false)
+  const historyInitialized = useRef<boolean>(false)
+  const needsSave = useRef<boolean>(false)
 
   // Virtualization ref
   const tableContainerRef = useRef<HTMLDivElement>(null)
@@ -79,13 +81,14 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
       console.log('[PLForecastTable] First line data keys:', Object.keys(lines[0].actual_months || {}))
     }
     setMonthColumns(columns)
-  }, [forecast, lines])
+  }, [forecast.actual_start_month, forecast.actual_end_month, forecast.forecast_start_month, forecast.forecast_end_month])
 
   // Initialize history with first state
   useEffect(() => {
-    if (plLines.length > 0 && history.length === 0) {
+    if (plLines.length > 0 && !historyInitialized.current) {
       setHistory([{ lines: plLines, timestamp: Date.now() }])
       setHistoryIndex(0)
+      historyInitialized.current = true
     }
   }, [plLines])
 
@@ -101,6 +104,7 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
 
     setHistory(newHistory)
     setHistoryIndex(newHistory.length - 1)
+    needsSave.current = true // Mark that we need to save
   }
 
   // Undo/Redo functions
@@ -139,10 +143,11 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
   // Optimistic save with debouncing
   useEffect(() => {
     const timer = setTimeout(async () => {
-      if (lines.length > 0 && lines !== plLines) {
+      if (needsSave.current && lines.length > 0) {
         setIsSaving(true)
         try {
           await onSave(lines)
+          needsSave.current = false // Reset flag after successful save
         } catch (error) {
           console.error('Failed to save:', error)
         } finally {
@@ -152,7 +157,7 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
     }, 1000)
 
     return () => clearTimeout(timer)
-  }, [lines])
+  }, [lines, onSave])
 
   const categories = ['Revenue', 'Cost of Sales', 'Operating Expenses', 'Other Income', 'Other Expenses']
 
@@ -239,11 +244,13 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
       newFormulas.delete(cellId)
       setCellFormulas(newFormulas)
 
+      // Round to 2 decimal places to avoid floating point precision issues
       const numValue = typeof value === 'string' ? parseFloat(value) || 0 : value
+      const roundedValue = Math.round(numValue * 100) / 100
       if (isForecast) {
-        updatedLines[index].forecast_months[monthKey] = numValue
+        updatedLines[index].forecast_months[monthKey] = roundedValue
       } else {
-        updatedLines[index].actual_months[monthKey] = numValue
+        updatedLines[index].actual_months[monthKey] = roundedValue
       }
     }
     saveToHistory(updatedLines)
@@ -251,12 +258,16 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
   }
 
   const calculateCategoryTotal = (category: string, monthKey: string, isForecast: boolean): number => {
-    return lines
-      .filter(line => line.category === category)
-      .reduce((sum, line) => {
-        const months = isForecast ? line.forecast_months : line.actual_months
-        return sum + (months[monthKey] || 0)
-      }, 0)
+    // Sum all lines in the category (no summary lines anymore, just detail lines from chart of accounts)
+    const categoryLines = lines.filter(line => line.category === category)
+
+    const total = categoryLines.reduce((sum, line) => {
+      const months = isForecast ? line.forecast_months : line.actual_months
+      const value = months[monthKey] || 0
+      return sum + value
+    }, 0)
+
+    return total
   }
 
   const calculateGrossProfit = (monthKey: string, isForecast: boolean): number => {
@@ -291,6 +302,7 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
   }
 
   const calculateCategoryFY26Total = (category: string): number => {
+    // Sum all lines in the category (no summary lines anymore, just detail lines from chart of accounts)
     return lines
       .filter(line => line.category === category)
       .reduce((sum, line) => sum + calculateLineFY26Total(line), 0)
@@ -346,37 +358,10 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
     }).format(value)
   }
 
-  const formatAnalysis = (line: PLLine): string => {
-    const analysis = line.analysis
-    if (!analysis) return 'Calculating...'
-
-    const parts: string[] = []
-
-    if (line.category === 'Revenue') {
-      if (analysis.pct_of_total_revenue !== undefined) {
-        parts.push(`${analysis.pct_of_total_revenue.toFixed(1)}% of Revenue`)
-      }
-      if (analysis.fy_average_per_month !== undefined) {
-        parts.push(`Avg: ${formatCurrency(analysis.fy_average_per_month)}/mo`)
-      }
-    } else if (line.category === 'Cost of Sales') {
-      if (analysis.pct_of_revenue !== undefined) {
-        parts.push(`${analysis.pct_of_revenue.toFixed(1)}% of Revenue`)
-      }
-      if (analysis.fy_average_per_month !== undefined) {
-        parts.push(`Avg: ${formatCurrency(analysis.fy_average_per_month)}/mo`)
-      }
-    } else if (line.category === 'Operating Expenses') {
-      if (analysis.fy_average_per_month !== undefined) {
-        parts.push(`Avg: ${formatCurrency(analysis.fy_average_per_month)}/mo`)
-      }
-      if (analysis.trend_direction && analysis.trend_percentage !== undefined) {
-        const arrow = analysis.trend_direction === 'up' ? '↑' : analysis.trend_direction === 'down' ? '↓' : '→'
-        parts.push(`Trend: ${arrow}${Math.abs(analysis.trend_percentage).toFixed(1)}%`)
-      }
-    }
-
-    return parts.join(' | ') || 'No data'
+  const formatEditingValue = (value: number) => {
+    if (!value || value === 0) return ''
+    // Round to 2 decimal places for editing
+    return value.toFixed(2)
   }
 
   const updateForecastMethod = async (index: number, method: ForecastMethod) => {
@@ -422,41 +407,9 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
     })
 
     setLines(recalculatedLines)
+    needsSave.current = true
 
     // Persist to database using the onSave callback
-    onSave(recalculatedLines)
-  }
-
-  // Handler for bulk OpEx increase
-  const handleBulkOpExIncrease = (percentageIncrease: number) => {
-    const updatedLines = lines.map(line => {
-      // Only apply to Operating Expenses lines
-      if (line.category !== 'Operating Expenses') {
-        return line
-      }
-
-      // Set to seasonal_pattern with the specified percentage increase
-      return {
-        ...line,
-        forecast_method: {
-          method: 'seasonal_pattern' as ForecastMethod,
-          percentage_increase: percentageIncrease / 100, // Convert from 5 to 0.05
-          base_amount: line.analysis?.fy_average_per_month || 0
-        }
-      }
-    })
-
-    // Recalculate forecasts
-    const actualMonthKeys = monthColumns.filter(c => c.isActual).map(c => c.key)
-    const forecastMonthKeys = monthColumns.filter(c => c.isForecast).map(c => c.key)
-
-    const recalculatedLines = ForecastingEngine.recalculateAllForecasts(
-      updatedLines,
-      actualMonthKeys,
-      forecastMonthKeys
-    )
-
-    setLines(recalculatedLines)
     onSave(recalculatedLines)
   }
 
@@ -486,6 +439,7 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
     )
 
     setLines(recalculatedLines)
+    needsSave.current = true
     onSave(recalculatedLines)
   }
 
@@ -509,6 +463,7 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
     )
 
     setLines(recalculatedLines)
+    needsSave.current = true
     onSave(recalculatedLines)
   }
 
@@ -716,17 +671,27 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
                   {/* Category Header */}
                   <tr className="bg-gray-100">
                     <td className="sticky left-0 z-20 bg-gray-100 px-6 py-3 border-r-2 border-gray-300 shadow-[2px_0_4px_rgba(0,0,0,0.05)]">
-                      <button
-                        onClick={() => toggleCategory(category)}
-                        className="flex items-center space-x-2 hover:text-blue-600 transition-colors"
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="w-4 h-4" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4" />
-                        )}
-                        <span className="font-bold text-gray-900">{category}</span>
-                      </button>
+                      <div className="flex items-center justify-between">
+                        <button
+                          onClick={() => toggleCategory(category)}
+                          className="flex items-center space-x-2 hover:text-blue-600 transition-colors"
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="w-4 h-4" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4" />
+                          )}
+                          <span className="font-bold text-gray-900">{category}</span>
+                        </button>
+                        <button
+                          onClick={() => addLine(category)}
+                          className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
+                          title="Add new row"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Add Row
+                        </button>
+                      </div>
                     </td>
                     {monthColumns.map((col, idx) => {
                       const total = calculateCategoryTotal(category, col.key, col.isForecast)
@@ -780,14 +745,25 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
                               onChange={(e) => updateLineName(globalIdx, e.target.value)}
                               className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                             />
-                            {line.is_manual && (
-                              <button
-                                onClick={() => removeLine(globalIdx)}
-                                className="text-red-500 hover:text-red-700"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            )}
+                            <button
+                              onClick={() => {
+                                // Different confirmation messages based on line type
+                                let confirmMessage = `Are you sure you want to delete "${line.account_name}"?`
+                                if (line.is_from_xero) {
+                                  confirmMessage = `⚠️ This will delete "${line.account_name}" from your forecast (synced from Xero). You can re-sync from Xero to restore it. Continue?`
+                                } else if (line.is_from_payroll) {
+                                  confirmMessage = `⚠️ This line is synced from Payroll. If you delete it, you'll need to remap payroll in the Payroll tab. Continue?`
+                                }
+
+                                if (confirm(confirmMessage)) {
+                                  removeLine(globalIdx)
+                                }
+                              }}
+                              className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Delete row"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
                           </div>
                         </td>
                         {monthColumns.map((col, idx) => {
@@ -821,8 +797,8 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
                                     onFocus={() => {
                                       if (!isDisabled) {
                                         setEditingCell(cellKey)
-                                        // Show formula if it exists
-                                        setInputValue(cellFormulas.get(cellKey) || String(value || ''))
+                                        // Show formula if it exists, otherwise show value with 2 decimal places
+                                        setInputValue(cellFormulas.get(cellKey) || formatEditingValue(value))
                                       }
                                     }}
                                     onBlur={() => {
@@ -922,55 +898,113 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
 
                   {/* Gross Profit after Cost of Sales */}
                   {category === 'Cost of Sales' && (
-                    <tr className="bg-gray-50 font-bold border-t-2 border-b border-gray-400">
-                      <td className="sticky left-0 z-10 bg-gray-50 px-6 py-3 border-r-2 border-gray-300 shadow-[2px_0_4px_rgba(0,0,0,0.05)]">
-                        <span className="text-gray-900">Gross Profit</span>
-                      </td>
-                      {monthColumns.map((col, idx) => {
-                        const grossProfit = calculateGrossProfit(col.key, col.isForecast)
-                        const isLastActual = idx === 11;
-                        // In View mode, only show forecast columns
-                        if (viewMode === 'view' && col.isActual) return null
+                    <>
+                      <tr className="bg-gray-50 font-bold border-t-2 border-gray-400">
+                        <td className="sticky left-0 z-10 bg-gray-50 px-6 py-3 border-r-2 border-gray-300 shadow-[2px_0_4px_rgba(0,0,0,0.05)]">
+                          <span className="text-gray-900">Gross Profit</span>
+                        </td>
+                        {monthColumns.map((col, idx) => {
+                          const grossProfit = calculateGrossProfit(col.key, col.isForecast)
+                          const isLastActual = idx === 11;
+                          // In View mode, only show forecast columns
+                          if (viewMode === 'view' && col.isActual) return null
 
-                        return (
-                          <React.Fragment key={col.key}>
-                            <td
-                              className={`px-4 py-3 text-right text-sm font-bold text-gray-900 ${
-                                isLastActual ? 'border-r-2 border-gray-300' : ''
-                              }`}
-                            >
-                              {formatCurrency(grossProfit)}
-                            </td>
-                            {isLastActual && viewMode === 'setup' && (
-                              <>
-                                <td className="px-4 py-3 text-right text-sm font-bold text-gray-900 bg-blue-100">
-                                  {formatCurrency(calculateGrossProfitFY25Total())}
-                                </td>
-                                <td className="px-4 py-3 text-right text-xs text-gray-600 bg-amber-50">
-                                  —
-                                </td>
-                                <td className="px-4 py-3 text-right text-xs text-gray-600 bg-amber-50">
-                                  —
-                                </td>
-                                <td className="px-4 py-3 text-xs text-gray-500 bg-slate-50 border-r-2 border-gray-400">
-                                  Auto
-                                </td>
-                              </>
-                            )}
-                          </React.Fragment>
-                        )
-                      })}
-                      <td className="sticky right-0 z-10 px-4 py-3 text-right text-sm font-bold text-gray-900 bg-green-100 border-l-2 border-gray-300 shadow-[-2px_0_4px_rgba(0,0,0,0.05)]">
-                        {formatCurrency(calculateGrossProfitFY26Total())}
-                      </td>
-                    </tr>
+                          return (
+                            <React.Fragment key={col.key}>
+                              <td
+                                className={`px-4 py-3 text-right text-sm font-bold text-gray-900 ${
+                                  isLastActual ? 'border-r-2 border-gray-300' : ''
+                                }`}
+                              >
+                                {formatCurrency(grossProfit)}
+                              </td>
+                              {isLastActual && viewMode === 'setup' && (
+                                <>
+                                  <td className="px-4 py-3 text-right text-sm font-bold text-gray-900 bg-blue-100">
+                                    {formatCurrency(calculateGrossProfitFY25Total())}
+                                  </td>
+                                  <td className="px-4 py-3 text-right text-xs text-gray-600 bg-amber-50">
+                                    —
+                                  </td>
+                                  <td className="px-4 py-3 text-right text-xs text-gray-600 bg-amber-50">
+                                    —
+                                  </td>
+                                  <td className="px-4 py-3 text-xs text-gray-500 bg-slate-50 border-r-2 border-gray-400">
+                                    Auto
+                                  </td>
+                                </>
+                              )}
+                            </React.Fragment>
+                          )
+                        })}
+                        <td className="sticky right-0 z-10 px-4 py-3 text-right text-sm font-bold text-gray-900 bg-green-100 border-l-2 border-gray-300 shadow-[-2px_0_4px_rgba(0,0,0,0.05)]">
+                          {formatCurrency(calculateGrossProfitFY26Total())}
+                        </td>
+                      </tr>
+
+                      {/* Gross Margin % */}
+                      <tr className="bg-green-50 border-b-2 border-gray-400">
+                        <td className="sticky left-0 z-10 bg-green-50 px-6 py-3 border-r-2 border-gray-300 shadow-[2px_0_4px_rgba(0,0,0,0.05)]">
+                          <span className="text-gray-900 font-semibold italic">Gross Margin %</span>
+                        </td>
+                        {monthColumns.map((col, idx) => {
+                          const revenue = calculateCategoryTotal('Revenue', col.key, col.isForecast)
+                          const grossProfit = calculateGrossProfit(col.key, col.isForecast)
+                          const grossMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0
+                          const isLastActual = idx === 11;
+                          // In View mode, only show forecast columns
+                          if (viewMode === 'view' && col.isActual) return null
+
+                          return (
+                            <React.Fragment key={col.key}>
+                              <td
+                                className={`px-4 py-3 text-right text-sm font-semibold ${
+                                  grossMargin >= 50 ? 'text-green-700' : grossMargin >= 30 ? 'text-blue-700' : 'text-amber-700'
+                                } ${isLastActual ? 'border-r-2 border-gray-300' : ''}`}
+                              >
+                                {grossMargin.toFixed(1)}%
+                              </td>
+                              {isLastActual && viewMode === 'setup' && (
+                                <>
+                                  <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900 bg-blue-100">
+                                    {(() => {
+                                      const fy25Revenue = calculateCategoryFY25Total('Revenue')
+                                      const fy25GP = calculateGrossProfitFY25Total()
+                                      const fy25Margin = fy25Revenue > 0 ? (fy25GP / fy25Revenue) * 100 : 0
+                                      return `${fy25Margin.toFixed(1)}%`
+                                    })()}
+                                  </td>
+                                  <td className="px-4 py-3 text-right text-xs text-gray-600 bg-amber-50">
+                                    —
+                                  </td>
+                                  <td className="px-4 py-3 text-right text-xs text-gray-600 bg-amber-50">
+                                    —
+                                  </td>
+                                  <td className="px-4 py-3 text-xs text-gray-500 bg-slate-50 border-r-2 border-gray-400">
+                                    Auto
+                                  </td>
+                                </>
+                              )}
+                            </React.Fragment>
+                          )
+                        })}
+                        <td className="sticky right-0 z-10 px-4 py-3 text-right text-sm font-semibold text-gray-900 bg-green-100 border-l-2 border-gray-300 shadow-[-2px_0_4px_rgba(0,0,0,0.05)]">
+                          {(() => {
+                            const fy26Revenue = calculateCategoryFY26Total('Revenue')
+                            const fy26GP = calculateGrossProfitFY26Total()
+                            const fy26Margin = fy26Revenue > 0 ? (fy26GP / fy26Revenue) * 100 : 0
+                            return `${fy26Margin.toFixed(1)}%`
+                          })()}
+                        </td>
+                      </tr>
+                    </>
                   )}
                 </React.Fragment>
               )
             })}
 
             {/* Net Profit */}
-            <tr className="bg-gray-100 font-bold border-t-2 border-b-2 border-gray-500">
+            <tr className="bg-gray-100 font-bold border-t-2 border-gray-500">
               <td className="sticky left-0 z-10 bg-gray-100 px-6 py-3 border-r-2 border-gray-300 shadow-[2px_0_4px_rgba(0,0,0,0.05)]">
                 <span className="text-gray-900">Net Profit</span>
               </td>
@@ -1014,6 +1048,62 @@ export default function PLForecastTable({ forecast, plLines, onSave }: PLForecas
                 calculateNetProfitFY26Total() >= 0 ? 'text-green-700' : 'text-red-700'
               } bg-green-100 border-l-2 border-gray-300 shadow-[-2px_0_4px_rgba(0,0,0,0.05)]`}>
                 {formatCurrency(calculateNetProfitFY26Total())}
+              </td>
+            </tr>
+
+            {/* Net Margin % */}
+            <tr className="bg-blue-50 border-b-2 border-gray-500">
+              <td className="sticky left-0 z-10 bg-blue-50 px-6 py-3 border-r-2 border-gray-300 shadow-[2px_0_4px_rgba(0,0,0,0.05)]">
+                <span className="text-gray-900 font-semibold italic">Net Margin %</span>
+              </td>
+              {monthColumns.map((col, idx) => {
+                const revenue = calculateCategoryTotal('Revenue', col.key, col.isForecast)
+                const netProfit = calculateNetProfit(col.key, col.isForecast)
+                const netMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0
+                const isLastActual = idx === 11;
+                // In View mode, only show forecast columns
+                if (viewMode === 'view' && col.isActual) return null
+
+                return (
+                  <React.Fragment key={col.key}>
+                    <td
+                      className={`px-4 py-3 text-right text-sm font-semibold ${
+                        netMargin >= 20 ? 'text-green-700' : netMargin >= 10 ? 'text-blue-700' : netMargin >= 0 ? 'text-amber-700' : 'text-red-700'
+                      } ${isLastActual ? 'border-r-2 border-gray-300' : ''}`}
+                    >
+                      {netMargin.toFixed(1)}%
+                    </td>
+                    {isLastActual && viewMode === 'setup' && (
+                      <>
+                        <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900 bg-blue-100">
+                          {(() => {
+                            const fy25Revenue = calculateCategoryFY25Total('Revenue')
+                            const fy25NP = calculateNetProfitFY25Total()
+                            const fy25Margin = fy25Revenue > 0 ? (fy25NP / fy25Revenue) * 100 : 0
+                            return `${fy25Margin.toFixed(1)}%`
+                          })()}
+                        </td>
+                        <td className="px-4 py-3 text-right text-xs text-gray-600 bg-amber-50">
+                          —
+                        </td>
+                        <td className="px-4 py-3 text-right text-xs text-gray-600 bg-amber-50">
+                          —
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-500 bg-slate-50 border-r-2 border-gray-400">
+                          Auto
+                        </td>
+                      </>
+                    )}
+                  </React.Fragment>
+                )
+              })}
+              <td className="sticky right-0 z-10 px-4 py-3 text-right text-sm font-semibold text-gray-900 bg-green-100 border-l-2 border-gray-300 shadow-[-2px_0_4px_rgba(0,0,0,0.05)]">
+                {(() => {
+                  const fy26Revenue = calculateCategoryFY26Total('Revenue')
+                  const fy26NP = calculateNetProfitFY26Total()
+                  const fy26Margin = fy26Revenue > 0 ? (fy26NP / fy26Revenue) * 100 : 0
+                  return `${fy26Margin.toFixed(1)}%`
+                })()}
               </td>
             </tr>
           </tbody>

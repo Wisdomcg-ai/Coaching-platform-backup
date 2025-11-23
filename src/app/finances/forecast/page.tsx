@@ -4,12 +4,13 @@ import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2, TrendingUp, Users, Download, Upload, Link as LinkIcon, Settings, X, Lightbulb } from 'lucide-react'
 import ForecastService from './services/forecast-service'
+import './forecast-styles.css'
 import { ForecastGenerator } from './services/forecast-generator'
 import { ForecastingEngine } from './services/forecasting-engine'
 import type { FinancialForecast, PLLine, ForecastEmployee, XeroConnection, DistributionMethod, ForecastMethod, ForecastScenario, WhatIfParameters } from './types'
 import PLForecastTable from './components/PLForecastTable'
 import PayrollTable from './components/PayrollTable'
-import AssumptionsTab from './components/AssumptionsTab'
+import ForecastWizard from './components/ForecastWizard'
 import CompletenessChecker from './components/CompletenessChecker'
 import AuditLogViewer from './components/AuditLogViewer'
 import WhatIfAnalysisModal from './components/WhatIfAnalysisModal'
@@ -18,6 +19,7 @@ import ExportControls from './components/ExportControls'
 import { LoadingState } from './components/LoadingState'
 import ErrorState from './components/ErrorState'
 import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp'
+import VersionManager from './components/VersionManager'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
 export default function FinancialForecastPage() {
@@ -33,10 +35,26 @@ export default function FinancialForecastPage() {
   const [employees, setEmployees] = useState<ForecastEmployee[]>([])
   const [xeroConnection, setXeroConnection] = useState<XeroConnection | null>(null)
 
-  const [activeTab, setActiveTab] = useState<'assumptions' | 'pl' | 'payroll' | 'history'>('assumptions')
+  const [activeTab, setActiveTab] = useState<'assumptions' | 'pl' | 'payroll' | 'history'>(() => {
+    // Remember last active tab from localStorage
+    if (typeof window !== 'undefined') {
+      const savedTab = localStorage.getItem('forecast-active-tab')
+      if (savedTab && ['assumptions', 'pl', 'payroll', 'history'].includes(savedTab)) {
+        return savedTab as 'assumptions' | 'pl' | 'payroll' | 'history'
+      }
+    }
+    return 'assumptions'
+  })
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
+
+  // Save active tab to localStorage whenever it changes
+  useEffect(() => {
+    if (mounted) {
+      localStorage.setItem('forecast-active-tab', activeTab)
+    }
+  }, [activeTab, mounted])
 
   // Scenario planning state
   const [scenarios, setScenarios] = useState<ForecastScenario[]>([])
@@ -99,9 +117,13 @@ export default function FinancialForecastPage() {
 
       console.log(`[Forecast] Loading data for business: ${bizId}`)
 
-      // Get or create forecast for current fiscal year
-      const currentYear = new Date().getFullYear()
-      const fiscalYear = new Date().getMonth() >= 6 ? currentYear + 1 : currentYear
+      // Get or create forecast for FY26
+      // Fiscal year runs Jul 1 - Jun 30
+      // FY26 = Jul 1, 2025 - Jun 30, 2026
+      //
+      // We want to always forecast for FY26 (the year ahead from FY25 actuals)
+      // Until you're ready to move to FY27, this stays as 2026
+      const fiscalYear = 2026 // FY26 forecast
 
       const { forecast: loadedForecast, error: forecastError } =
         await ForecastService.getOrCreateForecast(bizId, uid, fiscalYear)
@@ -353,6 +375,67 @@ export default function FinancialForecastPage() {
     }
   }
 
+  // Apply What-If changes to current forecast
+  const handleApplyWhatIfToForecast = async (parameters: WhatIfParameters) => {
+    if (!forecast?.id) return
+
+    try {
+      const response = await fetch('/api/forecasts/apply-scenario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          forecastId: forecast.id,
+          parameters
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to apply changes')
+      }
+
+      const { updatedLines } = await response.json()
+      setPlLines(updatedLines)
+      alert('Changes applied to forecast successfully!')
+
+      // Refresh the page to show updated forecast
+      window.location.reload()
+    } catch (error) {
+      console.error('Error applying what-if changes:', error)
+      alert('Failed to apply changes to forecast')
+    }
+  }
+
+  // Create new forecast version with What-If changes
+  const handleSaveAsNewVersion = async (versionName: string, parameters: WhatIfParameters) => {
+    if (!forecast?.id) return
+
+    try {
+      const response = await fetch('/api/forecasts/versions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          forecastId: forecast.id,
+          versionName,
+          parameters,
+          versionType: 'forecast'
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create version')
+      }
+
+      const { newForecast } = await response.json()
+      alert(`New version "${versionName}" created successfully!`)
+
+      // Redirect to the new version
+      window.location.href = `/finances/forecast?id=${newForecast.id}`
+    } catch (error) {
+      console.error('Error creating new version:', error)
+      alert('Failed to create new version')
+    }
+  }
+
   // Calculate baseline totals for What-If analysis
   const calculateBaselineTotals = () => {
     let totalRevenue = 0
@@ -455,8 +538,8 @@ export default function FinancialForecastPage() {
     // Save and update state
     await handleSavePLLines(recalculatedLines)
 
-    // Switch to P&L tab to show changes
-    setActiveTab('pl')
+    // Show success message but don't auto-switch tabs
+    alert('Applied annual increase to all Operating Expenses lines! You can now review and adjust individual lines in the P&L Forecast tab.')
   }
 
   const handleConnectXero = () => {
@@ -694,6 +777,7 @@ export default function FinancialForecastPage() {
       // Show confirmation dialog with what will be imported
       const confirmMessage = `Import the following from your Goals & Targets wizard?\n\n` +
         `Revenue Target (Year 1): ${annualPlanData.revenue_target ? `$${annualPlanData.revenue_target.toLocaleString()}` : 'Not set'}\n` +
+        `Gross Profit Target (Year 1): ${annualPlanData.gross_profit_target ? `$${annualPlanData.gross_profit_target.toLocaleString()}` : 'Not set'}\n` +
         `Net Profit Target (Year 1): ${annualPlanData.profit_target ? `$${annualPlanData.profit_target.toLocaleString()}` : 'Not set'}\n` +
         `Source: Goals & Targets Wizard\n` +
         (annualPlanData.goals_date ? `Last Updated: ${new Date(annualPlanData.goals_date).toLocaleDateString()}` : '') +
@@ -704,19 +788,17 @@ export default function FinancialForecastPage() {
         return
       }
 
-      // Calculate gross profit from net profit (assuming standard 60% GP ratio if not specified)
+      // Use imported goals
       const revenueGoal = annualPlanData.revenue_target || forecast.revenue_goal || 0
+      const grossProfitGoal = annualPlanData.gross_profit_target || (revenueGoal * 0.6) // Default to 60% if not specified
       const netProfitGoal = annualPlanData.profit_target || 0
-
-      // Estimate gross profit as 60% of revenue if we have revenue but no GP
-      const estimatedGrossProfit = revenueGoal * 0.6
 
       // Update forecast with imported goals
       const { error } = await supabase
         .from('financial_forecasts')
         .update({
           revenue_goal: revenueGoal,
-          gross_profit_goal: estimatedGrossProfit,
+          gross_profit_goal: grossProfitGoal,
           net_profit_goal: netProfitGoal,
           goal_source: 'goals_wizard',
           annual_plan_id: annualPlanData.business_id,
@@ -732,19 +814,11 @@ export default function FinancialForecastPage() {
         setForecast({
           ...forecast,
           revenue_goal: revenueGoal,
-          gross_profit_goal: estimatedGrossProfit,
+          gross_profit_goal: grossProfitGoal,
           net_profit_goal: netProfitGoal,
           goal_source: 'goals_wizard',
           annual_plan_id: annualPlanData.business_id
         })
-
-        alert(
-          `Successfully imported goals from your Goals & Targets wizard!\n\n` +
-          `Revenue: $${revenueGoal.toLocaleString()}\n` +
-          `Estimated Gross Profit: $${estimatedGrossProfit.toLocaleString()}\n` +
-          `Net Profit: $${netProfitGoal.toLocaleString()}\n\n` +
-          `You can now adjust these and set your COGS percentage.`
-        )
 
         console.log('[Forecast] Goals imported successfully from annual plan')
       }
@@ -791,14 +865,20 @@ export default function FinancialForecastPage() {
     setIsSaving(false)
   }
 
-  const handleSaveAssumptions = async (data: {
-    revenue_goal: number
-    gross_profit_goal: number
-    net_profit_goal: number
-    revenue_distribution_method: DistributionMethod
-    cogs_percentage: number
-  }) => {
+  const handleSaveAssumptions = async (
+    data: {
+      revenue_goal: number
+      gross_profit_goal: number
+      net_profit_goal: number
+      revenue_distribution_method: DistributionMethod
+      cogs_percentage: number
+      opex_budget?: number
+    },
+    options?: { isAutoSave?: boolean }
+  ) => {
     if (!forecast?.id) return
+
+    const isAutoSave = options?.isAutoSave || false
 
     setIsSaving(true)
     try {
@@ -818,7 +898,9 @@ export default function FinancialForecastPage() {
 
       if (saveError) {
         console.error('[Forecast] Error saving assumptions:', saveError)
-        alert('Error saving assumptions: ' + saveError.message)
+        if (!isAutoSave) {
+          alert('Error saving assumptions: ' + saveError.message)
+        }
         setIsSaving(false)
         return
       }
@@ -835,14 +917,32 @@ export default function FinancialForecastPage() {
       }
       setForecast(updatedForecast)
 
-      // 2. Generate forecast P&L lines (Revenue and COGS only - OpEx will be done line-by-line)
+      // If this is an auto-save, just save the assumptions without regenerating forecast
+      if (isAutoSave) {
+        console.log('[Forecast] Auto-saved assumptions')
+        setIsSaving(false)
+        return
+      }
+
+      // 2. Generate forecast P&L lines
+      // This only happens on manual "Save & Generate Forecast" button click
       console.log('[Forecast] Generating forecast from assumptions...')
+
+      // Use the OpEx budget from the wizard (which has intelligence built in)
+      // Falls back to calculating from goals if not provided
+      const opexBudget = data.opex_budget !== undefined
+        ? data.opex_budget
+        : (data.gross_profit_goal && data.net_profit_goal
+          ? data.gross_profit_goal - data.net_profit_goal
+          : 0)
+
+      console.log('[Forecast] Using OpEx budget:', opexBudget)
 
       const { lines } = await ForecastGenerator.generateForecast({
         forecast: updatedForecast,
         revenueGoal: data.revenue_goal,
         cogsPercentage: data.cogs_percentage,
-        opexBudget: 0, // OpEx will be forecasted line-by-line in the P&L table
+        opexBudget,
         distributionMethod: data.revenue_distribution_method,
         existingLines: plLines
       })
@@ -855,7 +955,7 @@ export default function FinancialForecastPage() {
       if (saveResult.success) {
         setPlLines(lines)
         console.log('[Forecast] Forecast generated and saved successfully')
-        alert('Revenue and COGS forecast generated! Now set up your OpEx forecasts line-by-line in the P&L Forecast tab.')
+        alert('Forecast generated successfully! Revenue, COGS, and OpEx have been distributed across the forecast period.')
 
         // Switch to P&L tab
         setActiveTab('pl')
@@ -865,7 +965,9 @@ export default function FinancialForecastPage() {
       }
     } catch (err) {
       console.error('[Forecast] Error:', err)
-      alert('Error generating forecast')
+      if (!isAutoSave) {
+        alert('Error generating forecast')
+      }
     }
     setIsSaving(false)
   }
@@ -933,6 +1035,17 @@ export default function FinancialForecastPage() {
               title="Error"
             />
           </div>
+        )}
+
+        {/* Version Manager */}
+        {forecast && (
+          <VersionManager
+            forecast={forecast}
+            onVersionChange={(versionId) => {
+              window.location.href = `/finances/forecast?id=${versionId}`
+            }}
+            className="mb-6"
+          />
         )}
 
         {/* Header */}
@@ -1121,15 +1234,14 @@ export default function FinancialForecastPage() {
 
         {/* Content */}
         {activeTab === 'assumptions' && (
-          <div className="bg-white rounded-lg shadow-sm">
-            <AssumptionsTab
-              forecast={forecast}
-              onSave={handleSaveAssumptions}
-              onImportFromAnnualPlan={handleImportGoalsFromAnnualPlan}
-              onApplyBulkOpExIncrease={handleBulkOpExIncrease}
-              isSaving={isSaving}
-            />
-          </div>
+          <ForecastWizard
+            forecast={forecast}
+            plLines={plLines}
+            onSave={handleSaveAssumptions}
+            onImportFromAnnualPlan={handleImportGoalsFromAnnualPlan}
+            onApplyBulkOpExIncrease={handleBulkOpExIncrease}
+            isSaving={isSaving}
+          />
         )}
 
         {activeTab === 'pl' && (
@@ -1144,7 +1256,27 @@ export default function FinancialForecastPage() {
           <PayrollTable
             forecast={forecast}
             employees={employees}
+            plLines={plLines}
             onSave={handleSaveEmployees}
+            onSavePLLines={handleSavePLLines}
+            onUpdateForecast={async (updates) => {
+              if (!forecast?.id) return
+
+              const { error } = await supabase
+                .from('financial_forecasts')
+                .update({
+                  ...updates,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', forecast.id)
+
+              if (error) {
+                console.error('[Forecast] Error updating payroll settings:', error)
+              } else {
+                // Update local state
+                setForecast({ ...forecast, ...updates })
+              }
+            }}
           />
         )}
 
@@ -1169,6 +1301,8 @@ export default function FinancialForecastPage() {
           baselineCOGS={calculateBaselineTotals().totalCOGS}
           baselineOpEx={calculateBaselineTotals().totalOpEx}
           onSaveAsScenario={handleSaveWhatIfScenario}
+          onApplyToForecast={handleApplyWhatIfToForecast}
+          onSaveAsNewVersion={handleSaveAsNewVersion}
         />
       )}
     </div>

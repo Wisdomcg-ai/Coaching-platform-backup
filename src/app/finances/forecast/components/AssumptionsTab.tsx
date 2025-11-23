@@ -15,7 +15,7 @@ interface AssumptionsTabProps {
     net_profit_goal: number
     revenue_distribution_method: DistributionMethod
     cogs_percentage: number
-  }) => void
+  }, options?: { isAutoSave?: boolean }) => void
   onImportFromAnnualPlan: () => void
   onApplyBulkOpExIncrease: (percentageIncrease: number) => void
   isSaving: boolean
@@ -103,7 +103,7 @@ export default function AssumptionsTab({
 
     // Debounce auto-save by 1.5 seconds
     const timer = setTimeout(() => {
-      handleSave()
+      handleSave(true) // Pass true to indicate this is an auto-save
     }, 1500)
 
     return () => clearTimeout(timer)
@@ -122,14 +122,14 @@ export default function AssumptionsTab({
   // Auto-calculate GP from revenue and COGS%
   const calculatedGP = goals.revenue * (1 - cogsPercentage / 100)
 
-  const handleSave = () => {
+  const handleSave = (isAutoSave: boolean = false) => {
     onSave({
       revenue_goal: goals.revenue,
       gross_profit_goal: calculatedGP,
       net_profit_goal: goals.netProfit,
       revenue_distribution_method: distributionMethod,
       cogs_percentage: cogsPercentage / 100
-    })
+    }, { isAutoSave })
   }
 
   const hasGoals = goals.revenue > 0
@@ -386,7 +386,7 @@ export default function AssumptionsTab({
           {/* Save Button */}
           <div className="flex items-center justify-end gap-3 pt-4">
             <button
-              onClick={handleSave}
+              onClick={() => handleSave(false)}
               disabled={isSaving || goals.revenue === 0}
               className="flex items-center gap-2 px-6 py-3 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >

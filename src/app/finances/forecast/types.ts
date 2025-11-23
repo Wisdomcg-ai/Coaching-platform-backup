@@ -1,17 +1,34 @@
 // Financial Forecast Types
 
+export type PayrollFrequency = 'weekly' | 'fortnightly' | 'monthly'
+export type PayDay = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'
+export type WageClassification = 'opex' | 'cogs'
+
 export interface ForecastEmployee {
   id?: string
   forecast_id?: string
   employee_name: string
   position?: string
-  category: 'Wages Admin' | 'Wages COGS' | 'Contractor' | 'Other'
-  start_date?: string
-  end_date?: string
+  classification: WageClassification // Simple binary: OpEx or COGS
+  start_date?: string // Format: "2024-07" (month/year)
+  end_date?: string // Format: "2024-12" (month/year), optional
+
+  // Salary inputs (bidirectional calculation)
+  annual_salary?: number
+  hourly_rate?: number
+  standard_hours_per_week?: number
+
+  // Calculated fields
+  pay_per_period?: number // Calculated based on frequency
+  super_per_period?: number // 12% of pay_per_period
+  payg_per_period?: number // Australian tax calculation (stored for cashflow)
+  monthly_cost?: number // Total monthly cost (gross + super)
+
+  // Legacy fields (keeping for backwards compatibility)
+  category?: 'Wages Admin' | 'Wages COGS' | 'Contractor' | 'Other'
   hours?: number
   rate?: number
   weekly_budget?: number
-  annual_salary?: number
   weekly_payg?: number
   super_rate?: number
   sort_order?: number
@@ -64,6 +81,7 @@ export interface PLLine {
   actual_months: { [key: string]: number } // e.g., { "2024-07": 10000, "2024-08": 12000 }
   forecast_months: { [key: string]: number }
   is_from_xero?: boolean
+  is_from_payroll?: boolean
   is_manual?: boolean
   notes?: string
 
@@ -94,6 +112,7 @@ export interface CategoryAssumptions {
 }
 
 export type Currency = 'AUD' | 'USD' | 'NZD' | 'GBP' | 'EUR'
+export type ForecastType = 'budget' | 'forecast' | 'actual'
 
 export interface FinancialForecast {
   id?: string
@@ -115,6 +134,16 @@ export interface FinancialForecast {
   updated_at?: string
   currency?: Currency // Default: AUD
 
+  // Versioning fields
+  forecast_type?: ForecastType // Default: 'forecast'
+  version_number?: number // Default: 1
+  is_active?: boolean // Default: true - only one active forecast per business
+  is_locked?: boolean // Default: false - locked versions cannot be edited
+  locked_at?: string
+  locked_by?: string
+  parent_forecast_id?: string // Reference to the forecast this was copied from
+  version_notes?: string // Notes about what changed in this version
+
   // Goal-driven forecasting fields
   revenue_goal?: number
   gross_profit_goal?: number
@@ -132,6 +161,17 @@ export interface FinancialForecast {
   opex_variable?: number // Annual variable costs
   opex_variable_percentage?: number // e.g., 0.05 = 5% of revenue
   opex_other?: number // Annual other/seasonal costs
+
+  // Payroll settings
+  payroll_frequency?: PayrollFrequency // Default: 'fortnightly'
+  pay_day?: PayDay // Day of week for pay runs (only for weekly/fortnightly)
+  superannuation_rate?: number // Default: 0.12 (12%)
+
+  // Payroll to P&L mapping
+  wages_opex_pl_line_id?: string // Which P&L line to sync OpEx wages to
+  wages_cogs_pl_line_id?: string // Which P&L line to sync COGS wages to
+  super_opex_pl_line_id?: string // Which P&L line to sync OpEx superannuation to
+  super_cogs_pl_line_id?: string // Which P&L line to sync COGS superannuation to
 }
 
 export interface XeroConnection {

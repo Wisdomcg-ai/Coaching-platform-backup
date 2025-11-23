@@ -40,15 +40,10 @@ export async function GET(request: Request) {
       )
     }
 
-    // Build audit log query
+    // Build audit log query (no user join - just get raw data)
     let query = supabase
       .from('forecast_audit_log')
-      .select(`
-        *,
-        user:user_id (
-          email
-        )
-      `)
+      .select('*')
       .eq('forecast_id', forecastId)
       .order('created_at', { ascending: false })
 
@@ -94,10 +89,10 @@ export async function GET(request: Request) {
       )
     }
 
-    // Transform logs to include user email
+    // Return logs with basic formatting
     const transformedLogs = logs?.map(log => ({
       ...log,
-      user_email: log.user?.email || 'Unknown'
+      user_email: 'User' // Simplified - can enhance later with actual user lookup
     })) || []
 
     return NextResponse.json({

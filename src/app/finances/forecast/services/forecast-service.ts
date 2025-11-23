@@ -21,32 +21,67 @@ export class ForecastService {
     fiscalYear: number
   ): Promise<{ forecast: FinancialForecast | null; error?: string }> {
     try {
-      // Try to find existing forecast for this year
+      // Try to find existing forecast for this business (any fiscal year)
       // Use limit(1) instead of single() to avoid 406 errors when multiple forecasts exist
       const { data: existing, error: fetchError } = await this.supabase
         .from('financial_forecasts')
         .select('*')
         .eq('business_id', businessId)
-        .eq('fiscal_year', fiscalYear)
         .order('created_at', { ascending: false })
         .limit(1)
 
       if (existing && existing.length > 0) {
-        console.log('[Forecast] Found existing forecast:', existing[0].id)
-        return { forecast: existing[0] }
+        const forecast = existing[0]
+        console.log('[Forecast] Found existing forecast:', forecast.id, 'fiscal_year:', forecast.fiscal_year)
+
+        // If the forecast has wrong fiscal year or dates, update them
+        if (forecast.fiscal_year !== fiscalYear ||
+            forecast.actual_start_month !== `${fiscalYear - 2}-07` ||
+            forecast.forecast_start_month !== `${fiscalYear - 1}-07`) {
+          console.log('[Forecast] Updating forecast dates to correct FY')
+          const { error: updateError } = await this.supabase
+            .from('financial_forecasts')
+            .update({
+              fiscal_year: fiscalYear,
+              name: `FY${fiscalYear} Financial Forecast`,
+              actual_start_month: `${fiscalYear - 2}-07`, // Jul 2024 (FY25 actuals)
+              actual_end_month: `${fiscalYear - 1}-06`, // Jun 2025 (FY25 actuals)
+              forecast_start_month: `${fiscalYear - 1}-07`, // Jul 2025 (FY26 forecast)
+              forecast_end_month: `${fiscalYear}-06`, // Jun 2026 (FY26 forecast)
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', forecast.id)
+
+          if (updateError) {
+            console.error('[Forecast] Error updating forecast:', updateError)
+          } else {
+            // Return updated forecast
+            forecast.fiscal_year = fiscalYear
+            forecast.name = `FY${fiscalYear} Financial Forecast`
+            forecast.actual_start_month = `${fiscalYear - 2}-07`
+            forecast.actual_end_month = `${fiscalYear - 1}-06`
+            forecast.forecast_start_month = `${fiscalYear - 1}-07`
+            forecast.forecast_end_month = `${fiscalYear}-06`
+          }
+        }
+
+        return { forecast }
       }
 
       // Create new forecast
+      // fiscal_year represents the FORECAST year (e.g., 2026 for FY26)
+      // Actuals = previous fiscal year (FY25 = Jul 2024 - Jun 2025)
+      // Forecast = current fiscal year (FY26 = Jul 2025 - Jun 2026)
       const newForecast: Partial<FinancialForecast> = {
         business_id: businessId,
         user_id: userId,
         name: `FY${fiscalYear} Financial Forecast`,
         fiscal_year: fiscalYear,
         year_type: 'FY',
-        actual_start_month: `${fiscalYear - 1}-07`, // Jul 2024
-        actual_end_month: `${fiscalYear}-06`, // Jun 2025
-        forecast_start_month: `${fiscalYear}-07`, // Jul 2025
-        forecast_end_month: `${fiscalYear + 1}-06`, // Jun 2026
+        actual_start_month: `${fiscalYear - 2}-07`, // Jul 2024 (start of FY25)
+        actual_end_month: `${fiscalYear - 1}-06`, // Jun 2025 (end of FY25)
+        forecast_start_month: `${fiscalYear - 1}-07`, // Jul 2025 (start of FY26)
+        forecast_end_month: `${fiscalYear}-06`, // Jun 2026 (end of FY26)
         is_completed: false
       }
 
@@ -149,7 +184,16 @@ export class ForecastService {
         return []
       }
 
-      return data || []
+      // Convert dates from YYYY-MM-DD back to YYYY-MM format for display
+      const employees = (data || []).map(emp => ({
+        ...emp,
+        start_date: emp.start_date ? emp.start_date.substring(0, 7) : undefined,
+        end_date: emp.end_date ? emp.end_date.substring(0, 7) : undefined,
+        // Ensure classification is set from category if not already set
+        classification: emp.classification || (emp.category === 'Wages COGS' ? 'cogs' : 'opex')
+      }))
+
+      return employees
     } catch (err) {
       console.error('[Forecast] Error:', err)
       return []
@@ -170,12 +214,20 @@ export class ForecastService {
         .delete()
         .eq('forecast_id', forecastId)
 
-      // Insert new employees
-      const employeesToInsert = employees.map((emp, index) => ({
-        ...emp,
-        forecast_id: forecastId,
-        sort_order: emp.sort_order ?? index
-      }))
+      // Insert new employees (remove id field to let database generate new ones)
+      const employeesToInsert = employees.map((emp, index) => {
+        const { id, ...empWithoutId } = emp
+        return {
+          ...empWithoutId,
+          forecast_id: forecastId,
+          sort_order: emp.sort_order ?? index,
+          // Convert YYYY-MM to YYYY-MM-DD format for date fields
+          start_date: emp.start_date ? `${emp.start_date}-01` : null,
+          end_date: emp.end_date ? `${emp.end_date}-01` : null,
+          // Map new classification field to old category field for backwards compatibility
+          category: emp.classification === 'cogs' ? 'Wages COGS' : 'Wages Admin'
+        }
+      })
 
       const { error } = await this.supabase
         .from('forecast_employees')

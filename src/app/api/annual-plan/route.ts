@@ -48,11 +48,13 @@ export async function GET(request: NextRequest) {
 
     // Extract Year 1 targets (12-month targets)
     let revenueTarget = null
+    let grossProfitTarget = null
     let profitTarget = null
     let goalsDate = null
 
     if (financialGoals && !goalsError) {
       revenueTarget = financialGoals.revenue_year1 || null
+      grossProfitTarget = financialGoals.gross_profit_year1 || null
       profitTarget = financialGoals.net_profit_year1 || null
       goalsDate = financialGoals.updated_at
     }
@@ -69,6 +71,7 @@ export async function GET(request: NextRequest) {
     const annualPlanData = {
       // Financial targets (Year 1 from Goals & Targets wizard)
       revenue_target: revenueTarget,
+      gross_profit_target: grossProfitTarget,
       profit_target: profitTarget,
 
       // Source information

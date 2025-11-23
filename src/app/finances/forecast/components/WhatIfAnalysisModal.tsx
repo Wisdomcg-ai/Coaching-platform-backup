@@ -13,6 +13,8 @@ interface WhatIfAnalysisModalProps {
   baselineCOGS: number
   baselineOpEx: number
   onSaveAsScenario?: (scenarioName: string, parameters: WhatIfParameters) => void
+  onApplyToForecast?: (parameters: WhatIfParameters) => void
+  onSaveAsNewVersion?: (versionName: string, parameters: WhatIfParameters) => void
 }
 
 export default function WhatIfAnalysisModal({
@@ -22,7 +24,9 @@ export default function WhatIfAnalysisModal({
   baselineRevenue,
   baselineCOGS,
   baselineOpEx,
-  onSaveAsScenario
+  onSaveAsScenario,
+  onApplyToForecast,
+  onSaveAsNewVersion
 }: WhatIfAnalysisModalProps) {
   const [parameters, setParameters] = useState<WhatIfParameters>({
     revenueChange: 0,
@@ -32,6 +36,8 @@ export default function WhatIfAnalysisModal({
 
   const [scenarioName, setScenarioName] = useState('')
   const [showSaveDialog, setShowSaveDialog] = useState(false)
+  const [showActionMenu, setShowActionMenu] = useState(false)
+  const [versionName, setVersionName] = useState('')
 
   // Calculate adjusted values
   const adjustedRevenue = baselineRevenue * (1 + parameters.revenueChange / 100)
@@ -77,6 +83,30 @@ export default function WhatIfAnalysisModal({
     }
   }
 
+  const handleApplyToForecast = () => {
+    if (confirm('This will modify your current forecast with these changes. Continue?')) {
+      if (onApplyToForecast) {
+        onApplyToForecast(parameters)
+        onClose()
+      }
+    }
+  }
+
+  const handleSaveAsNewVersion = () => {
+    if (!versionName.trim()) {
+      alert('Please enter a version name')
+      return
+    }
+    if (onSaveAsNewVersion) {
+      onSaveAsNewVersion(versionName, parameters)
+      setShowActionMenu(false)
+      setVersionName('')
+      onClose()
+    }
+  }
+
+  const hasChanges = parameters.revenueChange !== 0 || parameters.cogsChange !== 0 || parameters.opexChange !== 0
+
   if (!isOpen) return null
 
   return (
@@ -119,9 +149,16 @@ export default function WhatIfAnalysisModal({
                     <AlertCircle className="w-4 h-4" />
                     How to Use
                   </h3>
-                  <p className="text-xs text-blue-800">
-                    Adjust the sliders below to model different scenarios. See the real-time impact on your gross profit, net profit, and margins.
-                  </p>
+                  <div className="text-xs text-blue-800 space-y-2">
+                    <p>1. Adjust the sliders below to model different scenarios</p>
+                    <p>2. See the real-time impact on your profitability</p>
+                    <p className="font-semibold mt-3">3. Then choose an action:</p>
+                    <div className="ml-3 space-y-1">
+                      <p>• <span className="font-semibold text-green-700">Apply to Forecast</span> - Update current forecast</p>
+                      <p>• <span className="font-semibold text-purple-700">Save as New Version</span> - Create new version</p>
+                      <p>• <span className="font-semibold text-blue-700">Save as Scenario</span> - Compare later</p>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Revenue Adjustment */}
@@ -349,14 +386,40 @@ export default function WhatIfAnalysisModal({
             >
               Close
             </button>
-            <button
-              onClick={() => setShowSaveDialog(true)}
-              disabled={parameters.revenueChange === 0 && parameters.cogsChange === 0 && parameters.opexChange === 0}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              <Save className="w-4 h-4" />
-              Save as Scenario
-            </button>
+
+            <div className="flex items-center gap-3">
+              {/* Apply to Current Forecast */}
+              {onApplyToForecast && (
+                <button
+                  onClick={handleApplyToForecast}
+                  disabled={!hasChanges}
+                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  Apply to Forecast
+                </button>
+              )}
+
+              {/* Save as New Version */}
+              {onSaveAsNewVersion && (
+                <button
+                  onClick={() => setShowActionMenu(true)}
+                  disabled={!hasChanges}
+                  className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  Save as New Version
+                </button>
+              )}
+
+              {/* Save as Scenario */}
+              <button
+                onClick={() => setShowSaveDialog(true)}
+                disabled={!hasChanges}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                <Save className="w-4 h-4" />
+                Save as Scenario
+              </button>
+            </div>
           </div>
 
           {/* Save Dialog */}
@@ -387,6 +450,44 @@ export default function WhatIfAnalysisModal({
                     className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     Save Scenario
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Save as New Version Dialog */}
+          {showActionMenu && (
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+              <div className="bg-white rounded-lg p-6 max-w-md w-full m-4">
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Create New Forecast Version</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  This will create a new forecast version with these changes applied.
+                  Your current forecast will be preserved.
+                </p>
+                <input
+                  type="text"
+                  value={versionName}
+                  onChange={(e) => setVersionName(e.target.value)}
+                  placeholder="e.g., Q2 Forecast Update, Mid-Year Revision"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  autoFocus
+                />
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    onClick={() => {
+                      setShowActionMenu(false)
+                      setVersionName('')
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveAsNewVersion}
+                    className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    Create Version
                   </button>
                 </div>
               </div>
