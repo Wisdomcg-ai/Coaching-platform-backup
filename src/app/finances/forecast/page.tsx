@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2, TrendingUp, Users, Download, Upload, Link as LinkIcon, Settings, X, Lightbulb, Save, Clock } from 'lucide-react'
+import { toast } from 'sonner'
 import ForecastService from './services/forecast-service'
 import './forecast-styles.css'
 import { ForecastGenerator } from './services/forecast-generator'
@@ -262,7 +263,7 @@ export default function FinancialForecastPage() {
   const handleOverwriteVersion = async () => {
     // Overwriting is just saving normally - no new version created
     // The data is already being saved via the existing save handlers
-    alert('Changes saved to current version!')
+    toast.success('Changes saved to current version')
     setShowSaveVersionModal(false)
   }
 
@@ -587,7 +588,7 @@ export default function FinancialForecastPage() {
       console.log('[Forecast] Employees saved')
     } else {
       console.error('[Forecast] Error saving employees:', result.error)
-      alert('Error saving employees: ' + result.error)
+      toast.error('Error saving employees: ' + result.error)
     }
   }
 
@@ -637,7 +638,7 @@ export default function FinancialForecastPage() {
     await handleSavePLLines(recalculatedLines)
 
     // Show success message but don't auto-switch tabs
-    alert('Applied annual increase to all Operating Expenses lines! You can now review and adjust individual lines in the P&L Forecast tab.')
+    toast.success('Applied annual increase to all Operating Expenses lines! Review and adjust in the P&L Forecast tab.')
   }
 
   const handleConnectXero = () => {
@@ -695,13 +696,13 @@ export default function FinancialForecastPage() {
       setEmployees([])
       setXeroConnection(null)
 
-      alert('✅ Successfully disconnected Xero and cleared all data. The page will reload.')
+      toast.success('Successfully disconnected Xero and cleared all data. Reloading...')
 
       // Reload the page to start fresh
-      window.location.reload()
+      setTimeout(() => window.location.reload(), 1000)
     } catch (err) {
       console.error('[Forecast] Error disconnecting and clearing:', err)
-      alert('Error disconnecting and clearing data: ' + err)
+      toast.error('Error disconnecting and clearing data')
     }
     setIsSaving(false)
   }
@@ -744,13 +745,13 @@ export default function FinancialForecastPage() {
         // Reload P&L lines
         const lines = await ForecastService.loadPLLines(forecast.id)
         setPlLines(lines)
-        alert('Successfully cleared and resynced data from Xero!')
+        toast.success('Successfully cleared and resynced data from Xero!')
       } else {
-        alert('Error syncing from Xero: ' + result.error)
+        toast.error('Error syncing from Xero: ' + result.error)
       }
     } catch (err) {
       console.error('[Forecast] Error clearing and resyncing:', err)
-      alert('Error clearing and resyncing')
+      toast.error('Error clearing and resyncing')
     }
     setIsSaving(false)
   }
@@ -775,13 +776,13 @@ export default function FinancialForecastPage() {
         // Reload P&L lines
         const lines = await ForecastService.loadPLLines(forecast.id)
         setPlLines(lines)
-        alert('Successfully synced data from Xero!')
+        toast.success('Successfully synced data from Xero!')
       } else {
-        alert('Error syncing from Xero: ' + result.error)
+        toast.error('Error syncing from Xero: ' + result.error)
       }
     } catch (err) {
       console.error('[Forecast] Error syncing from Xero:', err)
-      alert('Error syncing from Xero')
+      toast.error('Error syncing from Xero')
     }
     setIsSaving(false)
   }
@@ -836,7 +837,7 @@ export default function FinancialForecastPage() {
 
       if (error) {
         console.error('[Forecast] Error updating goals:', error)
-        alert('Error saving goals: ' + error.message)
+        toast.error('Error saving goals: ' + error.message)
       } else {
         // Update local state
         setForecast({
@@ -850,7 +851,7 @@ export default function FinancialForecastPage() {
       }
     } catch (err) {
       console.error('[Forecast] Error:', err)
-      alert('Error saving goals')
+      toast.error('Error saving goals')
     }
     setIsSaving(false)
   }
@@ -870,9 +871,7 @@ export default function FinancialForecastPage() {
 
       // Check if we have data to import
       if (!annualPlanData.revenue_target && !annualPlanData.profit_target) {
-        alert(
-          'No annual plan targets found. Please complete the Goals & Targets wizard first to set Year 1 targets, or enter goals manually.'
-        )
+        toast.warning('No annual plan targets found. Complete the Goals & Targets wizard first, or enter goals manually.')
         setIsSaving(false)
         return
       }
@@ -911,7 +910,7 @@ export default function FinancialForecastPage() {
 
       if (error) {
         console.error('[Forecast] Error importing goals:', error)
-        alert('Error importing goals: ' + error.message)
+        toast.error('Error importing goals: ' + error.message)
       } else {
         // Update local state
         setForecast({
@@ -927,7 +926,7 @@ export default function FinancialForecastPage() {
       }
     } catch (err) {
       console.error('[Forecast] Error importing goals:', err)
-      alert('Error importing goals from Annual Plan. Please try again or enter goals manually.')
+      toast.error('Error importing goals from Annual Plan. Please try again or enter goals manually.')
     }
     setIsSaving(false)
   }
@@ -951,7 +950,7 @@ export default function FinancialForecastPage() {
 
       if (error) {
         console.error('[Forecast] Error updating distribution:', error)
-        alert('Error saving distribution: ' + error.message)
+        toast.error('Error saving distribution: ' + error.message)
       } else {
         // Update local state
         setForecast({
@@ -963,7 +962,7 @@ export default function FinancialForecastPage() {
       }
     } catch (err) {
       console.error('[Forecast] Error:', err)
-      alert('Error saving distribution')
+      toast.error('Error saving distribution')
     }
     setIsSaving(false)
   }
@@ -1002,7 +1001,7 @@ export default function FinancialForecastPage() {
       if (saveError) {
         console.error('[Forecast] Error saving assumptions:', saveError)
         if (!isAutoSave) {
-          alert('Error saving assumptions: ' + saveError.message)
+          toast.error('Error saving assumptions: ' + saveError.message)
         }
         setIsSaving(false)
         return
@@ -1058,18 +1057,18 @@ export default function FinancialForecastPage() {
       if (saveResult.success) {
         setPlLines(lines)
         console.log('[Forecast] Forecast generated and saved successfully')
-        alert('Forecast generated successfully! Revenue, COGS, and OpEx have been distributed across the forecast period.')
+        toast.success('Forecast generated! Revenue, COGS, and OpEx have been distributed.')
 
         // Switch to P&L tab
         setActiveTab('pl')
       } else {
         console.error('[Forecast] Error saving generated lines:', saveResult.error)
-        alert('Error saving forecast: ' + saveResult.error)
+        toast.error('Error saving forecast: ' + saveResult.error)
       }
     } catch (err) {
       console.error('[Forecast] Error:', err)
       if (!isAutoSave) {
-        alert('Error generating forecast')
+        toast.error('Error generating forecast')
       }
     }
     setIsSaving(false)

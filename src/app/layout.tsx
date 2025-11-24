@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import SidebarLayout from '@/components/layout/sidebar-layout'
+import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -18,6 +19,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
+        {/* Global toast notifications */}
+        <Toaster
+          position="top-right"
+          richColors
+          closeButton
+          toastOptions={{
+            duration: 4000,
+          }}
+        />
         {/* Wrap all page content with SidebarLayout */}
         <SidebarLayout>
           {children}
