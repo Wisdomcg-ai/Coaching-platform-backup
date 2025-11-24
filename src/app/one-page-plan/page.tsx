@@ -257,70 +257,50 @@ export default function OnePagePlan() {
 
       const visionMission = visionMissionData?.vision_mission || {}
 
-      // Load SWOT - try both businessId and user.id since different parts of app may use different IDs
+      // Load SWOT - get ALL items from ALL analyses for this user (since items may be spread across quarters)
       devLog('[One Page Plan] 📅 Looking for SWOT:', { businessId, userId: user.id })
 
-      // Try businessId first (from profile), then fall back to user.id
-      let swotData = null
       let swotItems: any[] = []
 
-      // First try with businessId (profile.id)
-      const { data: swotByBizId, error: swotError1 } = await supabase
+      // Get all SWOT analyses for this user (try both businessId and user.id)
+      const { data: allAnalyses, error: analysesError } = await supabase
         .from('swot_analyses')
-        .select(`
-          *,
-          swot_items (
-            id,
-            category,
-            title,
-            description,
-            status
-          )
-        `)
-        .eq('business_id', businessId)
-        .order('created_at', { ascending: false })
-        .limit(1)
+        .select('id, business_id, quarter, year')
+        .or(`business_id.eq.${businessId},business_id.eq.${user.id}`)
 
-      devLog('[One Page Plan] 💡 SWOT by businessId:', { data: swotByBizId, error: swotError1 })
+      console.log('[One Page Plan] 💡 All user analyses:', JSON.stringify({
+        count: allAnalyses?.length || 0,
+        ids: allAnalyses?.map(a => a.id?.substring(0, 8)),
+        error: analysesError?.message
+      }))
 
-      if (swotByBizId && swotByBizId.length > 0) {
-        swotData = swotByBizId[0]
-        swotItems = swotData?.swot_items || []
-      } else if (businessId !== user.id) {
-        // If businessId didn't work and it's different from user.id, try user.id
-        const { data: swotByUserId, error: swotError2 } = await supabase
-          .from('swot_analyses')
-          .select(`
-            *,
-            swot_items (
-              id,
-              category,
-              title,
-              description,
-              status
-            )
-          `)
-          .eq('business_id', user.id)
+      if (allAnalyses && allAnalyses.length > 0) {
+        // Get all analysis IDs
+        const analysisIds = allAnalyses.map(a => a.id)
+
+        // Get ALL items from ALL analyses for this user
+        const { data: allItems, error: itemsError } = await supabase
+          .from('swot_items')
+          .select('id, swot_analysis_id, category, title, description, status')
+          .in('swot_analysis_id', analysisIds)
+          .or('status.eq.active,status.eq.carried-forward,status.is.null')
           .order('created_at', { ascending: false })
-          .limit(1)
 
-        devLog('[One Page Plan] 💡 SWOT by userId:', { data: swotByUserId, error: swotError2 })
+        console.log('[One Page Plan] 💡 All SWOT items for user:', JSON.stringify({
+          count: allItems?.length || 0,
+          byCategory: {
+            strength: allItems?.filter(i => i.category === 'strength').length || 0,
+            weakness: allItems?.filter(i => i.category === 'weakness').length || 0,
+            opportunity: allItems?.filter(i => i.category === 'opportunity').length || 0,
+            threat: allItems?.filter(i => i.category === 'threat').length || 0
+          },
+          error: itemsError?.message
+        }))
 
-        if (swotByUserId && swotByUserId.length > 0) {
-          swotData = swotByUserId[0]
-          swotItems = swotData?.swot_items || []
-        }
+        swotItems = allItems || []
       }
 
-      // Debug SWOT items
       devLog('[One Page Plan] 💡 SWOT items extracted:', swotItems?.length)
-      devLog('[One Page Plan] 💡 SWOT items by status:', {
-        active: swotItems.filter((i: any) => i.status === 'active').length,
-        carriedForward: swotItems.filter((i: any) => i.status === 'carried-forward').length,
-        archived: swotItems.filter((i: any) => i.status === 'archived').length,
-        other: swotItems.filter((i: any) => !['active', 'carried-forward', 'archived'].includes(i.status)).length
-      })
-      devLog('[One Page Plan] 💡 SWOT items sample:', swotItems.slice(0, 2))
 
       // Load Financial Goals & Core Metrics
       const { data: financialGoals, error: finError } = await supabase
@@ -405,21 +385,21 @@ export default function OnePagePlan() {
         mission: visionMission.mission_statement || '',
         coreValues: (visionMission.core_values || []).filter((v: string) => v.trim()),
 
-        // Filter SWOT items by status (only active or carried-forward)
+        // SWOT items already filtered by status in query - just filter by category
         strengths: swotItems
-          .filter((item: any) => item.category === 'strength' && (item.status === 'active' || item.status === 'carried-forward'))
+          .filter((item: any) => item.category === 'strength')
           .slice(0, 5)
           .map((item: any) => item.title),
         weaknesses: swotItems
-          .filter((item: any) => item.category === 'weakness' && (item.status === 'active' || item.status === 'carried-forward'))
+          .filter((item: any) => item.category === 'weakness')
           .slice(0, 5)
           .map((item: any) => item.title),
         opportunities: swotItems
-          .filter((item: any) => item.category === 'opportunity' && (item.status === 'active' || item.status === 'carried-forward'))
+          .filter((item: any) => item.category === 'opportunity')
           .slice(0, 5)
           .map((item: any) => item.title),
         threats: swotItems
-          .filter((item: any) => item.category === 'threat' && (item.status === 'active' || item.status === 'carried-forward'))
+          .filter((item: any) => item.category === 'threat')
           .slice(0, 5)
           .map((item: any) => item.title),
 
@@ -950,7 +930,7 @@ export default function OnePagePlan() {
             {(data.ownerGoals.primaryGoal || data.ownerGoals.desiredHoursPerWeek || data.ownerGoals.timeHorizon || data.ownerGoals.exitStrategy) ? (
               <div className="col-span-2 border-r border-gray-300">
                 <div className="bg-blue-50 px-3 py-2 border-b border-gray-300">
-                  <h3 className="text-xs font-bold text-blue-900 uppercase">What I Want From This Business</h3>
+                  <h3 className="text-sm font-bold text-blue-900 uppercase">What I Want From This Business</h3>
                 </div>
                 <div className="p-3 space-y-3">
                   {data.ownerGoals.primaryGoal && (
@@ -963,13 +943,13 @@ export default function OnePagePlan() {
                     {data.ownerGoals.timeHorizon && (
                       <div>
                         <p className="text-[10px] font-semibold text-gray-700 uppercase mb-1">Time Horizon</p>
-                        <p className="text-xs text-gray-900">{data.ownerGoals.timeHorizon}</p>
+                        <p className="text-sm text-gray-900">{data.ownerGoals.timeHorizon}</p>
                       </div>
                     )}
                     {data.ownerGoals.exitStrategy && (
                       <div>
                         <p className="text-[10px] font-semibold text-gray-700 uppercase mb-1">Exit Strategy</p>
-                        <p className="text-xs text-gray-900">{data.ownerGoals.exitStrategy}</p>
+                        <p className="text-sm text-gray-900">{data.ownerGoals.exitStrategy}</p>
                       </div>
                     )}
                   </div>
@@ -997,12 +977,12 @@ export default function OnePagePlan() {
             {/* Strategic Initiatives - Under 1-Year Goal */}
             <div className="border-r border-gray-300">
               <div className="bg-blue-50 px-3 py-2 border-b border-gray-300">
-                <h3 className="text-xs font-bold text-blue-900 uppercase">12-Month Initiatives</h3>
+                <h3 className="text-sm font-bold text-blue-900 uppercase">12-Month Initiatives</h3>
               </div>
               <div className="p-3">
                 <ol className="space-y-1.5">
                   {data.strategicInitiatives.slice(0, 12).map((initiative, idx) => (
-                    <li key={idx} className="text-xs">
+                    <li key={idx} className="text-sm print:text-xs">
                       <span className="font-medium text-gray-900">{idx + 1}. {initiative.title}</span>
                     </li>
                   ))}
@@ -1013,12 +993,12 @@ export default function OnePagePlan() {
             {/* Current Quarter Rocks - Under Quarter Target */}
             <div>
               <div className="bg-blue-50 px-3 py-2 border-b border-gray-300">
-                <h3 className="text-xs font-bold text-blue-900 uppercase">{data.currentQuarterLabel} Rocks</h3>
+                <h3 className="text-sm font-bold text-blue-900 uppercase">{data.currentQuarterLabel} Rocks</h3>
               </div>
               <div className="p-3">
                 <ol className="space-y-1.5">
                   {data.quarterlyRocks.slice(0, 5).map((rock, idx) => (
-                    <li key={idx} className="text-xs">
+                    <li key={idx} className="text-sm print:text-xs">
                       <div className="font-medium text-gray-900">{idx + 1}. {rock.action}</div>
                       {(rock.owner || rock.dueDate) && (
                         <div className="text-[10px] text-gray-600 mt-0.5">
