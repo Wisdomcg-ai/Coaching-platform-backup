@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, FileText, Calendar, CheckCircle, AlertCircle, TrendingUp, BarChart3 } from 'lucide-react'
+import { ArrowLeft, FileText, Calendar, CheckCircle } from 'lucide-react'
+import { BUSINESS_ENGINES, getScoreBgColorClass } from '@/lib/assessment/constants'
 
 interface Assessment {
   id: string
@@ -11,9 +12,14 @@ interface Assessment {
   percentage: number
   total_score: number
   health_status: string
-  foundation_score: number
-  strategic_wheel_score: number
-  engines_score: number
+  attract_score: number
+  convert_score: number
+  deliver_score: number
+  people_score: number
+  systems_score: number
+  finance_score: number
+  leadership_score: number
+  time_score: number
   status: string
 }
 
@@ -222,35 +228,31 @@ export default function AssessmentHistory() {
                     </div>
                   </div>
 
-                  {/* Section Scores */}
+                  {/* 8 Business Engines Scores */}
                   <div className="space-y-4 mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900">Section Breakdown</h3>
-                    
-                    <div className="space-y-3">
-                      {[
-                        { name: 'Business Foundation', score: selectedAssessment.foundation_score, max: 50 },
-                        { name: 'Strategic Clarity', score: selectedAssessment.strategic_wheel_score, max: 70 },
-                        { name: 'Business Engines', score: selectedAssessment.engines_score, max: 180 }
-                      ].map((section) => (
-                        <div key={section.name} className="bg-gray-50 rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-gray-700">{section.name}</span>
-                            <span className="text-sm font-semibold text-gray-900">
-                              {section.score || 0}/{section.max} ({Math.round(((section.score || 0) / section.max) * 100)}%)
-                            </span>
+                    <h3 className="text-lg font-semibold text-gray-900">8 Business Engines</h3>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {BUSINESS_ENGINES.map((engine) => {
+                        const score = (selectedAssessment as any)[`${engine.id}_score`] || 0
+                        const percentage = (score / engine.maxScore) * 100
+                        return (
+                          <div key={engine.name} className="bg-gray-50 rounded-lg p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-medium text-gray-700">{engine.shortName}</span>
+                              <span className="text-xs font-semibold text-gray-900">
+                                {score}/{engine.maxScore}
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-1.5">
+                              <div
+                                className={`h-1.5 rounded-full transition-all duration-500 ${getScoreBgColorClass(percentage)}`}
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                              className={`h-2 rounded-full transition-all duration-500 ${
-                                ((section.score || 0) / section.max) >= 0.8 ? 'bg-green-500' :
-                                ((section.score || 0) / section.max) >= 0.6 ? 'bg-yellow-500' :
-                                'bg-red-500'
-                              }`}
-                              style={{ width: `${((section.score || 0) / section.max) * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
 

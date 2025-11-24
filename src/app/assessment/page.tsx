@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, ChevronLeft, Check, AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { BUSINESS_ENGINES, TOTAL_MAX_SCORE, getHealthStatus, mapSectionToEngineId } from '@/lib/assessment/constants';
 
 interface Question {
   id: string;
@@ -16,172 +17,15 @@ interface Question {
 
 const questions: Question[] = [
   // ==========================================
-  // SECTION 1: BUSINESS FOUNDATION (5 questions, 50 points)
+  // ATTRACT ENGINE (4 questions, 40 points)
   // ==========================================
-  
+
   {
     id: 'q1',
-    text: 'Are you paying yourself a market-rate salary consistently?',
-    type: 'radio',
-    section: 'Business Foundation',
-    options: [
-      { value: 'no_rarely', label: 'No - rarely take money out', points: 0 },
-      { value: 'sometimes', label: 'Sometimes - when cash flow allows', points: 3 },
-      { value: 'yes_below', label: 'Yes - regular salary below market', points: 5 },
-      { value: 'yes_full', label: 'Yes - full market-rate salary', points: 8 },
-      { value: 'yes_plus_profit', label: 'Yes - salary plus profit distributions', points: 10 }
-    ]
-  },
-  {
-    id: 'q2',
-    text: 'How effectively is your team structured and operating?',
-    type: 'radio',
-    section: 'Business Foundation',
-    options: [
-      { value: 'solo_struggling', label: 'Solo operator - struggling with capacity', points: 2 },
-      { value: 'small_confusion', label: 'Small team - some role confusion', points: 4 },
-      { value: 'clear_delegation', label: 'Clear roles with effective delegation', points: 7 },
-      { value: 'well_structured', label: 'Well-structured with strong performance', points: 9 },
-      { value: 'exceptional', label: 'Exceptional team with clear accountability', points: 10 }
-    ]
-  },
-  {
-    id: 'q3',
-    text: 'How dependent is the business on you personally?',
-    type: 'radio',
-    section: 'Business Foundation',
-    options: [
-      { value: 'completely', label: 'Completely - stops without me', points: 0 },
-      { value: 'very', label: 'Very - needs me for most decisions', points: 3 },
-      { value: 'somewhat', label: 'Somewhat - can run for short periods', points: 7 },
-      { value: 'minimal', label: 'Minimal - runs well without me for weeks', points: 10 }
-    ]
-  },
-  {
-    id: 'q4',
-    text: 'How predictable is your monthly revenue?',
-    type: 'radio',
-    section: 'Business Foundation',
-    options: [
-      { value: 'unpredictable', label: 'Completely unpredictable - varies wildly', points: 0 },
-      { value: 'somewhat_50', label: 'Somewhat predictable - within 50%', points: 3 },
-      { value: 'very_25', label: 'Very predictable - within 25%', points: 7 },
-      { value: 'extremely_recurring', label: 'Extremely predictable - recurring revenue model', points: 10 }
-    ]
-  },
-  {
-    id: 'q5',
-    text: 'If you wanted to sell your business tomorrow, could you?',
-    type: 'radio',
-    section: 'Business Foundation',
-    options: [
-      { value: 'no_dependent', label: 'No - too dependent on me', points: 0 },
-      { value: 'maybe_work', label: 'Maybe - but needs significant work', points: 3 },
-      { value: 'probably_prep', label: 'Probably - would need 6-12 months prep', points: 7 },
-      { value: 'yes_ready', label: 'Yes - it\'s sale-ready today', points: 10 }
-    ]
-  },
-
-  // ==========================================
-  // SECTION 2: STRATEGIC CLARITY (7 questions, 70 points)
-  // ==========================================
-  
-  {
-    id: 'q6',
-    text: 'How clear and compelling is your business vision?',
-    type: 'radio',
-    section: 'Strategic Clarity',
-    options: [
-      { value: 'very_unclear', label: 'Very unclear - no defined direction', points: 0 },
-      { value: 'somewhat_clear', label: 'Somewhat clear - general idea only', points: 3 },
-      { value: 'clear', label: 'Clear - team understands it', points: 7 },
-      { value: 'crystal_clear', label: 'Crystal clear - guides all decisions', points: 10 }
-    ]
-  },
-  {
-    id: 'q7',
-    text: 'How well-defined is your target market and ideal customer?',
-    type: 'radio',
-    section: 'Strategic Clarity',
-    options: [
-      { value: 'anyone', label: 'Serve anyone who will pay', points: 0 },
-      { value: 'general', label: 'General target market defined', points: 3 },
-      { value: 'specific', label: 'Specific ideal customer profile', points: 7 },
-      { value: 'laser_focused', label: 'Laser-focused with clear differentiation', points: 10 }
-    ]
-  },
-  {
-    id: 'q8',
-    text: 'Do you have a sustainable competitive advantage?',
-    type: 'radio',
-    section: 'Strategic Clarity',
-    options: [
-      { value: 'price_only', label: 'Compete mainly on price', points: 0 },
-      { value: 'some_differentiation', label: 'Some differentiation', points: 3 },
-      { value: 'clear_value', label: 'Clear unique value proposition', points: 7 },
-      { value: 'dominant', label: 'Dominant position with defensible moats', points: 10 }
-    ]
-  },
-  {
-    id: 'q9',
-    text: 'When did you last launch a new product/service/offering?',
-    type: 'radio',
-    section: 'Strategic Clarity',
-    options: [
-      { value: 'over_2years', label: 'Over 2 years ago or never', points: 0 },
-      { value: '1_2_years', label: '1-2 years ago', points: 3 },
-      { value: 'last_year', label: 'Within the last year', points: 7 },
-      { value: 'last_6months', label: 'Within the last 6 months', points: 10 }
-    ]
-  },
-  {
-    id: 'q10',
-    text: 'How strong is your team and culture?',
-    type: 'radio',
-    section: 'Strategic Clarity',
-    options: [
-      { value: 'struggling', label: 'Struggling with people issues', points: 0 },
-      { value: 'adequate', label: 'Adequate team, developing culture', points: 3 },
-      { value: 'good', label: 'Good team, positive culture', points: 7 },
-      { value: 'excellent', label: 'A-players with exceptional culture', points: 10 }
-    ]
-  },
-  {
-    id: 'q11',
-    text: 'How systematic is your business execution?',
-    type: 'radio',
-    section: 'Strategic Clarity',
-    options: [
-      { value: 'adhoc', label: 'Ad hoc, reactive approach', points: 0 },
-      { value: 'some_systems', label: 'Some systems, inconsistent execution', points: 3 },
-      { value: 'good_systems', label: 'Good systems, reliable execution', points: 7 },
-      { value: 'exceptional', label: 'Exceptional systems and execution', points: 10 }
-    ]
-  },
-  {
-    id: 'q12',
-    text: 'How well do you track business performance with metrics?',
-    type: 'radio',
-    section: 'Strategic Clarity',
-    options: [
-      { value: 'dont_track', label: 'Don\'t track metrics systematically', points: 0 },
-      { value: 'monthly', label: 'Track basic metrics monthly', points: 3 },
-      { value: 'weekly', label: 'Weekly dashboard review', points: 7 },
-      { value: 'daily', label: 'Real-time dashboard reviewed daily', points: 10 }
-    ]
-  },
-
-  // ==========================================
-  // SECTION 3: BUSINESS ENGINES (18 questions, 180 points)
-  // ==========================================
-
-  // ATTRACT ENGINE (3 questions, 30 points)
-  {
-    id: 'q13',
     text: 'How many qualified leads do you generate monthly?',
     type: 'radio',
-    section: 'Business Engines',
-    subsection: 'Attract Engine',
+    section: 'Attract Engine',
+    subsection: 'Marketing & Lead Generation',
     options: [
       { value: 'under_20', label: 'Under 20 leads or don\'t track', points: 2 },
       { value: '20_50', label: '20-50 leads', points: 5 },
@@ -190,11 +34,11 @@ const questions: Question[] = [
     ]
   },
   {
-    id: 'q14',
+    id: 'q2',
     text: 'How many reliable marketing channels generate leads?',
     type: 'radio',
-    section: 'Business Engines',
-    subsection: 'Attract Engine',
+    section: 'Attract Engine',
+    subsection: 'Marketing & Lead Generation',
     options: [
       { value: 'none', label: 'No consistent channels', points: 0 },
       { value: '1_2', label: '1-2 inconsistent sources', points: 3 },
@@ -203,11 +47,11 @@ const questions: Question[] = [
     ]
   },
   {
-    id: 'q15',
+    id: 'q3',
     text: 'How sophisticated is your lead generation system?',
     type: 'radio',
-    section: 'Business Engines',
-    subsection: 'Attract Engine',
+    section: 'Attract Engine',
+    subsection: 'Marketing & Lead Generation',
     options: [
       { value: 'adhoc', label: 'Ad hoc/inconsistent', points: 0 },
       { value: 'track_no_nurture', label: 'Track leads but no nurture system', points: 3 },
@@ -215,14 +59,30 @@ const questions: Question[] = [
       { value: 'full_automation', label: 'Full marketing automation with attribution', points: 10 }
     ]
   },
-
-  // CONVERT ENGINE (3 questions, 30 points)
   {
-    id: 'q16',
+    id: 'q4',
+    text: 'How clear is your target market and ideal customer?',
+    type: 'radio',
+    section: 'Attract Engine',
+    subsection: 'Marketing & Lead Generation',
+    options: [
+      { value: 'anyone', label: 'Serve anyone who will pay', points: 0 },
+      { value: 'general', label: 'General target market defined', points: 3 },
+      { value: 'specific', label: 'Specific ideal customer profile', points: 7 },
+      { value: 'laser_focused', label: 'Laser-focused with clear differentiation', points: 10 }
+    ]
+  },
+
+  // ==========================================
+  // CONVERT ENGINE (4 questions, 40 points)
+  // ==========================================
+
+  {
+    id: 'q5',
     text: 'What\'s your lead-to-customer conversion rate?',
     type: 'radio',
-    section: 'Business Engines',
-    subsection: 'Convert Engine',
+    section: 'Convert Engine',
+    subsection: 'Sales & Closing',
     options: [
       { value: 'under_15', label: 'Under 15% or don\'t track', points: 2 },
       { value: '15_25', label: '15-25%', points: 5 },
@@ -231,11 +91,11 @@ const questions: Question[] = [
     ]
   },
   {
-    id: 'q17',
+    id: 'q6',
     text: 'How long is your average sales cycle?',
     type: 'radio',
-    section: 'Business Engines',
-    subsection: 'Convert Engine',
+    section: 'Convert Engine',
+    subsection: 'Sales & Closing',
     options: [
       { value: 'dont_know', label: 'Don\'t know/varies wildly', points: 0 },
       { value: 'over_6months', label: 'Over 6 months (long, complex)', points: 3 },
@@ -245,11 +105,11 @@ const questions: Question[] = [
     ]
   },
   {
-    id: 'q18',
+    id: 'q7',
     text: 'How effective is your sales process?',
     type: 'radio',
-    section: 'Business Engines',
-    subsection: 'Convert Engine',
+    section: 'Convert Engine',
+    subsection: 'Sales & Closing',
     options: [
       { value: 'no_process', label: 'No formal sales process', points: 0 },
       { value: 'basic', label: 'Basic process, inconsistent follow-up', points: 3 },
@@ -257,14 +117,30 @@ const questions: Question[] = [
       { value: 'optimized', label: 'Optimized process with upsells and tracking', points: 10 }
     ]
   },
-
-  // DELIVER ENGINE (5 questions, 50 points)
   {
-    id: 'q19',
+    id: 'q8',
+    text: 'Do you have a sustainable competitive advantage?',
+    type: 'radio',
+    section: 'Convert Engine',
+    subsection: 'Sales & Closing',
+    options: [
+      { value: 'price_only', label: 'Compete mainly on price', points: 0 },
+      { value: 'some_differentiation', label: 'Some differentiation', points: 3 },
+      { value: 'clear_value', label: 'Clear unique value proposition', points: 7 },
+      { value: 'dominant', label: 'Dominant position with defensible moats', points: 10 }
+    ]
+  },
+
+  // ==========================================
+  // DELIVER ENGINE (4 questions, 40 points)
+  // ==========================================
+
+  {
+    id: 'q9',
     text: 'What percentage of customers are delighted with your delivery?',
     type: 'radio',
-    section: 'Business Engines',
-    subsection: 'Deliver Engine',
+    section: 'Deliver Engine',
+    subsection: 'Client Experience & Results',
     options: [
       { value: 'under_60', label: 'Under 60% or don\'t know', points: 0 },
       { value: '60_75', label: '60-75%', points: 3 },
@@ -273,11 +149,11 @@ const questions: Question[] = [
     ]
   },
   {
-    id: 'q20',
+    id: 'q10',
     text: 'How systematized is your customer experience?',
     type: 'radio',
-    section: 'Business Engines',
-    subsection: 'Deliver Engine',
+    section: 'Deliver Engine',
+    subsection: 'Client Experience & Results',
     options: [
       { value: 'wing_it', label: 'Wing it, reactive service', points: 0 },
       { value: 'basic_onboarding', label: 'Basic onboarding process', points: 3 },
@@ -286,11 +162,11 @@ const questions: Question[] = [
     ]
   },
   {
-    id: 'q21',
-    text: 'What % of your revenue comes from repeat customers?',
+    id: 'q11',
+    text: 'What percentage of your revenue comes from repeat customers?',
     type: 'radio',
-    section: 'Business Engines',
-    subsection: 'Deliver Engine',
+    section: 'Deliver Engine',
+    subsection: 'Client Experience & Results',
     options: [
       { value: 'dont_know', label: 'I don\'t know', points: 0 },
       { value: 'under_20', label: 'Under 20% (mostly transactional)', points: 2 },
@@ -300,11 +176,56 @@ const questions: Question[] = [
     ]
   },
   {
-    id: 'q22',
+    id: 'q12',
+    text: 'Do you systematically collect and act on customer feedback?',
+    type: 'radio',
+    section: 'Deliver Engine',
+    subsection: 'Client Experience & Results',
+    options: [
+      { value: 'rarely', label: 'Rarely or never collect feedback', points: 0 },
+      { value: 'occasional', label: 'Occasionally ask for feedback', points: 3 },
+      { value: 'regular_some', label: 'Regular surveys, take some action', points: 7 },
+      { value: 'systematic', label: 'Systematic NPS tracking with action plans', points: 10 }
+    ]
+  },
+
+  // ==========================================
+  // PEOPLE ENGINE (4 questions, 40 points)
+  // ==========================================
+
+  {
+    id: 'q13',
+    text: 'How effectively is your team structured and operating?',
+    type: 'radio',
+    section: 'People Engine',
+    subsection: 'Team, Culture, Hiring',
+    options: [
+      { value: 'solo_struggling', label: 'Solo operator - struggling with capacity', points: 2 },
+      { value: 'small_confusion', label: 'Small team - some role confusion', points: 4 },
+      { value: 'clear_delegation', label: 'Clear roles with effective delegation', points: 7 },
+      { value: 'well_structured', label: 'Well-structured with strong performance', points: 9 },
+      { value: 'exceptional', label: 'Exceptional team with clear accountability', points: 10 }
+    ]
+  },
+  {
+    id: 'q14',
+    text: 'How strong is your team culture?',
+    type: 'radio',
+    section: 'People Engine',
+    subsection: 'Team, Culture, Hiring',
+    options: [
+      { value: 'struggling', label: 'Struggling with people issues', points: 0 },
+      { value: 'adequate', label: 'Adequate team, developing culture', points: 3 },
+      { value: 'good', label: 'Good team, positive culture', points: 7 },
+      { value: 'exceptional', label: 'A-players with exceptional culture', points: 10 }
+    ]
+  },
+  {
+    id: 'q15',
     text: 'How strategic is your approach to talent?',
     type: 'radio',
-    section: 'Business Engines',
-    subsection: 'Deliver Engine',
+    section: 'People Engine',
+    subsection: 'Team, Culture, Hiring',
     options: [
       { value: 'reactive', label: 'Reactive hiring when desperate', points: 0 },
       { value: 'basic', label: 'Basic hiring process', points: 3 },
@@ -313,11 +234,29 @@ const questions: Question[] = [
     ]
   },
   {
-    id: 'q23',
+    id: 'q16',
+    text: 'How well do you develop and retain your team?',
+    type: 'radio',
+    section: 'People Engine',
+    subsection: 'Team, Culture, Hiring',
+    options: [
+      { value: 'high_turnover', label: 'High turnover, no development programs', points: 0 },
+      { value: 'some_training', label: 'Some training, moderate retention', points: 3 },
+      { value: 'regular_training', label: 'Regular training, good retention', points: 7 },
+      { value: 'systematic', label: 'Systematic development, great retention', points: 10 }
+    ]
+  },
+
+  // ==========================================
+  // SYSTEMS ENGINE (4 questions, 40 points)
+  // ==========================================
+
+  {
+    id: 'q17',
     text: 'How comprehensive is your process documentation?',
     type: 'radio',
-    section: 'Business Engines',
-    subsection: 'Deliver Engine',
+    section: 'Systems Engine',
+    subsection: 'Operations, Process, Tech',
     options: [
       { value: 'in_heads', label: 'Most processes exist only in people\'s heads', points: 0 },
       { value: 'some_documented', label: 'Some processes documented', points: 3 },
@@ -325,14 +264,56 @@ const questions: Question[] = [
       { value: 'all_optimized', label: 'All processes documented and optimized', points: 10 }
     ]
   },
-
-  // FINANCE ENGINE (7 questions, 70 points)
   {
-    id: 'q24',
+    id: 'q18',
+    text: 'How systematic is your business execution?',
+    type: 'radio',
+    section: 'Systems Engine',
+    subsection: 'Operations, Process, Tech',
+    options: [
+      { value: 'adhoc', label: 'Ad hoc, reactive approach', points: 0 },
+      { value: 'some_systems', label: 'Some systems, inconsistent execution', points: 3 },
+      { value: 'good_systems', label: 'Good systems, reliable execution', points: 7 },
+      { value: 'exceptional', label: 'Exceptional systems and execution', points: 10 }
+    ]
+  },
+  {
+    id: 'q19',
+    text: 'How effectively do you use technology and automation?',
+    type: 'radio',
+    section: 'Systems Engine',
+    subsection: 'Operations, Process, Tech',
+    options: [
+      { value: 'minimal', label: 'Minimal tech, mostly manual processes', points: 0 },
+      { value: 'basic', label: 'Basic tools, limited automation', points: 3 },
+      { value: 'good', label: 'Good tech stack with some automation', points: 7 },
+      { value: 'advanced', label: 'Advanced automation and AI integration', points: 10 }
+    ]
+  },
+  {
+    id: 'q20',
+    text: 'How well do you track business performance with metrics?',
+    type: 'radio',
+    section: 'Systems Engine',
+    subsection: 'Operations, Process, Tech',
+    options: [
+      { value: 'dont_track', label: 'Don\'t track metrics systematically', points: 0 },
+      { value: 'monthly', label: 'Track basic metrics monthly', points: 3 },
+      { value: 'weekly', label: 'Weekly dashboard review', points: 7 },
+      { value: 'daily', label: 'Real-time dashboard reviewed daily', points: 10 }
+    ]
+  },
+
+  // ==========================================
+  // FINANCE ENGINE (3 questions, 30 points)
+  // ==========================================
+
+  {
+    id: 'q21',
     text: 'How would you describe your cash flow situation?',
     type: 'radio',
-    section: 'Business Engines',
-    subsection: 'Finance Engine',
+    section: 'Finance Engine',
+    subsection: 'Money, Metrics, Wealth',
     options: [
       { value: 'stressed', label: 'Constantly stressed about paying bills', points: 0 },
       { value: 'occasional_crunches', label: 'Occasional cash crunches, tight months', points: 3 },
@@ -341,38 +322,11 @@ const questions: Question[] = [
     ]
   },
   {
-    id: 'q25',
-    text: 'What % of revenue comes from your top 3 customers?',
-    type: 'radio',
-    section: 'Business Engines',
-    subsection: 'Finance Engine',
-    options: [
-      { value: 'dont_know', label: 'I don\'t know', points: 0 },
-      { value: 'over_50', label: 'More than 50% (high concentration risk)', points: 2 },
-      { value: '30_50', label: '30-50% (moderate concentration)', points: 5 },
-      { value: '20_30', label: '20-30% (healthy diversification)', points: 8 },
-      { value: 'under_20', label: 'Less than 20% (excellent diversification)', points: 10 }
-    ]
-  },
-  {
-    id: 'q26',
-    text: 'When did you last increase prices?',
-    type: 'radio',
-    section: 'Business Engines',
-    subsection: 'Finance Engine',
-    options: [
-      { value: 'never_2years', label: 'Never or over 2 years ago', points: 0 },
-      { value: '1_2_years', label: '1-2 years ago', points: 3 },
-      { value: '6_12_months', label: '6-12 months ago', points: 7 },
-      { value: 'within_6', label: 'Within last 6 months', points: 10 }
-    ]
-  },
-  {
-    id: 'q27',
+    id: 'q22',
     text: 'What\'s your revenue growth rate over the past 12 months?',
     type: 'radio',
-    section: 'Business Engines',
-    subsection: 'Finance Engine',
+    section: 'Finance Engine',
+    subsection: 'Money, Metrics, Wealth',
     options: [
       { value: 'declining', label: 'Declining revenue', points: 0 },
       { value: 'flat', label: 'Flat or minimal growth (0-10%)', points: 3 },
@@ -382,42 +336,118 @@ const questions: Question[] = [
     ]
   },
   {
-    id: 'q28',
-    text: 'What % of revenue do you invest in marketing?',
+    id: 'q23',
+    text: 'How sophisticated is your financial management?',
     type: 'radio',
-    section: 'Business Engines',
-    subsection: 'Finance Engine',
+    section: 'Finance Engine',
+    subsection: 'Money, Metrics, Wealth',
     options: [
-      { value: '0_2', label: '0-2% or don\'t know', points: 0 },
-      { value: '3_5', label: '3-5% (survival mode)', points: 3 },
-      { value: '6_10', label: '6-10% (growth oriented)', points: 7 },
-      { value: 'over_10', label: '10%+ (aggressive growth)', points: 10 }
+      { value: 'react_balance', label: 'React to bank balance, no forecasting', points: 0 },
+      { value: 'track_basic', label: 'Track P&L monthly, basic budgeting', points: 3 },
+      { value: 'forecast_variance', label: '13-week forecast, variance analysis', points: 7 },
+      { value: 'rolling_profitability', label: 'Rolling forecasts, full financial visibility', points: 10 }
+    ]
+  },
+
+  // ==========================================
+  // LEADERSHIP ENGINE (3 questions, 30 points)
+  // ==========================================
+
+  {
+    id: 'q24',
+    text: 'How clear and compelling is your business vision?',
+    type: 'radio',
+    section: 'Leadership Engine',
+    subsection: 'Vision, Strategy, You',
+    options: [
+      { value: 'very_unclear', label: 'Very unclear - no defined direction', points: 0 },
+      { value: 'somewhat_clear', label: 'Somewhat clear - general idea only', points: 3 },
+      { value: 'clear', label: 'Clear - team understands it', points: 7 },
+      { value: 'crystal_clear', label: 'Crystal clear - guides all decisions', points: 10 }
+    ]
+  },
+  {
+    id: 'q25',
+    text: 'How dependent is the business on you personally?',
+    type: 'radio',
+    section: 'Leadership Engine',
+    subsection: 'Vision, Strategy, You',
+    options: [
+      { value: 'completely', label: 'Completely - stops without me', points: 0 },
+      { value: 'very', label: 'Very - needs me for most decisions', points: 3 },
+      { value: 'somewhat', label: 'Somewhat - can run for short periods', points: 7 },
+      { value: 'minimal', label: 'Minimal - runs well without me for weeks', points: 10 }
+    ]
+  },
+  {
+    id: 'q26',
+    text: 'Are you paying yourself a market-rate salary consistently?',
+    type: 'radio',
+    section: 'Leadership Engine',
+    subsection: 'Vision, Strategy, You',
+    options: [
+      { value: 'no_rarely', label: 'No - rarely take money out', points: 0 },
+      { value: 'sometimes', label: 'Sometimes - when cash flow allows', points: 3 },
+      { value: 'yes_below', label: 'Yes - regular salary below market', points: 5 },
+      { value: 'yes_full', label: 'Yes - full market-rate salary', points: 8 },
+      { value: 'yes_plus_profit', label: 'Yes - salary plus profit distributions', points: 10 }
+    ]
+  },
+
+  // ==========================================
+  // TIME ENGINE (4 questions, 40 points)
+  // ==========================================
+
+  {
+    id: 'q27',
+    text: 'How many hours per week do you currently work?',
+    type: 'radio',
+    section: 'Time Engine',
+    subsection: 'Freedom, Productivity, Leverage',
+    options: [
+      { value: '60_plus', label: '60+ hours per week', points: 0 },
+      { value: '50_60', label: '50-60 hours per week', points: 3 },
+      { value: '40_50', label: '40-50 hours per week', points: 7 },
+      { value: 'under_40', label: 'Under 40 hours per week', points: 10 }
+    ]
+  },
+  {
+    id: 'q28',
+    text: 'Can your business run successfully for 2+ weeks without you?',
+    type: 'radio',
+    section: 'Time Engine',
+    subsection: 'Freedom, Productivity, Leverage',
+    options: [
+      { value: 'no_falls_apart', label: 'No - it falls apart without me', points: 0 },
+      { value: 'barely', label: 'Barely - lots of issues arise', points: 3 },
+      { value: 'mostly', label: 'Mostly - some check-ins needed', points: 7 },
+      { value: 'yes_smoothly', label: 'Yes - runs smoothly without me', points: 10 }
     ]
   },
   {
     id: 'q29',
-    text: 'Do you know your Customer Acquisition Cost (CAC) vs Lifetime Value (LTV)?',
+    text: 'What percentage of your time is working ON (strategy) vs IN (doing the work)?',
     type: 'radio',
-    section: 'Business Engines',
-    subsection: 'Finance Engine',
+    section: 'Time Engine',
+    subsection: 'Freedom, Productivity, Leverage',
     options: [
-      { value: 'no_idea', label: 'No idea what these mean', points: 0 },
-      { value: 'heard_dont_track', label: 'Heard of them but don\'t track', points: 2 },
-      { value: 'track_poor', label: 'Track but ratio isn\'t great', points: 5 },
-      { value: 'yes_3x', label: 'Yes - LTV is 3x+ CAC', points: 10 }
+      { value: '0_20_on', label: '0-20% ON strategy, 80-100% IN the work', points: 0 },
+      { value: '20_40_on', label: '20-40% ON strategy, 60-80% IN the work', points: 4 },
+      { value: '40_60_on', label: '40-60% ON strategy, 40-60% IN the work', points: 7 },
+      { value: '60_plus_on', label: '60%+ ON strategy, less than 40% IN the work', points: 10 }
     ]
   },
   {
     id: 'q30',
-    text: 'How sophisticated is your financial management?',
+    text: 'How predictable is your monthly revenue?',
     type: 'radio',
-    section: 'Business Engines',
-    subsection: 'Finance Engine',
+    section: 'Time Engine',
+    subsection: 'Freedom, Productivity, Leverage',
     options: [
-      { value: 'react_balance', label: 'React to bank balance, no forecasting or expense control', points: 0 },
-      { value: 'track_basic', label: 'Track P&L monthly, basic budgeting and expense reviews', points: 3 },
-      { value: 'forecast_variance', label: '13-week cash flow forecast, variance analysis, disciplined expenses', points: 7 },
-      { value: 'rolling_profitability', label: 'Rolling forecasts, profitability by product/customer, full visibility', points: 10 }
+      { value: 'unpredictable', label: 'Completely unpredictable - varies wildly', points: 0 },
+      { value: 'somewhat_50', label: 'Somewhat predictable - within 50%', points: 3 },
+      { value: 'very_25', label: 'Very predictable - within 25%', points: 7 },
+      { value: 'extremely_recurring', label: 'Extremely predictable - recurring revenue model', points: 10 }
     ]
   }
 ];
@@ -427,21 +457,85 @@ export default function AssessmentPage() {
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+
+  // Load saved draft on mount
+  useEffect(() => {
+    const savedDraft = localStorage.getItem('assessment_draft');
+    const savedIndex = localStorage.getItem('assessment_question_index');
+
+    if (savedDraft) {
+      try {
+        const parsedAnswers = JSON.parse(savedDraft);
+        setAnswers(parsedAnswers);
+        if (savedIndex) {
+          setCurrentQuestionIndex(parseInt(savedIndex));
+        }
+      } catch (e) {
+        console.error('Error loading draft:', e);
+      }
+    }
+    setIsLoading(false);
+  }, []);
+
+  // Save draft to localStorage whenever answers change
+  useEffect(() => {
+    if (Object.keys(answers).length > 0) {
+      localStorage.setItem('assessment_draft', JSON.stringify(answers));
+      localStorage.setItem('assessment_question_index', currentQuestionIndex.toString());
+    }
+  }, [answers, currentQuestionIndex]);
+
+  // Protect against browser back/close
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (Object.keys(answers).length > 0 && Object.keys(answers).length < questions.length) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [answers]);
 
   const currentQuestion = questions[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
-  
-  const sections = ['Business Foundation', 'Strategic Clarity', 'Business Engines'];
+
+  const sections = BUSINESS_ENGINES.map(engine => engine.name);
   const currentSection = currentQuestion.section;
   const currentSectionIndex = sections.indexOf(currentSection);
+
+  // Check if all questions are answered
+  function areAllQuestionsAnswered(): boolean {
+    return questions.every(q => answers[q.id]);
+  }
+
+  // Get unanswered questions count
+  function getUnansweredCount(): number {
+    return questions.filter(q => !answers[q.id]).length;
+  }
+
+  const goToNext = useCallback(() => {
+    if (answers[currentQuestion.id] && currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    }
+  }, [answers, currentQuestion.id, currentQuestionIndex]);
+
+  const goToPrevious = useCallback(() => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    }
+  }, [currentQuestionIndex]);
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && answers[currentQuestion.id]) {
         if (currentQuestionIndex < questions.length - 1) {
           goToNext();
-        } else {
+        } else if (areAllQuestionsAnswered()) {
           handleSubmit();
         }
       }
@@ -449,58 +543,55 @@ export default function AssessmentPage() {
 
     window.addEventListener('keypress', handleKeyPress);
     return () => window.removeEventListener('keypress', handleKeyPress);
-  }, [currentQuestionIndex, answers, currentQuestion]);
+  }, [currentQuestionIndex, answers, currentQuestion, goToNext]);
 
   function handleAnswer(value: string, points: number) {
     setAnswers({
       ...answers,
-      [currentQuestion.id]: { 
-        value, 
+      [currentQuestion.id]: {
+        value,
         points,
-        question: currentQuestion.text 
+        question: currentQuestion.text
       }
     });
-  }
-
-  function goToPrevious() {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
-    }
-  }
-
-  function goToNext() {
-    if (answers[currentQuestion.id] && currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-    }
   }
 
   function isCurrentQuestionAnswered(): boolean {
     return !!answers[currentQuestion.id];
   }
 
-  function calculateSectionScores() {
-    const sectionScores: Record<string, number> = {
-      foundation: 0,      // Max: 50 points
-      strategic: 0,       // Max: 70 points
-      engines: 0          // Max: 180 points
-    };
+  function handleExit() {
+    setShowExitModal(true);
+  }
 
+  function confirmExit() {
+    // Keep draft in localStorage for resume later
+    router.push('/business-profile');
+  }
+
+  function clearDraftAndExit() {
+    localStorage.removeItem('assessment_draft');
+    localStorage.removeItem('assessment_question_index');
+    router.push('/business-profile');
+  }
+
+  function calculateSectionScores() {
+    // Initialize scores for all engines
+    const sectionScores: Record<string, number> = {};
+    BUSINESS_ENGINES.forEach(engine => {
+      sectionScores[engine.id] = 0;
+    });
+
+    // Calculate scores
     Object.entries(answers).forEach(([questionId, answer]) => {
       const question = questions.find(q => q.id === questionId);
-      
+
       if (question) {
         const points = answer.points || 0;
-        
-        switch(question.section) {
-          case 'Business Foundation':
-            sectionScores.foundation += points;
-            break;
-          case 'Strategic Clarity':
-            sectionScores.strategic += points;
-            break;
-          case 'Business Engines':
-            sectionScores.engines += points;
-            break;
+        const engineId = mapSectionToEngineId(question.section);
+
+        if (engineId && sectionScores[engineId] !== undefined) {
+          sectionScores[engineId] += points;
         }
       }
     });
@@ -509,14 +600,21 @@ export default function AssessmentPage() {
   }
 
   async function handleSubmit() {
+    // Validate all questions are answered
+    if (!areAllQuestionsAnswered()) {
+      const unansweredCount = getUnansweredCount();
+      setError(`Please answer all questions. ${unansweredCount} question${unansweredCount > 1 ? 's' : ''} remaining.`);
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
     try {
       const supabase = createClient();
-      
+
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         setError('Please log in to save your assessment');
         setIsSubmitting(false);
@@ -526,41 +624,33 @@ export default function AssessmentPage() {
       // Calculate scores
       const sectionScores = calculateSectionScores();
       const totalScore = Object.values(sectionScores).reduce((sum, score) => sum + score, 0);
-      const maxScore = 300;
-      const percentage = Math.round((totalScore / maxScore) * 100);
-      
-      // Determine health status
-      let healthStatus = '';
-      if (percentage >= 90) healthStatus = 'THRIVING';
-      else if (percentage >= 80) healthStatus = 'STRONG';
-      else if (percentage >= 70) healthStatus = 'STABLE';
-      else if (percentage >= 60) healthStatus = 'BUILDING';
-      else if (percentage >= 50) healthStatus = 'STRUGGLING';
-      else healthStatus = 'URGENT';
+      const percentage = Math.round((totalScore / TOTAL_MAX_SCORE) * 100);
 
-      // Save to Supabase - using existing database columns
+      // Determine health status using shared function
+      const healthStatus = getHealthStatus(percentage);
+
+      // Build engine score data dynamically
+      const engineScoreData: any = {
+        user_id: user.id,
+        answers: answers,
+        total_score: Math.round(totalScore),
+        percentage: percentage,
+        health_status: healthStatus,
+        total_max: TOTAL_MAX_SCORE,
+        completed_at: new Date().toISOString(),
+        status: 'completed'
+      };
+
+      // Add each engine score dynamically
+      BUSINESS_ENGINES.forEach(engine => {
+        engineScoreData[`${engine.id}_score`] = Math.round(sectionScores[engine.id] || 0);
+        engineScoreData[`${engine.id}_max`] = engine.maxScore;
+      });
+
+      // Save to Supabase with 8 engine scores
       const { data: assessment, error: dbError } = await supabase
         .from('assessments')
-        .insert({
-          user_id: user.id,
-          answers: answers,
-          total_score: Math.round(totalScore),
-          percentage: percentage,
-          health_status: healthStatus,
-          foundation_score: Math.round(sectionScores.foundation),
-          strategic_wheel_score: Math.round(sectionScores.strategic),
-          profitability_score: 0,
-          engines_score: Math.round(sectionScores.engines),
-          disciplines_score: 0,
-          foundation_max: 50,
-          strategic_wheel_max: 70,
-          profitability_max: 0,
-          engines_max: 180,
-          disciplines_max: 0,
-          total_max: maxScore,
-          completed_at: new Date().toISOString(),
-          status: 'completed'
-        })
+        .insert(engineScoreData)
         .select()
         .single();
 
@@ -572,13 +662,31 @@ export default function AssessmentPage() {
       }
 
       console.log('✅ Assessment saved:', assessment.id);
-      router.push(`/dashboard/assessment-results?id=${assessment.id}`);
-      
+
+      // Clear draft from localStorage
+      localStorage.removeItem('assessment_draft');
+      localStorage.removeItem('assessment_question_index');
+
+      // Redirect to dashboard - middleware will now allow access
+      router.push('/dashboard');
+
     } catch (error) {
       console.error('Error submitting assessment:', error);
       setError('Failed to save assessment. Please try again.');
       setIsSubmitting(false);
     }
+  }
+
+  // Show loading state while checking for saved draft
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading assessment...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -590,14 +698,27 @@ export default function AssessmentPage() {
               <h1 className="text-2xl font-bold text-gray-900">Business Assessment</h1>
               <p className="text-sm text-gray-600 mt-1">
                 30 questions • 12-15 minutes
+                {Object.keys(answers).length > 0 && (
+                  <span className="ml-2 text-blue-600 font-medium">
+                    • {Object.keys(answers).length}/30 answered
+                  </span>
+                )}
               </p>
             </div>
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="text-gray-500 hover:text-gray-700 px-3 py-1 rounded-lg hover:bg-gray-100"
-            >
-              Exit
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => router.push('/assessment/history')}
+                className="text-blue-600 hover:text-blue-700 px-3 py-1 rounded-lg hover:bg-blue-50 text-sm font-medium"
+              >
+                View History
+              </button>
+              <button
+                onClick={handleExit}
+                className="text-gray-500 hover:text-gray-700 px-3 py-1 rounded-lg hover:bg-gray-100"
+              >
+                Exit
+              </button>
+            </div>
           </div>
 
           <div className="mt-4">
@@ -700,27 +821,34 @@ export default function AssessmentPage() {
               </span>
 
               {currentQuestionIndex === questions.length - 1 ? (
-                <button
-                  onClick={handleSubmit}
-                  disabled={!isCurrentQuestionAnswered() || isSubmitting}
-                  className={`flex items-center px-8 py-3 rounded-lg font-medium transition-all ${
-                    !isCurrentQuestionAnswered() || isSubmitting
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-lg transform hover:-translate-y-0.5'
-                  }`}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      Complete Assessment
-                      <Check className="w-5 h-5 ml-2" />
-                    </>
+                <div className="flex flex-col items-end gap-2">
+                  {!areAllQuestionsAnswered() && (
+                    <span className="text-sm text-orange-600 font-medium">
+                      {getUnansweredCount()} question{getUnansweredCount() > 1 ? 's' : ''} remaining
+                    </span>
                   )}
-                </button>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={!areAllQuestionsAnswered() || isSubmitting}
+                    className={`flex items-center px-8 py-3 rounded-lg font-medium transition-all ${
+                      !areAllQuestionsAnswered() || isSubmitting
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-lg transform hover:-translate-y-0.5'
+                    }`}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        Complete Assessment
+                        <Check className="w-5 h-5 ml-2" />
+                      </>
+                    )}
+                  </button>
+                </div>
               ) : (
                 <button
                   onClick={goToNext}
@@ -739,6 +867,53 @@ export default function AssessmentPage() {
           </div>
         </div>
       </div>
+
+      {/* Exit Confirmation Modal */}
+      {showExitModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-orange-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  Exit Assessment?
+                </h3>
+                <p className="text-gray-600">
+                  {Object.keys(answers).length > 0
+                    ? `You've answered ${Object.keys(answers).length} out of 30 questions. Your progress will be saved and you can continue later.`
+                    : 'Are you sure you want to exit?'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => setShowExitModal(false)}
+                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+              >
+                Continue Assessment
+              </button>
+              <button
+                onClick={confirmExit}
+                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              >
+                Save & Exit
+              </button>
+            </div>
+
+            {Object.keys(answers).length > 0 && (
+              <button
+                onClick={clearDraftAndExit}
+                className="w-full mt-3 px-4 py-2 text-red-600 text-sm hover:bg-red-50 rounded-lg transition-colors"
+              >
+                Discard Progress & Exit
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

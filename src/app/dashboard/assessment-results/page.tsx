@@ -6,6 +6,7 @@ import { ArrowLeft, Download, TrendingUp, Target, AlertCircle, CheckCircle, Zap,
 import { createClient } from '@/lib/supabase/client';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { BUSINESS_ENGINES, TOTAL_MAX_SCORE, getHealthStatus, getScoreColorClass, getScoreBgColorClass } from '@/lib/assessment/constants';
 
 interface Assessment {
   id: string;
@@ -13,9 +14,14 @@ interface Assessment {
   total_score: number;
   percentage: number;
   health_status: string;
-  foundation_score: number;
-  strategic_wheel_score: number;
-  engines_score: number;
+  attract_score: number;
+  convert_score: number;
+  deliver_score: number;
+  people_score: number;
+  systems_score: number;
+  finance_score: number;
+  leadership_score: number;
+  time_score: number;
   answers: Record<string, any>;
 }
 
@@ -172,7 +178,7 @@ export default function AssessmentResultsPage() {
 
     doc.setFontSize(14);
     doc.setTextColor(0, 0, 0);
-    doc.text(`${assessment.total_score}/300 points`, 70, yPos + 12);
+    doc.text(`${assessment.total_score}/${TOTAL_MAX_SCORE} points`, 70, yPos + 12);
 
     // Health status
     const healthStatus = getHealthStatusText(assessment.health_status);
@@ -185,32 +191,19 @@ export default function AssessmentResultsPage() {
     doc.setTextColor(0, 0, 0);
     yPos += 35;
 
-    // Section Breakdown
+    // 8 Business Engines Breakdown
     doc.setFontSize(16);
     doc.setFont(undefined, 'bold');
-    doc.text('Section Breakdown', 14, yPos);
+    doc.text('8 Business Engines', 14, yPos);
     yPos += 5;
 
-    const sections = [
-      {
-        name: 'Business Foundation',
-        score: assessment.foundation_score,
-        max: 50,
-        description: 'Core business fundamentals and readiness'
-      },
-      {
-        name: 'Strategic Clarity',
-        score: assessment.strategic_wheel_score,
-        max: 70,
-        description: 'Vision, strategy, and execution systems'
-      },
-      {
-        name: 'Business Engines',
-        score: assessment.engines_score,
-        max: 180,
-        description: 'Marketing, sales, delivery, and finance operations'
-      }
-    ];
+    // Build sections array from BUSINESS_ENGINES constant
+    const sections = BUSINESS_ENGINES.map(engine => ({
+      name: engine.name,
+      score: (assessment as any)[`${engine.id}_score`] || 0,
+      max: engine.maxScore,
+      description: engine.description
+    }));
 
     // Create table data
     const tableData = sections.map(section => {
@@ -226,7 +219,7 @@ export default function AssessmentResultsPage() {
 
     autoTable(doc, {
       startY: yPos + 5,
-      head: [['Section', 'Score', 'Percentage', 'Status']],
+      head: [['Engine', 'Score', 'Percentage', 'Status']],
       body: tableData,
       theme: 'grid',
       headStyles: {
@@ -362,32 +355,16 @@ export default function AssessmentResultsPage() {
   }
 
   const healthStatus = getHealthStatusText(assessment.health_status);
-  const sections = [
-    {
-      name: 'Business Foundation',
-      score: assessment.foundation_score,
-      max: 50,
-      icon: Target,
-      color: 'blue',
-      description: 'Core business fundamentals and readiness'
-    },
-    {
-      name: 'Strategic Clarity',
-      score: assessment.strategic_wheel_score,
-      max: 70,
-      icon: TrendingUp,
-      color: 'purple',
-      description: 'Vision, strategy, and execution systems'
-    },
-    {
-      name: 'Business Engines',
-      score: assessment.engines_score,
-      max: 180,
-      icon: Zap,
-      color: 'green',
-      description: 'Marketing, sales, delivery, and finance operations'
-    }
-  ];
+
+  // Build sections array dynamically from BUSINESS_ENGINES constant
+  const sections = BUSINESS_ENGINES.map(engine => ({
+    name: engine.name,
+    score: (assessment as any)[`${engine.id}_score`] || 0,
+    max: engine.maxScore,
+    icon: engine.icon,
+    colorClasses: engine.colorClasses,
+    description: engine.description
+  }));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -456,7 +433,7 @@ export default function AssessmentResultsPage() {
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <div className="text-6xl font-bold text-gray-900">{assessment.percentage}%</div>
-                <div className="text-gray-600 text-lg mt-2">{assessment.total_score}/300</div>
+                <div className="text-gray-600 text-lg mt-2">{assessment.total_score}/{TOTAL_MAX_SCORE}</div>
               </div>
             </div>
 
@@ -472,24 +449,24 @@ export default function AssessmentResultsPage() {
           </div>
         </div>
 
-        {/* Section Breakdown */}
+        {/* 8 Business Engines Breakdown */}
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
             <TrendingUp className="w-6 h-6 mr-3 text-blue-600" />
-            Section Breakdown
+            8 Business Engines
           </h2>
 
           <div className="space-y-6">
             {sections.map((section) => {
               const percentage = Math.round((section.score / section.max) * 100);
               const Icon = section.icon;
-              
+
               return (
                 <div key={section.name} className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-start gap-4">
-                      <div className={`p-3 rounded-lg bg-${section.color}-100`}>
-                        <Icon className={`w-6 h-6 text-${section.color}-600`} />
+                      <div className={`p-3 rounded-lg ${section.colorClasses.bgLight}`}>
+                        <Icon className={`w-6 h-6 ${section.colorClasses.text}`} />
                       </div>
                       <div>
                         <h3 className="text-xl font-semibold text-gray-900">{section.name}</h3>
@@ -498,11 +475,7 @@ export default function AssessmentResultsPage() {
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-gray-900">{section.score}/{section.max}</div>
-                      <div className={`text-sm font-medium ${
-                        percentage >= 80 ? 'text-green-600' :
-                        percentage >= 60 ? 'text-yellow-600' :
-                        'text-red-600'
-                      }`}>
+                      <div className={`text-sm font-medium ${getScoreColorClass(percentage)}`}>
                         {percentage}%
                       </div>
                     </div>
@@ -510,12 +483,8 @@ export default function AssessmentResultsPage() {
 
                   <div className="mb-4">
                     <div className="w-full bg-gray-200 rounded-full h-3">
-                      <div 
-                        className={`h-3 rounded-full transition-all duration-500 ${
-                          percentage >= 80 ? 'bg-green-500' :
-                          percentage >= 60 ? 'bg-yellow-500' :
-                          'bg-red-500'
-                        }`}
+                      <div
+                        className={`h-3 rounded-full transition-all duration-500 ${getScoreBgColorClass(percentage)}`}
                         style={{ width: `${percentage}%` }}
                       />
                     </div>
