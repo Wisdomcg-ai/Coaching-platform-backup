@@ -25,6 +25,7 @@ import XeroConnectionPanel from './components/XeroConnectionPanel'
 import ForecastTabs, { type ForecastTab } from './components/ForecastTabs'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useXeroSync } from './hooks/useXeroSync'
+import { useVersionManager } from './hooks/useVersionManager'
 import { getForecastFiscalYear } from './utils/fiscal-year'
 import CoachNavbar from '@/components/coach/CoachNavbar'
 
@@ -56,11 +57,6 @@ export default function FinancialForecastPage() {
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
   const [showCSVImport, setShowCSVImport] = useState(false)
 
-  // Version management state
-  const [versions, setVersions] = useState<FinancialForecast[]>([])
-  const [showSaveVersionModal, setShowSaveVersionModal] = useState(false)
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-
   // Xero sync hook
   const {
     isSyncing,
@@ -78,6 +74,22 @@ export default function FinancialForecastPage() {
       setPlLines([])
       setEmployees([])
     }
+  })
+
+  // Version management hook
+  const {
+    versions,
+    showSaveVersionModal,
+    hasUnsavedChanges,
+    setShowSaveVersionModal,
+    setHasUnsavedChanges,
+    loadVersions,
+    handleSelectVersion,
+    handleSaveAsNewVersion,
+    handleOverwriteVersion
+  } = useVersionManager({
+    forecast,
+    businessId
   })
 
   // Save active tab to localStorage whenever it changes
@@ -209,68 +221,6 @@ export default function FinancialForecastPage() {
       setError(err instanceof Error ? err.message : 'Failed to load forecast data')
       setIsLoading(false)
     }
-  }
-
-  // Version management functions
-  const loadVersions = async (businessId: string, fiscalYear: number) => {
-    try {
-      const response = await fetch(`/api/forecasts/versions?business_id=${businessId}&fiscal_year=${fiscalYear}`)
-      if (!response.ok) {
-        console.error('Failed to load versions')
-        return
-      }
-      const data = await response.json()
-      setVersions(data.versions || [])
-    } catch (error) {
-      console.error('Error loading versions:', error)
-    }
-  }
-
-  const handleSelectVersion = async (version: FinancialForecast) => {
-    if (version.id === forecast?.id) return // Already on this version
-
-    // Navigate to the selected version
-    window.location.href = `/finances/forecast?id=${version.id}`
-  }
-
-  const handleSaveAsNewVersion = async (versionName: string) => {
-    if (!forecast?.id || !businessId) {
-      throw new Error('No forecast to save')
-    }
-
-    try {
-      const response = await fetch('/api/forecasts/versions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          forecastId: forecast.id,
-          versionName,
-          versionType: 'forecast'
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to create new version')
-      }
-
-      const { newForecast } = await response.json()
-
-      // Reload versions list
-      await loadVersions(businessId, forecast.fiscal_year)
-
-      // Navigate to the new version
-      window.location.href = `/finances/forecast?id=${newForecast.id}`
-    } catch (error) {
-      console.error('Error creating new version:', error)
-      throw error
-    }
-  }
-
-  const handleOverwriteVersion = async () => {
-    // Overwriting is just saving normally - no new version created
-    // The data is already being saved via the existing save handlers
-    toast.success('Changes saved to current version')
-    setShowSaveVersionModal(false)
   }
 
   // NOTE: Scenario/What-If functionality is disabled for launch.
