@@ -4,14 +4,15 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BusinessProfileService } from './services/business-profile-service'
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Save, 
-  Building2, 
+import toast, { Toaster } from 'react-hot-toast'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Save,
+  Building2,
   User,
-  DollarSign, 
-  Users, 
+  DollarSign,
+  Users,
   Target,
   CheckCircle,
   AlertCircle,
@@ -19,8 +20,10 @@ import {
   Instagram,
   Facebook,
   Linkedin,
-  X
+  X,
+  Loader2
 } from 'lucide-react'
+import type { BusinessProfile, SaveStatus, ValidationError } from './types'
 
 const STEPS = [
   { id: 1, name: 'Company Information', icon: Building2 },
@@ -111,25 +114,87 @@ const BUSINESS_MODELS = [
 export default function EnhancedBusinessProfile() {
   const router = useRouter()
   const supabase = createClient()
-  
+
   const [currentStep, setCurrentStep] = useState(1)
-  const [business, setBusiness] = useState<any>({})
+  const [business, setBusiness] = useState<Partial<BusinessProfile>>({})
   const [businessId, setBusinessId] = useState<string | null>(null)
   const [profileId, setProfileId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [saveTimer, setSaveTimer] = useState<NodeJS.Timeout | null>(null)
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
 
   // Load business data on mount
   useEffect(() => {
     loadBusiness()
   }, [])
 
+  // Validation function
+  const validateBusinessProfile = (): ValidationError[] => {
+    const errors: ValidationError[] = []
+
+    if (!business.name || business.name.trim() === '') {
+      errors.push({ field: 'name', message: 'Business name is required' })
+    }
+
+    if (!business.industry || business.industry.trim() === '') {
+      errors.push({ field: 'industry', message: 'Industry is required' })
+    }
+
+    if (business.annual_revenue === undefined || business.annual_revenue === null) {
+      errors.push({ field: 'annual_revenue', message: 'Annual revenue is required' })
+    }
+
+    if (business.employee_count === undefined || business.employee_count === null) {
+      errors.push({ field: 'employee_count', message: 'Employee count is required' })
+    }
+
+    if (business.years_in_operation === undefined || business.years_in_operation === null) {
+      errors.push({ field: 'years_in_operation', message: 'Years in operation is required' })
+    }
+
+    return errors
+  }
+
+  // Helper to check if field has error
+  const hasFieldError = (fieldName: string): boolean => {
+    return validationErrors.some(err => err.field === fieldName)
+  }
+
+  // Helper to get field error message
+  const getFieldError = (fieldName: string): string | undefined => {
+    return validationErrors.find(err => err.field === fieldName)?.message
+  }
+
+  // Consistent input styling
+  const getInputClassName = (fieldName?: string) => {
+    const hasError = fieldName ? hasFieldError(fieldName) : false
+    return `w-full h-11 px-4 border rounded-lg focus:ring-2 focus:outline-none transition-colors ${
+      hasError
+        ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
+        : 'border-gray-300 focus:border-blue-500 focus:ring-blue-100'
+    }`
+  }
+
+  const getSelectClassName = (fieldName?: string) => {
+    const hasError = fieldName ? hasFieldError(fieldName) : false
+    return `w-full h-11 pl-4 pr-10 border rounded-lg focus:ring-2 focus:outline-none transition-colors appearance-none bg-white cursor-pointer ${
+      hasError
+        ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
+        : 'border-gray-300 focus:border-blue-500 focus:ring-blue-100'
+    } bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%236B7280%22%20d%3D%22M10.293%203.293L6%207.586%201.707%203.293A1%201%200%2000.293%204.707l5%205a1%201%200%20001.414%200l5-5a1%201%200%2010-1.414-1.414z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:16px_16px] bg-[center_right_12px] bg-no-repeat`
+  }
+
+  const getTextareaClassName = () => {
+    return 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-500 focus:outline-none transition-colors resize-none'
+  }
+
   const loadBusiness = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      
+
       if (!user) {
         router.push('/auth/login')
         return
@@ -141,6 +206,7 @@ export default function EnhancedBusinessProfile() {
 
       if (error) {
         console.error('❌ Error loading business profile:', error)
+        toast.error('Failed to load business profile: ' + error)
         setSaveStatus('error')
       } else if (data) {
         console.log('✅ Loaded business profile:', {
@@ -199,7 +265,9 @@ export default function EnhancedBusinessProfile() {
 
       if (error) {
         console.error('❌ Error saving business profile:', error)
+        toast.error('Auto-save failed: ' + error)
         setSaveStatus('error')
+        setTimeout(() => setSaveStatus('idle'), 3000)
       } else if (success) {
         setLastSaved(new Date())
         setSaveStatus('saved')
@@ -207,7 +275,9 @@ export default function EnhancedBusinessProfile() {
       }
     } catch (error) {
       console.error('Error:', error)
+      toast.error('Unexpected error during auto-save')
       setSaveStatus('error')
+      setTimeout(() => setSaveStatus('idle'), 3000)
     }
   }, [business, businessId, profileId])
 
@@ -294,10 +364,28 @@ export default function EnhancedBusinessProfile() {
     return 'Mastery ($10M+)'
   }
 
-  // Manual save function
+  // Manual save function with validation
   const manualSave = async () => {
     if (saveTimer) clearTimeout(saveTimer)
-    await autoSave()
+
+    // Validate before saving
+    const errors = validateBusinessProfile()
+    setValidationErrors(errors)
+
+    if (errors.length > 0) {
+      toast.error(`Please fix ${errors.length} validation error${errors.length > 1 ? 's' : ''} before saving`)
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      await autoSave()
+      toast.success('Business profile saved successfully!')
+    } catch (error) {
+      toast.error('Failed to save business profile')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   if (isLoading) {
@@ -309,42 +397,45 @@ export default function EnhancedBusinessProfile() {
   }
 
   // Get social media data or initialize empty
-  const socialMedia = (business as any)?.social_media || {}
-  const ownerInfo = (business as any)?.owner_info || {}
+  const socialMedia = business?.social_media || {}
+  const ownerInfo = business?.owner_info || {}
   const partners = ownerInfo.partners || []
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50 p-8">
+      {/* Toast Notifications */}
+      <Toaster position="top-right" />
+
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <button
             onClick={() => router.push('/dashboard')}
-            className="mb-4 text-blue-600 hover:text-blue-700 flex items-center gap-2"
+            className="mb-6 text-blue-600 hover:text-blue-700 flex items-center gap-2 font-medium transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Dashboard
           </button>
-          
+
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Business Profile</h1>
-              <p className="text-gray-600 mt-2">
-                Comprehensive context that powers AI-driven insights and recommendations
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Business Profile</h1>
+              <p className="text-gray-600 text-base">
+                Build your comprehensive business context to power personalized insights
               </p>
             </div>
-            
-            <div className="text-right">
-              <div className={`text-2xl font-bold ${
-                calculateCompletion() >= 80 ? 'text-green-600' : 
-                calculateCompletion() >= 50 ? 'text-yellow-600' : 'text-red-600'
+
+            <div className="text-right bg-white px-6 py-4 rounded-lg border border-gray-200 shadow-sm">
+              <div className={`text-3xl font-bold ${
+                calculateCompletion() >= 80 ? 'text-blue-600' :
+                calculateCompletion() >= 50 ? 'text-blue-500' : 'text-gray-400'
               }`}>
                 {calculateCompletion()}%
               </div>
-              <div className="text-sm text-gray-600">Complete</div>
+              <div className="text-sm text-gray-600 mt-1">Complete</div>
               {lastSaved && (
                 <div className="text-xs text-gray-500 mt-2">
-                  Auto-saved: {lastSaved.toLocaleTimeString()}
+                  Saved {lastSaved.toLocaleTimeString()}
                 </div>
               )}
             </div>
@@ -352,114 +443,167 @@ export default function EnhancedBusinessProfile() {
         </div>
 
         {/* Progress Steps */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <div className="flex justify-between">
-            {STEPS.map((step) => {
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
+          <div className="flex justify-between items-center">
+            {STEPS.map((step, index) => {
               const Icon = step.icon
+              const isActive = currentStep === step.id
+              const isCompleted = step.id < currentStep
+
               return (
-                <button
-                  key={step.id}
-                  onClick={() => setCurrentStep(step.id)}
-                  className={`flex flex-col items-center p-3 rounded-lg transition-all ${
-                    currentStep === step.id
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-400 hover:text-gray-600'
-                  }`}
-                >
-                  <Icon className="w-6 h-6 mb-2" />
-                  <span className="text-xs font-medium text-center">{step.name}</span>
-                  {currentStep === step.id && (
-                    <div className="w-full h-1 bg-blue-600 rounded-full mt-2" />
+                <div key={step.id} className="flex items-center flex-1">
+                  <button
+                    onClick={() => setCurrentStep(step.id)}
+                    className={`flex flex-col items-center gap-2 p-3 rounded-lg transition-all w-full ${
+                      isActive
+                        ? 'bg-blue-50'
+                        : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                      isActive
+                        ? 'bg-blue-600 text-white'
+                        : isCompleted
+                        ? 'bg-blue-100 text-blue-600'
+                        : 'bg-gray-100 text-gray-400'
+                    }`}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <span className={`text-xs font-medium text-center transition-colors ${
+                      isActive
+                        ? 'text-blue-600'
+                        : isCompleted
+                        ? 'text-gray-700'
+                        : 'text-gray-400'
+                    }`}>
+                      {step.name}
+                    </span>
+                  </button>
+                  {index < STEPS.length - 1 && (
+                    <div className={`h-0.5 w-full mx-2 transition-colors ${
+                      isCompleted ? 'bg-blue-600' : 'bg-gray-200'
+                    }`} />
                   )}
-                </button>
+                </div>
               )
             })}
           </div>
         </div>
 
         {/* Form Content */}
-        <div className="bg-white rounded-xl shadow-lg p-8 relative">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-8 relative">
           {/* Save Status Indicator */}
-          <div className="absolute top-4 right-4">
+          <div className="absolute top-6 right-6">
             {saveStatus === 'saving' && (
-              <div className="flex items-center gap-2 text-blue-600">
+              <div className="flex items-center gap-2 text-blue-600 bg-blue-50 px-3 py-1.5 rounded-md">
                 <Save className="w-4 h-4 animate-pulse" />
-                <span className="text-sm">Auto-saving...</span>
+                <span className="text-sm font-medium">Saving...</span>
               </div>
             )}
             {saveStatus === 'saved' && (
-              <div className="flex items-center gap-2 text-green-600">
+              <div className="flex items-center gap-2 text-green-600 bg-green-50 px-3 py-1.5 rounded-md">
                 <CheckCircle className="w-4 h-4" />
-                <span className="text-sm">Saved</span>
+                <span className="text-sm font-medium">Saved</span>
               </div>
             )}
             {saveStatus === 'error' && (
-              <div className="flex items-center gap-2 text-red-600">
+              <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-1.5 rounded-md">
                 <AlertCircle className="w-4 h-4" />
-                <span className="text-sm">Error saving</span>
+                <span className="text-sm font-medium">Error</span>
               </div>
             )}
           </div>
 
           {/* Step 1: Company Information */}
           {currentStep === 1 && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Company Information</h2>
-              
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Company Information</h2>
+                <p className="text-gray-600 mt-1">Tell us about your business</p>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Business Name *
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Business Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={business.name || ''}
-                    onChange={(e) => handleFieldChange('name', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Your business name"
+                    onChange={(e) => {
+                      handleFieldChange('name', e.target.value)
+                      setValidationErrors(errors => errors.filter(e => e.field !== 'name'))
+                    }}
+                    className={getInputClassName('name')}
+                    placeholder="Enter business name"
                   />
+                  {hasFieldError('name') && (
+                    <p className="text-red-600 text-sm mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {getFieldError('name')}
+                    </p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Industry *
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Industry <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={business.industry || ''}
-                    onChange={(e) => handleFieldChange('industry', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={(e) => {
+                      handleFieldChange('industry', e.target.value)
+                      setValidationErrors(errors => errors.filter(e => e.field !== 'industry'))
+                    }}
+                    className={getSelectClassName('industry')}
                   >
-                    <option value="">Select Industry...</option>
+                    <option value="">Select industry...</option>
                     {INDUSTRIES.map(industry => (
                       <option key={industry} value={industry}>{industry}</option>
                     ))}
                   </select>
+                  {hasFieldError('industry') && (
+                    <p className="text-red-600 text-sm mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {getFieldError('industry')}
+                    </p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Years in Business *
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Years in Business <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
                     value={business.years_in_operation || ''}
-                    onChange={(e) => handleFieldChange('years_in_operation', parseInt(e.target.value) || 0)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={(e) => {
+                      handleFieldChange('years_in_operation', parseInt(e.target.value) || 0)
+                      setValidationErrors(errors => errors.filter(e => e.field !== 'years_in_operation'))
+                    }}
+                    className={getInputClassName('years_in_operation')}
                     min="0"
                     max="100"
+                    placeholder="0"
                   />
+                  {hasFieldError('years_in_operation') && (
+                    <p className="text-red-600 text-sm mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {getFieldError('years_in_operation')}
+                    </p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Business Model
                   </label>
                   <select
                     value={business.business_model || ''}
                     onChange={(e) => handleFieldChange('business_model', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={getSelectClassName()}
                   >
-                    <option value="">Select Model...</option>
+                    <option value="">Select model...</option>
                     {BUSINESS_MODELS.map(model => (
                       <option key={model} value={model}>{model}</option>
                     ))}
@@ -468,9 +612,9 @@ export default function EnhancedBusinessProfile() {
               </div>
 
               {/* Online Presence */}
-              <div className="border-t pt-6">
-                <h3 className="text-lg font-medium text-gray-800 mb-4">Online Presence</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="border-t border-gray-200 pt-8">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Online Presence</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       <Globe className="inline w-4 h-4 mr-1" />
@@ -579,21 +723,24 @@ export default function EnhancedBusinessProfile() {
 
           {/* Step 2: Owner Info */}
           {currentStep === 2 && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Owner Info</h2>
-              
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
-                <p className="text-sm text-purple-800">
-                  Understanding your personal goals and who owns the business helps us provide coaching tailored to what YOU want.
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Owner Info</h2>
+                <p className="text-gray-600 mt-1">Tell us about yourself and your goals</p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-900 leading-relaxed">
+                  Understanding your personal goals and ownership structure helps us provide coaching tailored to what YOU want.
                 </p>
               </div>
 
               {/* Primary Owner Information */}
-              <div className="border-b pb-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Primary Owner / Founder</h3>
+              <div className="border-b border-gray-200 pb-8">
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Primary Owner / Founder</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Owner/Founder Name
                     </label>
                     <input
@@ -603,13 +750,13 @@ export default function EnhancedBusinessProfile() {
                         const updated = { ...ownerInfo, owner_name: e.target.value }
                         handleJsonFieldChange('owner_info', updated)
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Your name"
+                      className={getInputClassName()}
+                      placeholder="Enter your name"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Ownership %
                     </label>
                     <div className="relative">
@@ -620,12 +767,12 @@ export default function EnhancedBusinessProfile() {
                           const updated = { ...ownerInfo, ownership_percentage: parseFloat(e.target.value) || 0 }
                           handleJsonFieldChange('owner_info', updated)
                         }}
-                        className="w-full pr-8 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className={getInputClassName()}
                         min="0"
                         max="100"
                         placeholder="100"
                       />
-                      <span className="absolute right-3 top-2 text-gray-500">%</span>
+                      <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">%</span>
                     </div>
                   </div>
 
@@ -1178,11 +1325,21 @@ export default function EnhancedBusinessProfile() {
                     <input
                       type="number"
                       value={business.annual_revenue || ''}
-                      onChange={(e) => handleFieldChange('annual_revenue', parseFloat(e.target.value) || 0)}
-                      className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onChange={(e) => {
+                        handleFieldChange('annual_revenue', parseFloat(e.target.value) || 0)
+                        setValidationErrors(errors => errors.filter(e => e.field !== 'annual_revenue'))
+                      }}
+                      className={`w-full pl-8 pr-4 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+                        hasFieldError('annual_revenue')
+                          ? 'border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:ring-blue-500'
+                      }`}
                       placeholder="0"
                     />
                   </div>
+                  {hasFieldError('annual_revenue') && (
+                    <p className="text-red-600 text-sm mt-1">{getFieldError('annual_revenue')}</p>
+                  )}
                 </div>
 
                 <div>
@@ -1266,11 +1423,21 @@ export default function EnhancedBusinessProfile() {
                   <input
                     type="number"
                     value={business.employee_count || ''}
-                    onChange={(e) => handleFieldChange('employee_count', parseInt(e.target.value) || 0)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={(e) => {
+                      handleFieldChange('employee_count', parseInt(e.target.value) || 0)
+                      setValidationErrors(errors => errors.filter(e => e.field !== 'employee_count'))
+                    }}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+                      hasFieldError('employee_count')
+                        ? 'border-red-500 focus:ring-red-500'
+                        : 'border-gray-300 focus:ring-blue-500'
+                    }`}
                     min="0"
                   />
-                  {business.annual_revenue && business.employee_count && business.employee_count > 0 && (
+                  {hasFieldError('employee_count') && (
+                    <p className="text-red-600 text-sm mt-1">{getFieldError('employee_count')}</p>
+                  )}
+                  {!hasFieldError('employee_count') && business.annual_revenue && business.employee_count && business.employee_count > 0 && (
                     <p className="text-sm text-gray-600 mt-1">
                       Revenue per employee: ${Math.round((business.annual_revenue / business.employee_count)).toLocaleString()}
                     </p>
@@ -1464,10 +1631,24 @@ export default function EnhancedBusinessProfile() {
 
             <button
               onClick={manualSave}
-              className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-all flex items-center gap-2"
+              disabled={isSaving}
+              className={`px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                isSaving
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-green-600 hover:bg-green-700'
+              } text-white`}
             >
-              <Save className="w-5 h-5" />
-              Save Changes
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-5 h-5" />
+                  Save Changes
+                </>
+              )}
             </button>
 
             {currentStep < STEPS.length && (
