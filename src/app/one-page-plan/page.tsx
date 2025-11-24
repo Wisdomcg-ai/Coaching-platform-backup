@@ -336,11 +336,25 @@ export default function OnePagePlan() {
 
       devLog('[One Page Plan] 📅 Quarterly Targets data:', { data: quarterlyTargetsData, error: qtError })
 
-      // Quarterly targets is already an object (Supabase auto-parses JSONB)
-      const allQuarterlyTargets = quarterlyTargetsData?.quarterly_targets || null
-      const currentQuarterTargets = allQuarterlyTargets?.[currentQuarter.toLowerCase()] || {}
+      // Quarterly targets structure: { 'revenue': { q1: '...', q2: '...' }, 'grossProfit': {...}, ... }
+      // We need to transform it to { revenue: value, grossProfit: value, ... } for current quarter
+      const allQuarterlyTargets = quarterlyTargetsData?.quarterly_targets || {}
+      const qKey = currentQuarter.toLowerCase() as 'q1' | 'q2' | 'q3' | 'q4'
 
-      devLog('[One Page Plan] 📅 Current Quarter Targets:', { quarter: currentQuarter, targets: currentQuarterTargets })
+      // Extract current quarter values from each metric
+      const currentQuarterTargets = {
+        revenue: parseFloat(allQuarterlyTargets['revenue']?.[qKey] || '0') || 0,
+        grossProfit: parseFloat(allQuarterlyTargets['grossProfit']?.[qKey] || '0') || 0,
+        netProfit: parseFloat(allQuarterlyTargets['netProfit']?.[qKey] || '0') || 0,
+        leadsPerMonth: parseFloat(allQuarterlyTargets['leadsPerMonth']?.[qKey] || '0') || 0,
+        conversionRate: parseFloat(allQuarterlyTargets['conversionRate']?.[qKey] || '0') || 0,
+        avgTransactionValue: parseFloat(allQuarterlyTargets['avgTransactionValue']?.[qKey] || '0') || 0,
+        teamHeadcount: parseFloat(allQuarterlyTargets['teamHeadcount']?.[qKey] || '0') || 0,
+        ownerHoursPerWeek: parseFloat(allQuarterlyTargets['ownerHoursPerWeek']?.[qKey] || '0') || 0,
+        customers: parseFloat(allQuarterlyTargets['customers']?.[qKey] || '0') || 0,
+      }
+
+      devLog('[One Page Plan] 📅 Current Quarter Targets:', { quarter: currentQuarter, qKey, raw: allQuarterlyTargets, parsed: currentQuarterTargets })
 
       // Load Strategic Initiatives (12-month plan)
       const { data: initiatives, error: initError } = await supabase
@@ -446,7 +460,7 @@ export default function OnePagePlan() {
           category: kpi.category || '',
           year3Target: kpi.year3_target || 0,
           year1Target: kpi.year1_target || 0,
-          quarterTarget: currentQuarterTargets?.kpis?.[kpi.kpi_name || kpi.name] || 0,
+          quarterTarget: kpi.quarter_target || 0,
         })),
 
         strategicInitiatives: (initiatives || []).map((init: any) => ({
