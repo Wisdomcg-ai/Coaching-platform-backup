@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  
+
   // Get the pathname for easier checking
   const pathname = request.nextUrl.pathname
 
