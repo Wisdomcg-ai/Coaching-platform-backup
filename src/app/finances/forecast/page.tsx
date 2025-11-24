@@ -2,25 +2,30 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Loader2, TrendingUp, Users, Download, Upload, Link as LinkIcon, Settings, X, Lightbulb } from 'lucide-react'
+import { Loader2, TrendingUp, Users, Download, Upload, Link as LinkIcon, Settings, X, Lightbulb, Save, Clock } from 'lucide-react'
 import ForecastService from './services/forecast-service'
 import './forecast-styles.css'
 import { ForecastGenerator } from './services/forecast-generator'
 import { ForecastingEngine } from './services/forecasting-engine'
-import type { FinancialForecast, PLLine, ForecastEmployee, XeroConnection, DistributionMethod, ForecastMethod, ForecastScenario, WhatIfParameters } from './types'
+import type { FinancialForecast, PLLine, ForecastEmployee, XeroConnection, DistributionMethod, ForecastMethod } from './types'
+// HIDDEN FOR LAUNCH: ForecastScenario, WhatIfParameters
 import PLForecastTable from './components/PLForecastTable'
 import PayrollTable from './components/PayrollTable'
 import ForecastWizard from './components/ForecastWizard'
 import CompletenessChecker from './components/CompletenessChecker'
-import AuditLogViewer from './components/AuditLogViewer'
-import WhatIfAnalysisModal from './components/WhatIfAnalysisModal'
-import ScenarioSelector from './components/ScenarioSelector'
+// HIDDEN FOR LAUNCH - What-If Scenarios
+// import WhatIfAnalysisModal from './components/WhatIfAnalysisModal'
+// import ScenarioSelector from './components/ScenarioSelector'
 import ExportControls from './components/ExportControls'
 import { LoadingState } from './components/LoadingState'
 import ErrorState from './components/ErrorState'
 import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp'
 import VersionManager from './components/VersionManager'
+import CSVImportWizard from './components/CSVImportWizard'
+import SaveVersionModal from './components/SaveVersionModal'
+import VersionsTab from './components/VersionsTab'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import CoachNavbar from '@/components/coach/CoachNavbar'
 
 export default function FinancialForecastPage() {
   const supabase = createClient()
@@ -35,12 +40,12 @@ export default function FinancialForecastPage() {
   const [employees, setEmployees] = useState<ForecastEmployee[]>([])
   const [xeroConnection, setXeroConnection] = useState<XeroConnection | null>(null)
 
-  const [activeTab, setActiveTab] = useState<'assumptions' | 'pl' | 'payroll' | 'history'>(() => {
+  const [activeTab, setActiveTab] = useState<'assumptions' | 'pl' | 'payroll' | 'versions'>(() => {
     // Remember last active tab from localStorage
     if (typeof window !== 'undefined') {
       const savedTab = localStorage.getItem('forecast-active-tab')
-      if (savedTab && ['assumptions', 'pl', 'payroll', 'history'].includes(savedTab)) {
-        return savedTab as 'assumptions' | 'pl' | 'payroll' | 'history'
+      if (savedTab && ['assumptions', 'pl', 'payroll', 'versions'].includes(savedTab)) {
+        return savedTab as 'assumptions' | 'pl' | 'payroll' | 'versions'
       }
     }
     return 'assumptions'
@@ -48,6 +53,12 @@ export default function FinancialForecastPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
+  const [showCSVImport, setShowCSVImport] = useState(false)
+
+  // Version management state
+  const [versions, setVersions] = useState<FinancialForecast[]>([])
+  const [showSaveVersionModal, setShowSaveVersionModal] = useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
   // Save active tab to localStorage whenever it changes
   useEffect(() => {
@@ -56,10 +67,23 @@ export default function FinancialForecastPage() {
     }
   }, [activeTab, mounted])
 
-  // Scenario planning state
-  const [scenarios, setScenarios] = useState<ForecastScenario[]>([])
-  const [activeScenario, setActiveScenario] = useState<ForecastScenario | null>(null)
-  const [showWhatIfModal, setShowWhatIfModal] = useState(false)
+  // Warn user about unsaved changes when leaving page
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault()
+        e.returnValue = '' // Required for Chrome
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges])
+
+  // HIDDEN FOR LAUNCH - Scenario planning state
+  // const [scenarios, setScenarios] = useState<ForecastScenario[]>([])
+  // const [activeScenario, setActiveScenario] = useState<ForecastScenario | null>(null)
+  // const [showWhatIfModal, setShowWhatIfModal] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -105,14 +129,14 @@ export default function FinancialForecastPage() {
       const uid = user.id
       setUserId(uid)
 
-      // Get business profile
-      const { data: profile } = await supabase
-        .from('business_profiles')
+      // Get business using owner_id (to match xero_connections table)
+      const { data: business } = await supabase
+        .from('businesses')
         .select('id')
-        .eq('user_id', user.id)
-        .single()
+        .eq('owner_id', user.id)
+        .maybeSingle()
 
-      const bizId = profile?.id || user.id
+      const bizId = business?.id || user.id
       setBusinessId(bizId)
 
       console.log(`[Forecast] Loading data for business: ${bizId}`)
@@ -164,10 +188,15 @@ export default function FinancialForecastPage() {
 
       setIsLoading(false)
 
-      // Load scenarios if we have a forecast (run after loading to not block UI)
+      // Load versions
       if (loadedForecast?.id) {
-        loadScenarios(loadedForecast.id).catch(console.error)
+        loadVersions(bizId, loadedForecast.fiscal_year).catch(console.error)
       }
+
+      // HIDDEN FOR LAUNCH - Load scenarios
+      // if (loadedForecast?.id) {
+      //   loadScenarios(loadedForecast.id).catch(console.error)
+      // }
     } catch (err) {
       console.error('[Forecast] Error in loadInitialData:', err)
       setError(err instanceof Error ? err.message : 'Failed to load forecast data')
@@ -175,7 +204,70 @@ export default function FinancialForecastPage() {
     }
   }
 
-  // Scenario management functions
+  // Version management functions
+  const loadVersions = async (businessId: string, fiscalYear: number) => {
+    try {
+      const response = await fetch(`/api/forecasts/versions?business_id=${businessId}&fiscal_year=${fiscalYear}`)
+      if (!response.ok) {
+        console.error('Failed to load versions')
+        return
+      }
+      const data = await response.json()
+      setVersions(data.versions || [])
+    } catch (error) {
+      console.error('Error loading versions:', error)
+    }
+  }
+
+  const handleSelectVersion = async (version: FinancialForecast) => {
+    if (version.id === forecast?.id) return // Already on this version
+
+    // Navigate to the selected version
+    window.location.href = `/finances/forecast?id=${version.id}`
+  }
+
+  const handleSaveAsNewVersion = async (versionName: string) => {
+    if (!forecast?.id || !businessId) {
+      throw new Error('No forecast to save')
+    }
+
+    try {
+      const response = await fetch('/api/forecasts/versions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          forecastId: forecast.id,
+          versionName,
+          versionType: 'forecast'
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create new version')
+      }
+
+      const { newForecast } = await response.json()
+
+      // Reload versions list
+      await loadVersions(businessId, forecast.fiscal_year)
+
+      // Navigate to the new version
+      window.location.href = `/finances/forecast?id=${newForecast.id}`
+    } catch (error) {
+      console.error('Error creating new version:', error)
+      throw error
+    }
+  }
+
+  const handleOverwriteVersion = async () => {
+    // Overwriting is just saving normally - no new version created
+    // The data is already being saved via the existing save handlers
+    alert('Changes saved to current version!')
+    setShowSaveVersionModal(false)
+  }
+
+  // HIDDEN FOR LAUNCH - Scenario management functions
+  /*
   const loadScenarios = async (forecastId: string) => {
     if (!userId) {
       console.log('Scenarios not loaded: userId not available yet')
@@ -435,8 +527,10 @@ export default function FinancialForecastPage() {
       alert('Failed to create new version')
     }
   }
+  */
 
-  // Calculate baseline totals for What-If analysis
+  // HIDDEN FOR LAUNCH - Calculate baseline totals for What-If analysis
+  /*
   const calculateBaselineTotals = () => {
     let totalRevenue = 0
     let totalCOGS = 0
@@ -456,6 +550,7 @@ export default function FinancialForecastPage() {
 
     return { totalRevenue, totalCOGS, totalOpEx }
   }
+  */
 
   const handleSavePLLines = async (updatedLines: PLLine[]) => {
     if (!forecast?.id) return
@@ -467,6 +562,7 @@ export default function FinancialForecastPage() {
 
       if (result.success) {
         setPlLines(updatedLines)
+        setHasUnsavedChanges(false) // Clear unsaved changes flag
         console.log('[Forecast] P&L lines saved')
       } else {
         throw new Error(result.error || 'Failed to save P&L lines')
@@ -524,14 +620,16 @@ export default function FinancialForecastPage() {
       forecast.actual_start_month,
       forecast.actual_end_month,
       forecast.forecast_start_month,
-      forecast.forecast_end_month
+      forecast.forecast_end_month,
+      forecast.baseline_start_month,
+      forecast.baseline_end_month
     )
-    const actualMonthKeys = columns.filter(c => c.isActual).map(c => c.key)
+    const baselineMonthKeys = columns.filter(c => c.isBaseline === true).map(c => c.key)
     const forecastMonthKeys = columns.filter(c => c.isForecast).map(c => c.key)
 
     const recalculatedLines = ForecastingEngine.recalculateAllForecasts(
       updatedLines,
-      actualMonthKeys,
+      baselineMonthKeys,
       forecastMonthKeys
     )
 
@@ -543,8 +641,13 @@ export default function FinancialForecastPage() {
   }
 
   const handleConnectXero = () => {
-    // Redirect to Xero auth page
-    window.location.href = '/xero-connect'
+    // Redirect to integrations page - single source of truth for connections
+    window.location.href = '/integrations'
+  }
+
+  const handleDisconnectXero = () => {
+    // Redirect to integrations page to manage the connection
+    window.location.href = '/integrations'
   }
 
   const handleDisconnectAndClearAll = async () => {
@@ -1021,8 +1124,10 @@ export default function FinancialForecastPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-[1600px] mx-auto">
+    <>
+      <CoachNavbar businessId={businessId} />
+      <div className="min-h-screen bg-gray-50 p-8">
+        <div className="max-w-[1600px] mx-auto">
         {/* Error Banner */}
         {error && !isLoading && (
           <div className="mb-6">
@@ -1056,8 +1161,8 @@ export default function FinancialForecastPage() {
               <p className="text-gray-600">{forecast.name}</p>
             </div>
             <div className="flex items-center space-x-3">
-              {/* Scenario Selector */}
-              {scenarios.length > 0 && (
+              {/* HIDDEN FOR LAUNCH - Scenario Selector */}
+              {/* {scenarios.length > 0 && (
                 <ScenarioSelector
                   scenarios={scenarios}
                   activeScenario={activeScenario}
@@ -1068,29 +1173,35 @@ export default function FinancialForecastPage() {
                   onArchiveScenario={handleArchiveScenario}
                   className="w-64"
                 />
-              )}
+              )} */}
 
-              {/* What-If Analysis Button */}
+              {/* Save Button */}
               <button
-                onClick={() => setShowWhatIfModal(true)}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg"
+                onClick={() => handleSavePLLines(plLines)}
+                disabled={isSaving}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 ${
+                  hasUnsavedChanges
+                    ? 'bg-orange-600 hover:bg-orange-700 animate-pulse'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
               >
-                <Lightbulb className="w-4 h-4" />
-                What-If Analysis
+                <Save className="w-4 h-4" />
+                {isSaving ? 'Saving...' : hasUnsavedChanges ? 'Save Changes' : 'Save'}
               </button>
 
               {/* Export Controls */}
               {forecast?.id && userId && <ExportControls forecastId={forecast.id} userId={userId} />}
 
-              {/* Saving Indicator */}
-              {isSaving && (
-                <div className="flex items-center text-gray-600">
-                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                  <span className="text-sm">Saving...</span>
+              {/* Last Saved Indicator */}
+              {!isSaving && forecast && forecast.updated_at && (
+                <div className="text-xs text-gray-500">
+                  Last saved {new Date(forecast.updated_at).toLocaleString('en-AU', {
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
                 </div>
-              )}
-              {!isSaving && (
-                <div className="text-sm text-green-600 font-medium">✓ Saved</div>
               )}
             </div>
           </div>
@@ -1114,12 +1225,12 @@ export default function FinancialForecastPage() {
                 </div>
                 <div className="flex items-center space-x-2">
                   <button
-                    onClick={handleDisconnectAndClearAll}
+                    onClick={handleDisconnectXero}
                     disabled={isSaving}
-                    className="flex items-center space-x-2 px-4 py-2 text-sm font-bold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 border-2 border-red-700"
+                    className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
                   >
-                    <X className="w-4 h-4" />
-                    <span>Disconnect & Clear All Data</span>
+                    <Settings className="w-4 h-4" />
+                    <span>Manage Connection</span>
                   </button>
                   <button
                     onClick={handleClearAndResync}
@@ -1145,13 +1256,22 @@ export default function FinancialForecastPage() {
                   <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
                   <p className="text-sm text-gray-600">Not connected to Xero</p>
                 </div>
-                <button
-                  onClick={handleConnectXero}
-                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <LinkIcon className="w-4 h-4" />
-                  <span>Connect to Xero</span>
-                </button>
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => setShowCSVImport(true)}
+                    className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>Import CSV</span>
+                  </button>
+                  <button
+                    onClick={handleConnectXero}
+                    className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <LinkIcon className="w-4 h-4" />
+                    <span>Connect Xero</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1166,7 +1286,9 @@ export default function FinancialForecastPage() {
               forecast.actual_start_month,
               forecast.actual_end_month,
               forecast.forecast_start_month,
-              forecast.forecast_end_month
+              forecast.forecast_end_month,
+              forecast.baseline_start_month,
+              forecast.baseline_end_month
             ).filter(c => c.isForecast).map(c => c.key)}
             className="mb-6"
           />
@@ -1216,16 +1338,16 @@ export default function FinancialForecastPage() {
                 </div>
               </button>
               <button
-                onClick={() => setActiveTab('history')}
+                onClick={() => setActiveTab('versions')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === 'history'
+                  activeTab === 'versions'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
                 <div className="flex items-center space-x-2">
-                  <Settings className="w-4 h-4" />
-                  <span>Change History</span>
+                  <Clock className="w-4 h-4" />
+                  <span>Versions</span>
                 </div>
               </button>
             </nav>
@@ -1249,6 +1371,7 @@ export default function FinancialForecastPage() {
             forecast={forecast}
             plLines={plLines}
             onSave={handleSavePLLines}
+            onChange={() => setHasUnsavedChanges(true)}
           />
         )}
 
@@ -1280,8 +1403,14 @@ export default function FinancialForecastPage() {
           />
         )}
 
-        {activeTab === 'history' && forecast?.id && (
-          <AuditLogViewer forecastId={forecast.id} />
+        {activeTab === 'versions' && forecast && (
+          <VersionsTab
+            versions={versions}
+            currentVersion={forecast}
+            onSelectVersion={handleSelectVersion}
+            onSaveAsNew={handleSaveAsNewVersion}
+            onOverwrite={handleOverwriteVersion}
+          />
         )}
       </div>
 
@@ -1291,8 +1420,31 @@ export default function FinancialForecastPage() {
         onClose={() => setShowKeyboardHelp(false)}
       />
 
-      {/* What-If Analysis Modal */}
+      {/* CSV Import Wizard */}
       {forecast && (
+        <CSVImportWizard
+          isOpen={showCSVImport}
+          onClose={() => setShowCSVImport(false)}
+          forecast={forecast}
+          onImportComplete={() => {
+            loadInitialData()
+          }}
+        />
+      )}
+
+      {/* Save Version Modal */}
+      {forecast && (
+        <SaveVersionModal
+          isOpen={showSaveVersionModal}
+          onClose={() => setShowSaveVersionModal(false)}
+          currentVersionName={forecast.name}
+          onSaveAsNew={handleSaveAsNewVersion}
+          onOverwrite={handleOverwriteVersion}
+        />
+      )}
+
+      {/* HIDDEN FOR LAUNCH - What-If Analysis Modal */}
+      {/* {forecast && (
         <WhatIfAnalysisModal
           isOpen={showWhatIfModal}
           onClose={() => setShowWhatIfModal(false)}
@@ -1304,7 +1456,8 @@ export default function FinancialForecastPage() {
           onApplyToForecast={handleApplyWhatIfToForecast}
           onSaveAsNewVersion={handleSaveAsNewVersion}
         />
-      )}
-    </div>
+      )} */}
+      </div>
+    </>
   )
 }
