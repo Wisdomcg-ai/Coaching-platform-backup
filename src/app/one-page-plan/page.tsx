@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, Printer, Loader2, ExternalLink, TrendingUp, AlertCircle, CheckCircle2, Circle, Lightbulb } from 'lucide-react'
+import { ArrowLeft, Printer, Loader2, ExternalLink, CheckCircle2, Circle, Lightbulb } from 'lucide-react'
+import { calculateQuarters, determinePlanYear } from '@/app/goals/utils/quarters'
+import type { YearType } from '@/app/goals/types'
 
 // Only log in development
 const isDev = process.env.NODE_ENV === 'development'
@@ -62,6 +64,8 @@ interface OnePagePlanData {
   }>
 
   currentQuarter: string
+  currentQuarterLabel: string // e.g., "Q2 (Oct-Dec)"
+  yearType: YearType
   planYear: number
   companyName: string
 
@@ -254,10 +258,7 @@ export default function OnePagePlan() {
       const visionMission = visionMissionData?.vision_mission || {}
 
       // Load SWOT (Note: SWOT uses user.id as business_id)
-      const currentYear = new Date().getFullYear()
-      const currentQuarter = `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`
-
-      devLog('[One Page Plan] 📅 Looking for SWOT:', { year: currentYear, quarter: currentQuarter, userId: user.id })
+      devLog('[One Page Plan] 📅 Looking for SWOT:', { userId: user.id })
 
       // Try to get any SWOT data first
       const { data: allSwotData, error: allSwotError } = await supabase
@@ -291,6 +292,18 @@ export default function OnePagePlan() {
         .single()
 
       devLog('[One Page Plan] 💰 Financial Goals data:', { data: financialGoals, error: finError })
+
+      // Get year type from financial goals (FY = July-June, CY = Jan-Dec)
+      const yearType: YearType = (financialGoals?.year_type as YearType) || 'FY'
+      const planYear = determinePlanYear(yearType)
+
+      // Calculate quarters based on year type
+      const quarters = calculateQuarters(yearType, planYear)
+      const currentQuarterInfo = quarters.find(q => q.isCurrent) || quarters[0]
+      const currentQuarter = currentQuarterInfo.label // 'Q1', 'Q2', etc.
+      const currentQuarterLabel = `${currentQuarterInfo.label} (${currentQuarterInfo.months})`
+
+      devLog('[One Page Plan] 📅 Year settings:', { yearType, planYear, currentQuarter, currentQuarterLabel })
 
       // Load KPIs
       const { data: kpisData, error: kpiError } = await supabase
@@ -422,7 +435,9 @@ export default function OnePagePlan() {
         })),
 
         currentQuarter,
-        planYear: currentYear,
+        currentQuarterLabel,
+        yearType,
+        planYear,
         companyName,
 
         ownerGoals: {
@@ -583,24 +598,33 @@ export default function OnePagePlan() {
 
                 {/* Quarter Focus Visualization */}
                 <div className="flex-shrink-0">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-2">Quarter Focus</h3>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="text-sm font-semibold text-gray-900">Quarter Focus</h3>
+                    <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">
+                      {data.yearType === 'FY' ? 'Financial Year' : 'Calendar Year'}
+                    </span>
+                  </div>
                   <div className="flex gap-1">
-                    {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => (
-                      <div
-                        key={q}
-                        className={`w-10 h-10 rounded flex items-center justify-center text-xs font-semibold ${
-                          data.currentQuarter === q
-                            ? 'bg-blue-600 text-white ring-2 ring-blue-300'
-                            : 'bg-gray-100 text-gray-500'
-                        }`}
-                      >
-                        {q}
-                      </div>
-                    ))}
+                    {(() => {
+                      const quarters = calculateQuarters(data.yearType, data.planYear)
+                      return quarters.map((q) => (
+                        <div
+                          key={q.id}
+                          className={`flex flex-col items-center justify-center rounded px-2 py-1.5 ${
+                            q.isCurrent
+                              ? 'bg-blue-600 text-white ring-2 ring-blue-300'
+                              : 'bg-gray-100 text-gray-500'
+                          }`}
+                        >
+                          <span className="text-xs font-semibold">{q.label}</span>
+                          <span className={`text-[9px] ${q.isCurrent ? 'text-blue-100' : 'text-gray-400'}`}>{q.months}</span>
+                        </div>
+                      ))
+                    })()}
                   </div>
                   <div className="mt-2 text-xs text-gray-600 space-y-0.5">
                     <p><span className="font-medium">{data.strategicInitiatives.length}</span> annual initiatives</p>
-                    <p><span className="font-medium">{data.quarterlyRocks.length}</span> {data.currentQuarter} rocks</p>
+                    <p><span className="font-medium">{data.quarterlyRocks.length}</span> {data.currentQuarterLabel} rocks</p>
                   </div>
                 </div>
 
@@ -791,7 +815,7 @@ export default function OnePagePlan() {
                   <th className="text-left p-2 font-semibold text-gray-700">Metric</th>
                   <th className="text-center p-2 font-semibold text-gray-700">3-Year Goal</th>
                   <th className="text-center p-2 font-semibold text-blue-700">1-Year Goal</th>
-                  <th className="text-center p-2 font-semibold text-green-700">{data.currentQuarter} Target</th>
+                  <th className="text-center p-2 font-semibold text-green-700">{data.currentQuarterLabel} Target</th>
                 </tr>
               </thead>
               <tbody>
@@ -938,7 +962,7 @@ export default function OnePagePlan() {
             {/* Current Quarter Rocks - Under Quarter Target */}
             <div>
               <div className="bg-blue-50 px-3 py-2 border-b border-gray-300">
-                <h3 className="text-xs font-bold text-blue-900 uppercase">{data.currentQuarter} Rocks</h3>
+                <h3 className="text-xs font-bold text-blue-900 uppercase">{data.currentQuarterLabel} Rocks</h3>
               </div>
               <div className="p-3">
                 <ol className="space-y-1.5">
