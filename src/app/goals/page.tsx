@@ -9,9 +9,10 @@ import Step4RefineInitiatives from './components/Step4RefineInitiatives'
 import Step5AnnualPlan from './components/Step5AnnualPlan'
 import Step690DaySprintV3 from './components/Step690DaySprintV3'
 import { FinancialData, KPIData, StrategicInitiative, YearType } from './types'
-import { Target, ListChecks, Calendar, Zap, Brain, Rocket, ChevronLeft, ChevronRight, CheckCircle, Loader2, TrendingUp, AlertCircle, Info, HelpCircle } from 'lucide-react'
+import { Target, ListChecks, Calendar, Zap, Brain, Rocket, ChevronLeft, ChevronRight, CheckCircle, Loader2, TrendingUp, AlertCircle, Info, HelpCircle, ChevronDown, Shield, AlertTriangle as AlertTriangleIcon, Lightbulb } from 'lucide-react'
 import CoachNavbar from '@/components/coach/CoachNavbar'
 import Link from 'next/link'
+import { createBrowserClient } from '@supabase/ssr'
 
 type StepNumber = 1 | 2 | 3 | 4 | 5
 
@@ -21,6 +22,15 @@ interface StepInfo {
   title: string
   icon: React.ElementType
   description: string
+}
+
+interface SwotItem {
+  id: string
+  category: 'strength' | 'weakness' | 'opportunity' | 'threat'
+  title: string
+  description: string | null
+  impact_level: number
+  likelihood?: number
 }
 
 const STEPS: StepInfo[] = [
@@ -191,6 +201,9 @@ export default function StrategicPlanningPage() {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
   const [showKPIModal, setShowKPIModal] = useState(false)
   const [showStepHelp, setShowStepHelp] = useState(false)
+  const [showSwotSummary, setShowSwotSummary] = useState(false)
+  const [swotItems, setSwotItems] = useState<SwotItem[]>([])
+  const [loadingSwot, setLoadingSwot] = useState(false)
 
   // Auto-save whenever data changes
   useEffect(() => {
@@ -231,6 +244,54 @@ export default function StrategicPlanningPage() {
     // Note: saveAllData is intentionally excluded to prevent stale closure bugs
   ])
 
+  // Load SWOT data for strategic context
+  useEffect(() => {
+    const loadSwotData = async () => {
+      if (!businessId || !mounted) return
+
+      try {
+        setLoadingSwot(true)
+        const supabase = createBrowserClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        )
+
+        // Get the most recent SWOT analysis
+        const { data: analysis, error: analysisError } = await supabase
+          .from('swot_analyses')
+          .select('id')
+          .eq('business_id', businessId)
+          .eq('type', 'quarterly')
+          .order('year', { ascending: false })
+          .order('quarter', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (analysisError || !analysis) {
+          setSwotItems([])
+          return
+        }
+
+        // Get SWOT items for this analysis
+        const { data: items, error: itemsError } = await supabase
+          .from('swot_items')
+          .select('id, category, title, description, impact_level, likelihood')
+          .eq('swot_analysis_id', analysis.id)
+          .order('impact_level', { ascending: false })
+
+        if (!itemsError && items) {
+          setSwotItems(items)
+        }
+      } catch (err) {
+        console.error('Error loading SWOT data:', err)
+      } finally {
+        setLoadingSwot(false)
+      }
+    }
+
+    loadSwotData()
+  }, [businessId, mounted])
+
   const toggleSection = (section: string) => {
     const newCollapsed = new Set(collapsedSections)
     if (newCollapsed.has(section)) {
@@ -240,6 +301,19 @@ export default function StrategicPlanningPage() {
     }
     setCollapsedSections(newCollapsed)
   }
+
+  // Get top items by category
+  const getTopItemsByCategory = (category: SwotItem['category'], limit = 3): SwotItem[] => {
+    return swotItems
+      .filter(item => item.category === category)
+      .sort((a, b) => b.impact_level - a.impact_level)
+      .slice(0, limit)
+  }
+
+  const topStrengths = getTopItemsByCategory('strength')
+  const topWeaknesses = getTopItemsByCategory('weakness')
+  const topOpportunities = getTopItemsByCategory('opportunity')
+  const topThreats = getTopItemsByCategory('threat')
 
   // HYDRATION FIX: Show skeleton before mounting
   if (!mounted) {
@@ -340,27 +414,159 @@ export default function StrategicPlanningPage() {
         </div>
       </div>
 
-      {/* SWOT Integration Banner */}
+      {/* SWOT Integration - Expandable Inline Summary */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2 border-blue-200">
-        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
+          <button
+            onClick={() => setShowSwotSummary(!showSwotSummary)}
+            className="w-full py-4 flex items-center justify-between hover:bg-blue-50/50 transition-colors rounded-lg"
+          >
             <div className="flex items-center gap-3">
               <TrendingUp className="w-5 h-5 text-blue-600" />
-              <div>
-                <h3 className="text-base font-semibold text-gray-900">Strategic Context</h3>
+              <div className="text-left">
+                <h3 className="text-base font-semibold text-gray-900">
+                  Your Strategic Context {swotItems.length > 0 && `(${swotItems.length} SWOT items)`}
+                </h3>
                 <p className="text-sm text-gray-600">
-                  Your goals should align with your SWOT insights - leverage strengths, address weaknesses, seize opportunities, mitigate threats
+                  {showSwotSummary ? 'Hide' : 'Show'} your top strengths, weaknesses, opportunities, and threats
                 </p>
               </div>
             </div>
-            <Link
-              href="/swot"
-              className="inline-flex items-center px-4 py-2 bg-white border border-blue-300 rounded-lg text-sm font-medium text-blue-700 hover:bg-blue-50 transition-colors whitespace-nowrap"
-            >
-              <AlertCircle className="w-4 h-4 mr-2" />
-              View SWOT Analysis
-            </Link>
-          </div>
+            <ChevronDown
+              className={`w-5 h-5 text-blue-600 transition-transform ${showSwotSummary ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {/* Expandable SWOT Summary */}
+          {showSwotSummary && (
+            <div className="pb-4">
+              {loadingSwot ? (
+                <div className="text-center py-8">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600">Loading SWOT insights...</p>
+                </div>
+              ) : swotItems.length === 0 ? (
+                <div className="bg-white rounded-lg p-6 text-center border-2 border-dashed border-blue-200">
+                  <AlertCircle className="w-12 h-12 text-blue-400 mx-auto mb-3" />
+                  <h4 className="text-base font-semibold text-gray-900 mb-2">No SWOT Analysis Yet</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Complete your SWOT analysis first to see strategic insights here
+                  </p>
+                  <Link
+                    href="/swot"
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Go to SWOT Analysis →
+                  </Link>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                    {/* Top Strengths */}
+                    <div className="bg-white rounded-lg p-4 border-2 border-green-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Shield className="w-4 h-4 text-green-600" />
+                        <h4 className="font-semibold text-sm text-green-900">
+                          Top Strengths ({topStrengths.length})
+                        </h4>
+                      </div>
+                      {topStrengths.length === 0 ? (
+                        <p className="text-sm text-gray-500 italic">No strengths identified</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {topStrengths.map(item => (
+                            <li key={item.id} className="flex items-start text-sm text-gray-700">
+                              <span className="text-green-600 mr-2 mt-0.5">•</span>
+                              <span>{item.title}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    {/* Top Weaknesses */}
+                    <div className="bg-white rounded-lg p-4 border-2 border-red-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangleIcon className="w-4 h-4 text-red-600" />
+                        <h4 className="font-semibold text-sm text-red-900">
+                          Top Weaknesses ({topWeaknesses.length})
+                        </h4>
+                      </div>
+                      {topWeaknesses.length === 0 ? (
+                        <p className="text-sm text-gray-500 italic">No weaknesses identified</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {topWeaknesses.map(item => (
+                            <li key={item.id} className="flex items-start text-sm text-gray-700">
+                              <span className="text-red-600 mr-2 mt-0.5">•</span>
+                              <span>{item.title}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    {/* Top Opportunities */}
+                    <div className="bg-white rounded-lg p-4 border-2 border-blue-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Target className="w-4 h-4 text-blue-600" />
+                        <h4 className="font-semibold text-sm text-blue-900">
+                          Top Opportunities ({topOpportunities.length})
+                        </h4>
+                      </div>
+                      {topOpportunities.length === 0 ? (
+                        <p className="text-sm text-gray-500 italic">No opportunities identified</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {topOpportunities.map(item => (
+                            <li key={item.id} className="flex items-start text-sm text-gray-700">
+                              <span className="text-blue-600 mr-2 mt-0.5">•</span>
+                              <span>{item.title}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    {/* Top Threats */}
+                    <div className="bg-white rounded-lg p-4 border-2 border-orange-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Lightbulb className="w-4 h-4 text-orange-600" />
+                        <h4 className="font-semibold text-sm text-orange-900">
+                          Top Threats ({topThreats.length})
+                        </h4>
+                      </div>
+                      {topThreats.length === 0 ? (
+                        <p className="text-sm text-gray-500 italic">No threats identified</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {topThreats.map(item => (
+                            <li key={item.id} className="flex items-start text-sm text-gray-700">
+                              <span className="text-orange-600 mr-2 mt-0.5">•</span>
+                              <span>{item.title}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Link to full SWOT */}
+                  <div className="text-center pt-2">
+                    <a
+                      href="/swot"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      View full SWOT analysis in new tab
+                      <span className="ml-1">↗</span>
+                    </a>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
