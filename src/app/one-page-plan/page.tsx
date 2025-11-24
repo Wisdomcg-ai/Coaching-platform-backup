@@ -269,7 +269,8 @@ export default function OnePagePlan() {
             id,
             category,
             title,
-            description
+            description,
+            status
           )
         `)
         .eq('business_id', user.id)
@@ -282,7 +283,14 @@ export default function OnePagePlan() {
       const swotData = allSwotData && allSwotData.length > 0 ? allSwotData[0] : null
       const swotItems = swotData?.swot_items || []
 
+      // Debug SWOT items
       devLog('[One Page Plan] 💡 SWOT items extracted:', swotItems?.length)
+      devLog('[One Page Plan] 💡 SWOT items by status:', {
+        active: swotItems.filter((i: any) => i.status === 'active').length,
+        carriedForward: swotItems.filter((i: any) => i.status === 'carried-forward').length,
+        archived: swotItems.filter((i: any) => i.status === 'archived').length,
+        other: swotItems.filter((i: any) => !['active', 'carried-forward', 'archived'].includes(i.status)).length
+      })
 
       // Load Financial Goals & Core Metrics
       const { data: financialGoals, error: finError } = await supabase
@@ -367,10 +375,23 @@ export default function OnePagePlan() {
         mission: visionMission.mission_statement || '',
         coreValues: (visionMission.core_values || []).filter((v: string) => v.trim()),
 
-        strengths: swotItems.filter((item: any) => item.category === 'strength').slice(0, 5).map((item: any) => item.title),
-        weaknesses: swotItems.filter((item: any) => item.category === 'weakness').slice(0, 5).map((item: any) => item.title),
-        opportunities: swotItems.filter((item: any) => item.category === 'opportunity').slice(0, 5).map((item: any) => item.title),
-        threats: swotItems.filter((item: any) => item.category === 'threat').slice(0, 5).map((item: any) => item.title),
+        // Filter SWOT items by status (only active or carried-forward)
+        strengths: swotItems
+          .filter((item: any) => item.category === 'strength' && (item.status === 'active' || item.status === 'carried-forward'))
+          .slice(0, 5)
+          .map((item: any) => item.title),
+        weaknesses: swotItems
+          .filter((item: any) => item.category === 'weakness' && (item.status === 'active' || item.status === 'carried-forward'))
+          .slice(0, 5)
+          .map((item: any) => item.title),
+        opportunities: swotItems
+          .filter((item: any) => item.category === 'opportunity' && (item.status === 'active' || item.status === 'carried-forward'))
+          .slice(0, 5)
+          .map((item: any) => item.title),
+        threats: swotItems
+          .filter((item: any) => item.category === 'threat' && (item.status === 'active' || item.status === 'carried-forward'))
+          .slice(0, 5)
+          .map((item: any) => item.title),
 
         financialGoals: {
           year3: {
