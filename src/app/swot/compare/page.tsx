@@ -10,7 +10,6 @@ interface SwotAnalysis {
   id: string
   quarter: number
   year: number
-  swot_score: number
   status: string
   swot_items?: SwotItem[]
 }
@@ -65,7 +64,7 @@ export default function SwotComparePage() {
 
       const { data, error: fetchError } = await supabase
         .from('swot_analyses')
-        .select('id, quarter, year, swot_score, status')
+        .select('id, quarter, year, status')
         .eq('business_id', user.id)
         .order('year', { ascending: false })
         .order('quarter', { ascending: false })
@@ -215,8 +214,8 @@ export default function SwotComparePage() {
 
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Compare SWOT Analyses</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Compare two quarters side-by-side to track your progress
+            <p className="mt-1 text-base text-gray-600">
+              Identify strategic shifts, recurring patterns, and areas of progress
             </p>
           </div>
         </div>
@@ -268,7 +267,7 @@ export default function SwotComparePage() {
                     <option value="">Select a period</option>
                     {availableAnalyses.map((analysis) => (
                       <option key={analysis.id} value={analysis.id}>
-                        {getQuarterLabel(analysis.quarter, analysis.year)} - Score: {analysis.swot_score}%
+                        {getQuarterLabel(analysis.quarter, analysis.year)}
                       </option>
                     ))}
                   </select>
@@ -286,7 +285,7 @@ export default function SwotComparePage() {
                     <option value="">Select a period</option>
                     {availableAnalyses.map((analysis) => (
                       <option key={analysis.id} value={analysis.id}>
-                        {getQuarterLabel(analysis.quarter, analysis.year)} - Score: {analysis.swot_score}%
+                        {getQuarterLabel(analysis.quarter, analysis.year)}
                       </option>
                     ))}
                   </select>
@@ -302,34 +301,55 @@ export default function SwotComparePage() {
               </div>
             ) : analysis1 && analysis2 ? (
               <>
-                {/* Score Comparison */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">SWOT Score Comparison</h2>
-                  <div className="grid grid-cols-3 gap-6">
-                    <div className="text-center">
-                      <div className="text-sm text-gray-500 mb-2">
-                        {analysis1 && getQuarterLabel(analysis1.quarter, analysis1.year)}
-                      </div>
-                      <div className="text-4xl font-bold text-blue-600">
-                        {analysis1?.swot_score}%
-                      </div>
-                    </div>
+                {/* Strategic Overview */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-6 mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">Strategic Comparison: {analysis1 && getQuarterLabel(analysis1.quarter, analysis1.year)} → {analysis2 && getQuarterLabel(analysis2.quarter, analysis2.year)}</h2>
 
-                    <div className="flex items-center justify-center">
-                      {getTrendIcon((analysis2?.swot_score || 0) - (analysis1?.swot_score || 0))}
-                      <span className={`ml-2 text-2xl font-bold ${getTrendColor((analysis2?.swot_score || 0) - (analysis1?.swot_score || 0))}`}>
-                        {Math.abs((analysis2?.swot_score || 0) - (analysis1?.swot_score || 0))}
-                      </span>
-                    </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {comparisonData.map((data) => {
+                      const isPositive =
+                        (data.category === 'Strengths' || data.category === 'Opportunities') ? data.change > 0 :
+                        (data.category === 'Weaknesses' || data.category === 'Threats') ? data.change < 0 :
+                        false;
+                      const isNegative =
+                        (data.category === 'Strengths' || data.category === 'Opportunities') ? data.change < 0 :
+                        (data.category === 'Weaknesses' || data.category === 'Threats') ? data.change > 0 :
+                        false;
 
-                    <div className="text-center">
-                      <div className="text-sm text-gray-500 mb-2">
-                        {analysis2 && getQuarterLabel(analysis2.quarter, analysis2.year)}
-                      </div>
-                      <div className="text-4xl font-bold text-blue-600">
-                        {analysis2?.swot_score}%
-                      </div>
-                    </div>
+                      return (
+                        <div key={data.category} className="bg-white rounded-lg p-4 border border-gray-200">
+                          <div className="text-sm text-gray-600 mb-1">{data.category}</div>
+                          <div className="flex items-center justify-between">
+                            <div className="text-2xl font-bold text-gray-900">
+                              {data.period1Count} → {data.period2Count}
+                            </div>
+                            <div className={`text-lg font-bold ${isPositive ? 'text-green-600' : isNegative ? 'text-red-600' : 'text-gray-400'}`}>
+                              {data.change > 0 ? '+' : ''}{data.change}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-4 p-4 bg-white rounded-lg border border-blue-100">
+                    <p className="text-base text-gray-700">
+                      <span className="font-semibold text-blue-600">Strategic Insight:</span>{' '}
+                      {(() => {
+                        const weaknessChange = comparisonData.find(d => d.category === 'Weaknesses')?.change || 0;
+                        const strengthChange = comparisonData.find(d => d.category === 'Strengths')?.change || 0;
+
+                        if (weaknessChange < 0 && strengthChange > 0) {
+                          return 'Strong progress! You\'re building strengths and reducing weaknesses.';
+                        } else if (weaknessChange < 0) {
+                          return 'Good work addressing weaknesses. Now focus on building new strengths.';
+                        } else if (strengthChange > 0) {
+                          return 'Strengths growing, but watch your weaknesses - they need attention too.';
+                        } else {
+                          return 'Review the detailed comparison below to identify strategic shifts.';
+                        }
+                      })()}
+                    </p>
                   </div>
                 </div>
 

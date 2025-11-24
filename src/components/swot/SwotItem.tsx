@@ -2,13 +2,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { SwotItem as SwotItemType } from '@/lib/swot/types';
-import { 
-  Edit2, 
-  Trash2, 
-  Check, 
-  X, 
-  MessageSquare, 
-  Flag,
+import {
+  Edit2,
+  Trash2,
+  Check,
+  X,
+  MessageSquare,
   ChevronDown,
   ChevronUp,
   Hash
@@ -21,6 +20,7 @@ interface SwotItemProps {
   isReadOnly?: boolean;
   color?: string;
   bgColor?: string;
+  recurrenceCount?: number;
 }
 
 export function SwotItem({
@@ -29,7 +29,8 @@ export function SwotItem({
   onDelete,
   isReadOnly = false,
   color = 'text-gray-700',
-  bgColor = 'bg-gray-50'
+  bgColor = 'bg-gray-50',
+  recurrenceCount
 }: SwotItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -98,6 +99,30 @@ export function SwotItem({
     if (level === 3) return 'text-yellow-600 bg-yellow-100';
     return 'text-red-600 bg-red-100';
   };
+
+  // Get border color based on priority
+  const getPriorityBorderColor = (): string => {
+    const priorityScore = getPriorityScore();
+    if (priorityScore) {
+      // For opportunities and threats with priority score
+      if (priorityScore >= 16) return 'border-l-4 border-l-red-500'; // Critical
+      if (priorityScore >= 9) return 'border-l-4 border-l-orange-500'; // High
+      if (priorityScore >= 6) return 'border-l-4 border-l-yellow-500'; // Medium
+      return 'border-l-4 border-l-green-500'; // Low
+    } else {
+      // For strengths and weaknesses (just impact)
+      if (item.impact_level >= 4) return 'border-l-4 border-l-red-500'; // High impact
+      if (item.impact_level === 3) return 'border-l-4 border-l-yellow-500'; // Medium impact
+      return 'border-l-4 border-l-green-500'; // Low impact
+    }
+  };
+
+  // Get context-appropriate label for likelihood
+  const getLikelihoodLabel = (): string => {
+    if (item.category === 'threat') return 'Urgency';
+    if (item.category === 'opportunity') return 'Probability';
+    return 'Likelihood';
+  };
   
   // Calculate priority score (for opportunities and threats)
   const getPriorityScore = (): number | null => {
@@ -156,7 +181,7 @@ export function SwotItem({
         {/* Likelihood (for opportunities and threats) */}
         {(item.category === 'opportunity' || item.category === 'threat') && (
           <div className="mb-2">
-            <label className="text-xs text-gray-600 font-medium">Likelihood</label>
+            <label className="text-xs text-gray-600 font-medium">{getLikelihoodLabel()}</label>
             <div className="flex space-x-1 mt-1">
               {[1, 2, 3, 4, 5].map(level => (
                 <button
@@ -164,8 +189,8 @@ export function SwotItem({
                   onClick={() => setEditLikelihood(level as 1 | 2 | 3 | 4 | 5)}
                   className={`
                     flex-1 py-1 text-xs rounded transition-colors
-                    ${editLikelihood === level 
-                      ? 'bg-blue-600 text-white' 
+                    ${editLikelihood === level
+                      ? 'bg-blue-600 text-white'
                       : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
                     }
                   `}
@@ -213,6 +238,7 @@ export function SwotItem({
         ${bgColor} ${color}
         ${!isReadOnly ? 'hover:shadow-sm cursor-pointer' : ''}
         ${item.status === 'carried-forward' ? 'border-dashed' : 'border-solid'}
+        ${getPriorityBorderColor()}
       `}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
@@ -231,10 +257,15 @@ export function SwotItem({
                 <ChevronDown className="h-3 w-3" />
               )}
             </button>
-            <div className="flex-1">
-              <h4 className="text-sm font-medium truncate pr-2">
+            <div className="flex-1 flex items-start gap-2">
+              <h4 className="text-sm font-medium truncate pr-2 flex-1">
                 {item.title}
               </h4>
+              {recurrenceCount && recurrenceCount > 0 && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300 whitespace-nowrap" title={`Appeared in ${recurrenceCount} previous quarter${recurrenceCount > 1 ? 's' : ''}`}>
+                  🔄 {recurrenceCount}Q
+                </span>
+              )}
             </div>
           </div>
           
@@ -256,7 +287,7 @@ export function SwotItem({
                 {/* Likelihood */}
                 {item.likelihood && (
                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getImpactColor(item.likelihood)}`}>
-                    Likelihood: {getImpactLabel(item.likelihood)}
+                    {getLikelihoodLabel()}: {getImpactLabel(item.likelihood)}
                   </span>
                 )}
                 
@@ -322,20 +353,38 @@ export function SwotItem({
       
       {/* Quick stats (always visible) */}
       {!isExpanded && (
-        <div className="flex items-center mt-1 ml-4 space-x-3 text-xs text-gray-500">
-          <span className="flex items-center">
-            <Flag className="h-3 w-3 mr-0.5" />
-            {getImpactLabel(item.impact_level)}
+        <div className="flex items-center mt-2 ml-4 space-x-2 flex-wrap">
+          {/* Impact Badge */}
+          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getImpactColor(item.impact_level)}`}>
+            Impact: {getImpactLabel(item.impact_level)}
           </span>
+
+          {/* Likelihood/Urgency Badge for Opportunities and Threats */}
+          {item.likelihood && (item.category === 'opportunity' || item.category === 'threat') && (
+            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getImpactColor(item.likelihood)}`}>
+              {getLikelihoodLabel()}: {getImpactLabel(item.likelihood)}
+            </span>
+          )}
+
+          {/* Priority Score */}
+          {getPriorityScore() && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">
+              Priority: {getPriorityScore()}
+            </span>
+          )}
+
+          {/* Tags indicator */}
           {item.tags && item.tags.length > 0 && (
-            <span className="flex items-center">
+            <span className="flex items-center text-xs text-gray-500">
               <Hash className="h-3 w-3 mr-0.5" />
               {item.tags.length}
             </span>
           )}
+
+          {/* Description indicator */}
           {item.description && (
-            <span className="flex items-center">
-              <MessageSquare className="h-3 w-3 mr-0.5" />
+            <span className="flex items-center text-xs text-gray-500">
+              <MessageSquare className="h-3 w-3" />
             </span>
           )}
         </div>

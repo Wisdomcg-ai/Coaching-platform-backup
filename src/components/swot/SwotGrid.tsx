@@ -9,7 +9,7 @@ import {
   getCategoryIcon 
 } from '@/lib/swot/types';
 import { SwotItem as SwotItemComponent } from './SwotItem';
-import { Plus, Lightbulb, AlertTriangle, Target, Shield } from 'lucide-react';
+import { Plus, Lightbulb, AlertTriangle, Target, Shield, Info } from 'lucide-react';
 
 interface SwotGridProps {
   items: SwotGridData;
@@ -18,6 +18,7 @@ interface SwotGridProps {
   onDeleteItem: (itemId: string) => void;
   onReorderItems: (category: SwotCategory, items: SwotItem[]) => void;
   isReadOnly?: boolean;
+  recurringItems?: Map<string, number>;
 }
 
 interface CategorySection {
@@ -36,7 +37,8 @@ export function SwotGrid({
   onUpdateItem,
   onDeleteItem,
   onReorderItems,
-  isReadOnly = false
+  isReadOnly = false,
+  recurringItems = new Map()
 }: SwotGridProps) {
   const [activeCategory, setActiveCategory] = useState<SwotCategory | null>(null);
   const [newItemTitle, setNewItemTitle] = useState('');
@@ -45,6 +47,7 @@ export function SwotGrid({
   const [draggedItem, setDraggedItem] = useState<SwotItem | null>(null);
   const [draggedOverCategory, setDraggedOverCategory] = useState<SwotCategory | null>(null);
   const [draggedOverIndex, setDraggedOverIndex] = useState<number | null>(null);
+  const [showHelp, setShowHelp] = useState<{ [key in SwotCategory]?: boolean }>({});
 
   // Helper function to get correct plural form of category
   const getCategoryKey = (category: SwotCategory): keyof SwotGridData => {
@@ -99,6 +102,66 @@ export function SwotGrid({
       borderColor: 'border-orange-200'
     }
   ];
+
+  // Coaching help content for each category
+  const categoryHelp: Record<SwotCategory, { prompts: string[]; examples: { strong: string; weak: string }; ratingGuidance: string }> = {
+    strength: {
+      prompts: [
+        "What do customers say you do better than competitors?",
+        "What unique resources, skills, or assets do you have?",
+        "What processes or systems give you an edge?",
+        "Jim Collins: What could you be the best in the world at?"
+      ],
+      examples: {
+        strong: '"Exclusive 10-year supplier contract with major brand" - Specific, defensible advantage',
+        weak: '"Good customer service" - Too vague, not measurable, hard to defend'
+      },
+      ratingGuidance: "Rate each strength by its IMPACT: How much competitive advantage does it give you? High-impact strengths (4-5) should be your foundation."
+    },
+    weakness: {
+      prompts: [
+        "Where do competitors consistently beat you?",
+        "What do you avoid or struggle with internally?",
+        "What complaints come up repeatedly from customers or staff?",
+        "What resources, skills, or capabilities are you missing?"
+      ],
+      examples: {
+        strong: '"No marketing expertise on team, relied 100% on referrals" - Specific, actionable',
+        weak: '"Need to improve sales" - Too vague, what specifically needs improvement?'
+      },
+      ratingGuidance: "Rate each weakness by its IMPACT: How much is it holding you back? High-impact weaknesses (4-5) need immediate action plans."
+    },
+    opportunity: {
+      prompts: [
+        "What market trends are creating new demand?",
+        "Are there underserved customer segments you could reach?",
+        "What changes in regulations, technology, or economy help you?",
+        "Could you leverage your strengths in new ways or markets?"
+      ],
+      examples: {
+        strong: '"New zoning allows commercial construction in 3 nearby zones" - Specific, time-sensitive',
+        weak: '"Grow into new markets" - Too vague, which markets and why now?'
+      },
+      ratingGuidance: "Rate IMPACT (potential value) and PROBABILITY (likelihood of success). High scores (4-5 on both) = pursue aggressively."
+    },
+    threat: {
+      prompts: [
+        "What are competitors doing that could hurt your business?",
+        "What market trends are working against you?",
+        "Are there regulatory, economic, or tech changes that threaten you?",
+        "What would happen if your biggest customer left?"
+      ],
+      examples: {
+        strong: '"Major competitor opened location 2 blocks away" - Specific, urgent, requires response',
+        weak: '"Increased competition" - Too general, what specifically threatens you?'
+      },
+      ratingGuidance: "Rate IMPACT (potential damage) and URGENCY (how soon will it hit?). High scores (4-5 on both) = need mitigation plans NOW."
+    }
+  };
+
+  const toggleHelp = (category: SwotCategory) => {
+    setShowHelp(prev => ({ ...prev, [category]: !prev[category] }));
+  };
   
   // Handle adding new item
   const handleSubmitNewItem = (category: SwotCategory) => {
@@ -196,16 +259,23 @@ export function SwotGrid({
               {section.icon}
             </div>
             <div>
-              <h3 className={`text-lg font-semibold ${section.color}`}>
+              <h3 className={`text-2xl font-semibold ${section.color}`}>
                 {section.title}
               </h3>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-base text-gray-600 mt-0.5">
                 {section.description}
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-2">
+            <button
+              onClick={() => toggleHelp(section.category)}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label="Toggle help"
+            >
+              <Info className="w-5 h-5" />
+            </button>
             <span className={`text-sm font-medium ${section.color}`}>
               {categoryItems.length} items
             </span>
@@ -214,8 +284,8 @@ export function SwotGrid({
                 onClick={() => setShowAddForm(isAddingItem ? null : section.category)}
                 className={`
                   p-1.5 rounded-md transition-colors
-                  ${isAddingItem 
-                    ? 'bg-gray-200 text-gray-600' 
+                  ${isAddingItem
+                    ? 'bg-gray-200 text-gray-600'
                     : `${section.bgColor} ${section.color} hover:opacity-80`
                   }
                 `}
@@ -225,6 +295,42 @@ export function SwotGrid({
             )}
           </div>
         </div>
+
+        {/* Help Section */}
+        {showHelp[section.category] && (
+          <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <p className="text-base font-medium text-gray-800 mb-3">💡 Strategic Questions:</p>
+            <ul className="text-base text-gray-700 space-y-2 mb-4">
+              {categoryHelp[section.category].prompts.map((prompt, idx) => (
+                <li key={idx} className="flex items-start">
+                  <span className="text-blue-600 mr-2">•</span>
+                  <span>{prompt}</span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="border-t border-gray-200 pt-3 mt-3 mb-3">
+              <p className="text-base font-medium text-gray-800 mb-2">📊 Priority Rating:</p>
+              <p className="text-base text-gray-700 bg-blue-50 p-2 rounded border border-blue-200">
+                {categoryHelp[section.category].ratingGuidance}
+              </p>
+            </div>
+
+            <div className="border-t border-gray-200 pt-3 mt-3">
+              <p className="text-base font-medium text-gray-800 mb-2">Examples:</p>
+              <div className="space-y-2">
+                <div className="flex items-start">
+                  <span className="text-green-600 font-bold mr-2">✓</span>
+                  <p className="text-base text-gray-700">{categoryHelp[section.category].examples.strong}</p>
+                </div>
+                <div className="flex items-start">
+                  <span className="text-red-600 font-bold mr-2">✗</span>
+                  <p className="text-base text-gray-700">{categoryHelp[section.category].examples.weak}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* Add Item Form */}
         {isAddingItem && (
@@ -234,7 +340,7 @@ export function SwotGrid({
               placeholder="Title (required)"
               value={newItemTitle}
               onChange={(e) => setNewItemTitle(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSubmitNewItem(section.category)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSubmitNewItem(section.category)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
               autoFocus
             />
@@ -245,6 +351,9 @@ export function SwotGrid({
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2 resize-none"
               rows={2}
             />
+            <p className="text-xs text-gray-500 mb-2">
+              💡 Click any item after adding to rate its impact and {section.category === 'threat' ? 'urgency' : section.category === 'opportunity' ? 'probability' : 'importance'}
+            </p>
             <div className="flex justify-end space-x-2">
               <button
                 onClick={() => {
@@ -261,8 +370,8 @@ export function SwotGrid({
                 disabled={!newItemTitle.trim()}
                 className={`
                   px-3 py-1 text-sm text-white rounded-md
-                  ${newItemTitle.trim() 
-                    ? 'bg-blue-600 hover:bg-blue-700' 
+                  ${newItemTitle.trim()
+                    ? 'bg-blue-600 hover:bg-blue-700'
                     : 'bg-gray-400 cursor-not-allowed'
                   }
                 `}
@@ -277,9 +386,9 @@ export function SwotGrid({
         <div className="space-y-2 min-h-[100px]">
           {categoryItems.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
-              <p className="text-sm">No {section.title.toLowerCase()} identified</p>
+              <p className="text-base">No {section.title.toLowerCase()} identified</p>
               {!isReadOnly && (
-                <p className="text-xs mt-1">Click + to add your first item</p>
+                <p className="text-sm mt-1">Click + to add your first item</p>
               )}
             </div>
           ) : (
@@ -303,6 +412,7 @@ export function SwotGrid({
                   isReadOnly={isReadOnly}
                   color={section.color}
                   bgColor={section.bgColor}
+                  recurrenceCount={recurringItems.get(item.id)}
                 />
               </div>
             ))
@@ -322,16 +432,16 @@ export function SwotGrid({
   };
   
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
       {/* Strengths - Top Left */}
       {renderCategorySection(categorySections[0])}
-      
+
       {/* Weaknesses - Top Right */}
       {renderCategorySection(categorySections[1])}
-      
+
       {/* Opportunities - Bottom Left */}
       {renderCategorySection(categorySections[2])}
-      
+
       {/* Threats - Bottom Right */}
       {renderCategorySection(categorySections[3])}
     </div>

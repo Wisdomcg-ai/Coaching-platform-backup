@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   SwotAnalysis,
@@ -14,7 +14,7 @@ import {
 import { SwotGrid } from '@/components/swot/SwotGrid';
 import { QuarterSelector } from '@/components/swot/QuarterSelector';
 import { createBrowserClient } from '@supabase/ssr';
-import { Save, CheckCircle, AlertCircle, Download, History, TrendingUp } from 'lucide-react';
+import { CheckCircle, AlertCircle, Download, History, TrendingUp } from 'lucide-react';
 
 export default function SwotPage() {
   const router = useRouter();
@@ -32,11 +32,14 @@ export default function SwotPage() {
     opportunities: [],
     threats: []
   });
+  const [historicalItems, setHistoricalItems] = useState<SwotItem[]>([]);
+  const [recurringItems, setRecurringItems] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoSaveEnabled] = useState(true);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [showTrends, setShowTrends] = useState(false);
 
   // Get or create SWOT analysis for the selected quarter
   const loadSwotAnalysis = useCallback(async () => {
@@ -171,21 +174,125 @@ export default function SwotPage() {
     setSwotItems(organized);
   };
 
+  // Load historical SWOT items from previous quarters
+  const loadHistoricalData = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const businessId = user.id;
+
+      // Get previous 4 quarters' SWOT analyses
+      const { data: historicalAnalyses, error } = await supabase
+        .from('swot_analyses')
+        .select(`
+          id,
+          quarter,
+          year,
+          swot_items (
+            id,
+            category,
+            title,
+            description,
+            impact_level,
+            likelihood,
+            created_at
+          )
+        `)
+        .eq('business_id', businessId)
+        .eq('type', 'quarterly')
+        .neq('quarter', currentQuarter.quarter)
+        .or(`year.lt.${currentQuarter.year},and(year.eq.${currentQuarter.year},quarter.lt.${currentQuarter.quarter})`)
+        .order('year', { ascending: false })
+        .order('quarter', { ascending: false })
+        .limit(4);
+
+      if (error) {
+        console.error('Error loading historical data:', error);
+        return;
+      }
+
+      // Flatten all historical items
+      const allHistoricalItems: SwotItem[] = [];
+      historicalAnalyses?.forEach(analysis => {
+        if (analysis.swot_items) {
+          allHistoricalItems.push(...(analysis.swot_items as SwotItem[]));
+        }
+      });
+
+      setHistoricalItems(allHistoricalItems);
+      detectRecurringItems(swotItems, allHistoricalItems);
+    } catch (err) {
+      console.error('Error loading historical data:', err);
+    }
+  }, [currentQuarter, supabase, swotItems]);
+
+  // Detect recurring items by comparing titles (simple string matching for MVP)
+  const detectRecurringItems = (currentItems: SwotGridData, historicalItems: SwotItem[]) => {
+    const recurring = new Map<string, number>();
+
+    // Helper function to normalize titles for comparison
+    const normalizeTitle = (title: string) => title.toLowerCase().trim();
+
+    // Check each current item against historical items
+    const allCurrentItems = [
+      ...currentItems.strengths,
+      ...currentItems.weaknesses,
+      ...currentItems.opportunities,
+      ...currentItems.threats
+    ];
+
+    allCurrentItems.forEach(currentItem => {
+      const normalizedCurrent = normalizeTitle(currentItem.title);
+      let occurrences = 0;
+
+      historicalItems.forEach(historicalItem => {
+        const normalizedHistorical = normalizeTitle(historicalItem.title);
+
+        // Check for exact match or high similarity (contains)
+        if (normalizedCurrent === normalizedHistorical ||
+            normalizedCurrent.includes(normalizedHistorical) ||
+            normalizedHistorical.includes(normalizedCurrent)) {
+          // Make sure it's the same category (recurring weakness, not moved to strength)
+          if (currentItem.category === historicalItem.category) {
+            occurrences++;
+          }
+        }
+      });
+
+      if (occurrences > 0) {
+        recurring.set(currentItem.id, occurrences);
+      }
+    });
+
+    setRecurringItems(recurring);
+  };
+
   // Load data on component mount and quarter change
   useEffect(() => {
     loadSwotAnalysis();
   }, [loadSwotAnalysis]);
 
+  // Load historical data for trend analysis
+  useEffect(() => {
+    if (swotAnalysis && swotItems.strengths.length + swotItems.weaknesses.length + swotItems.opportunities.length + swotItems.threats.length > 0) {
+      loadHistoricalData();
+    }
+  }, [swotAnalysis, loadHistoricalData]);
+
   // Auto-save functionality
   useEffect(() => {
-    if (!autoSaveEnabled || !swotAnalysis || saving) return;
+    if (!autoSaveEnabled || !swotAnalysis) return;
 
     const saveTimer = setTimeout(async () => {
-      await handleSave();
+      if (!saving) {
+        await handleSave();
+      }
     }, 5000); // Auto-save after 5 seconds of inactivity
 
     return () => clearTimeout(saveTimer);
-  }, [swotItems, autoSaveEnabled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [swotItems]);
 
   // Helper function to get correct plural form
   const getCategoryKey = (category: SwotCategory): keyof SwotGridData => {
@@ -352,20 +459,10 @@ export default function SwotPage() {
     try {
       setSaving(true);
 
-      // Calculate SWOT score
-      const totalItems = Object.values(swotItems).flat().length;
-      const strengthsScore = swotItems.strengths.length * 2;
-      const weaknessesScore = swotItems.weaknesses.length * -1;
-      const opportunitiesScore = swotItems.opportunities.length * 1.5;
-      const threatsScore = swotItems.threats.length * -1.5;
-      const rawScore = strengthsScore + weaknessesScore + opportunitiesScore + threatsScore;
-      const normalizedScore = Math.max(0, Math.min(100, 50 + (rawScore / totalItems) * 10));
-
-      // Update SWOT analysis
+      // Update SWOT analysis timestamp
       const { error } = await supabase
         .from('swot_analyses')
         .update({
-          swot_score: Math.round(normalizedScore),
           status: 'in-progress',
           updated_at: new Date().toISOString()
         })
@@ -382,38 +479,6 @@ export default function SwotPage() {
     }
   };
 
-  // Handle finalizing SWOT
-  const handleFinalize = async () => {
-    if (!swotAnalysis) return;
-
-    const confirmed = window.confirm(
-      'Are you sure you want to finalize this SWOT analysis? This will lock it from further edits.'
-    );
-
-    if (!confirmed) return;
-
-    try {
-      setSaving(true);
-
-      const { error } = await supabase
-        .from('swot_analyses')
-        .update({
-          status: 'final',
-          finalized_at: new Date().toISOString()
-        })
-        .eq('id', swotAnalysis.id);
-
-      if (error) throw error;
-
-      setSwotAnalysis({ ...swotAnalysis, status: 'final' });
-      setLastSaved(new Date());
-    } catch (err) {
-      console.error('Error finalizing SWOT:', err);
-      setError('Failed to finalize SWOT analysis. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   // Handle exporting SWOT
   const handleExport = () => {
@@ -488,26 +553,6 @@ export default function SwotPage() {
                     Export
                   </button>
 
-                  {swotAnalysis?.status !== 'final' && (
-                    <>
-                      <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
-                      >
-                        <Save className="h-4 w-4 mr-2" />
-                        {saving ? 'Saving...' : 'Save'}
-                      </button>
-
-                      <button
-                        onClick={handleFinalize}
-                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700"
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Finalize
-                      </button>
-                    </>
-                  )}
                 </div>
               </div>
             </div>
@@ -529,18 +574,58 @@ export default function SwotPage() {
         </div>
       )}
 
-      {/* Status Banner */}
-      {swotAnalysis?.status === 'final' && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-            <div className="flex">
-              <CheckCircle className="h-5 w-5 text-blue-400" />
-              <div className="ml-3">
-                <p className="text-sm text-blue-800">
-                  This SWOT analysis has been finalized and is read-only.
-                </p>
+
+      {/* Trends Section */}
+      {recurringItems.size > 0 && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+          <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center space-x-2">
+                <TrendingUp className="h-5 w-5 text-amber-600" />
+                <h3 className="text-lg font-semibold text-amber-900">Recurring Items Detected</h3>
               </div>
+              <button
+                onClick={() => setShowTrends(!showTrends)}
+                className="text-sm text-amber-700 hover:text-amber-900 font-medium"
+              >
+                {showTrends ? 'Hide Details' : 'Show Details'}
+              </button>
             </div>
+
+            <p className="text-sm text-amber-800 mt-2">
+              {recurringItems.size} item{recurringItems.size > 1 ? 's' : ''} appeared in previous quarters.
+              Recurring weaknesses and threats may indicate systemic issues requiring strategic action.
+            </p>
+
+            {showTrends && (
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                {Array.from(recurringItems.entries()).map(([itemId, count]) => {
+                  const item = [
+                    ...swotItems.strengths,
+                    ...swotItems.weaknesses,
+                    ...swotItems.opportunities,
+                    ...swotItems.threats
+                  ].find(i => i.id === itemId);
+
+                  if (!item) return null;
+
+                  const categoryColors: Record<SwotCategory, string> = {
+                    strength: 'bg-green-100 text-green-800 border-green-300',
+                    weakness: 'bg-red-100 text-red-800 border-red-300',
+                    opportunity: 'bg-blue-100 text-blue-800 border-blue-300',
+                    threat: 'bg-orange-100 text-orange-800 border-orange-300'
+                  };
+
+                  return (
+                    <div key={itemId} className={`p-3 rounded border ${categoryColors[item.category]}`}>
+                      <p className="text-xs font-semibold uppercase mb-1">{item.category}</p>
+                      <p className="text-sm font-medium">{item.title}</p>
+                      <p className="text-xs mt-1">Appeared in {count} previous quarter{count > 1 ? 's' : ''}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -553,8 +638,112 @@ export default function SwotPage() {
           onUpdateItem={handleUpdateItem}
           onDeleteItem={handleDeleteItem}
           onReorderItems={handleReorderItems}
-          isReadOnly={swotAnalysis?.status === 'final'}
+          recurringItems={recurringItems}
         />
+
+        {/* Strategy Formation Section */}
+        {(swotItems.strengths.length > 0 || swotItems.weaknesses.length > 0 ||
+          swotItems.opportunities.length > 0 || swotItems.threats.length > 0) && (
+          <div className="mt-8">
+            <div className="bg-white rounded-lg shadow-sm p-6 border-2 border-blue-200">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Strategy Formation</h2>
+                  <p className="text-base text-gray-600 mt-1">
+                    Turn your SWOT analysis into actionable strategies
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-base font-medium text-gray-800 mb-2">💡 How to Form Strategies:</p>
+                <p className="text-base text-gray-700 mb-3">
+                  The power of SWOT comes from combining insights across quadrants. Use these frameworks to create strategies:
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* SO Strategy */}
+                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <h3 className="text-lg font-semibold text-green-800 mb-2">
+                    SO: Strength + Opportunity
+                  </h3>
+                  <p className="text-sm text-gray-700 mb-3">
+                    Use your <strong>strengths</strong> to capitalize on <strong>opportunities</strong>
+                  </p>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p className="font-medium">Example:</p>
+                    <p className="italic">
+                      Strength: "Experienced team" + Opportunity: "New market opening"
+                      <br/>→ Strategy: "Leverage our expertise to be first mover in new market"
+                    </p>
+                  </div>
+                </div>
+
+                {/* WO Strategy */}
+                <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                  <h3 className="text-lg font-semibold text-yellow-800 mb-2">
+                    WO: Weakness + Opportunity
+                  </h3>
+                  <p className="text-sm text-gray-700 mb-3">
+                    Overcome <strong>weaknesses</strong> to capture <strong>opportunities</strong>
+                  </p>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p className="font-medium">Example:</p>
+                    <p className="italic">
+                      Weakness: "No marketing expertise" + Opportunity: "Growing demand"
+                      <br/>→ Strategy: "Hire marketing specialist to capture growing market"
+                    </p>
+                  </div>
+                </div>
+
+                {/* ST Strategy */}
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <h3 className="text-lg font-semibold text-blue-800 mb-2">
+                    ST: Strength + Threat
+                  </h3>
+                  <p className="text-sm text-gray-700 mb-3">
+                    Use your <strong>strengths</strong> to mitigate <strong>threats</strong>
+                  </p>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p className="font-medium">Example:</p>
+                    <p className="italic">
+                      Strength: "Long-term contracts" + Threat: "New competitor"
+                      <br/>→ Strategy: "Strengthen relationships with contract customers"
+                    </p>
+                  </div>
+                </div>
+
+                {/* WT Strategy */}
+                <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                  <h3 className="text-lg font-semibold text-red-800 mb-2">
+                    WT: Weakness + Threat
+                  </h3>
+                  <p className="text-sm text-gray-700 mb-3">
+                    Minimize <strong>weaknesses</strong> and avoid <strong>threats</strong>
+                  </p>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p className="font-medium">Example:</p>
+                    <p className="italic">
+                      Weakness: "Outdated technology" + Threat: "Customer expectations rising"
+                      <br/>→ Strategy: "Priority investment in tech upgrade to prevent customer loss"
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-base font-medium text-gray-800 mb-2">🎯 Next Steps:</p>
+                <ol className="text-base text-gray-700 list-decimal list-inside space-y-1">
+                  <li>Review your SWOT items above</li>
+                  <li>Identify 2-3 key strategy combinations that make sense for your business</li>
+                  <li>Turn these into specific, measurable goals (use the Goals page)</li>
+                  <li>Review quarterly and update as your situation changes</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

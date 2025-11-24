@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
-import { ArrowLeft, Calendar, TrendingUp, Eye, FileText, CheckCircle, Clock } from 'lucide-react'
+import { ArrowLeft, Calendar, TrendingUp, Eye, Clock, AlertTriangle, Target, Shield, Lightbulb } from 'lucide-react'
 import Link from 'next/link'
 
 interface SwotAnalysis {
@@ -12,8 +12,6 @@ interface SwotAnalysis {
   year: number
   type: string
   status: string
-  swot_score: number
-  finalized_at: string | null
   created_at: string
   updated_at: string
   item_counts?: {
@@ -94,26 +92,6 @@ export default function SwotHistoryPage() {
     return `Q${quarter} ${year}`
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'final':
-        return 'bg-green-100 text-green-800'
-      case 'in-progress':
-        return 'bg-blue-100 text-blue-800'
-      case 'draft':
-        return 'bg-gray-100 text-gray-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getScoreColor = (score: number) => {
-    if (score >= 75) return 'text-green-600'
-    if (score >= 50) return 'text-blue-600'
-    if (score >= 25) return 'text-yellow-600'
-    return 'text-red-600'
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -138,8 +116,8 @@ export default function SwotHistoryPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">SWOT History</h1>
-              <p className="mt-1 text-sm text-gray-500">
-                View all your past SWOT analyses
+              <p className="mt-1 text-base text-gray-600">
+                Track your strategic evolution over time
               </p>
             </div>
 
@@ -159,6 +137,81 @@ export default function SwotHistoryPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
           <div className="bg-red-50 border border-red-200 rounded-md p-4">
             <p className="text-sm text-red-800">{error}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Strategic Insights */}
+      {analyses.length >= 2 && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <TrendingUp className="h-6 w-6 text-blue-600" />
+              <h2 className="text-2xl font-bold text-gray-900">Strategic Insights</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Evolution Summary */}
+              <div className="bg-white rounded-lg p-4 border border-blue-100">
+                <h3 className="text-base font-semibold text-gray-900 mb-2">📈 Your Strategic Evolution</h3>
+                <p className="text-base text-gray-700">
+                  Tracking <span className="font-bold text-blue-600">{analyses.length} quarters</span> of SWOT analyses.
+                  {analyses.length >= 4 ? ' You have a full year of strategic data!' : ' Keep building your strategic history for deeper insights.'}
+                </p>
+              </div>
+
+              {/* Most Recent Trend */}
+              <div className="bg-white rounded-lg p-4 border border-blue-100">
+                <h3 className="text-base font-semibold text-gray-900 mb-2">🎯 Latest Focus</h3>
+                <p className="text-base text-gray-700">
+                  Most recent analysis: <span className="font-bold text-blue-600">
+                    {getQuarterLabel(analyses[0].quarter, analyses[0].year)}
+                  </span>
+                  {' '}with {analyses[0].item_counts?.total || 0} strategic items identified.
+                </p>
+              </div>
+
+              {/* Quarter-over-Quarter Progress */}
+              {analyses.length >= 2 && (
+                <div className="bg-white rounded-lg p-4 border border-blue-100">
+                  <h3 className="text-base font-semibold text-gray-900 mb-2">📊 Recent Progress</h3>
+                  <div className="space-y-2 text-sm">
+                    {(() => {
+                      const latest = analyses[0].item_counts;
+                      const previous = analyses[1].item_counts;
+                      const strengthChange = (latest?.strengths || 0) - (previous?.strengths || 0);
+                      const weaknessChange = (latest?.weaknesses || 0) - (previous?.weaknesses || 0);
+
+                      return (
+                        <div className="space-y-1">
+                          {strengthChange !== 0 && (
+                            <p className={strengthChange > 0 ? 'text-green-700' : 'text-orange-700'}>
+                              <Shield className="inline h-4 w-4 mr-1" />
+                              Strengths: {strengthChange > 0 ? '+' : ''}{strengthChange}
+                            </p>
+                          )}
+                          {weaknessChange !== 0 && (
+                            <p className={weaknessChange < 0 ? 'text-green-700' : 'text-red-700'}>
+                              <AlertTriangle className="inline h-4 w-4 mr-1" />
+                              Weaknesses: {weaknessChange > 0 ? '+' : ''}{weaknessChange}
+                              {weaknessChange < 0 && ' (Good!)'}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* Coaching Tip */}
+              <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                <h3 className="text-base font-semibold text-amber-900 mb-2">💡 Coaching Tip</h3>
+                <p className="text-base text-amber-800">
+                  Use the Compare tool to identify recurring weaknesses - they signal systemic issues that need strategic solutions, not just tactical fixes.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -188,16 +241,13 @@ export default function SwotHistoryPage() {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-bold text-gray-900">
+                    <div className="flex items-center gap-3 mb-3">
+                      <h3 className="text-2xl font-bold text-gray-900">
                         {getQuarterLabel(analysis.quarter, analysis.year)}
                       </h3>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(analysis.status)}`}>
-                        {analysis.status === 'final' ? 'Final' : analysis.status === 'in-progress' ? 'In Progress' : 'Draft'}
+                      <span className="text-sm text-gray-500">
+                        {analysis.item_counts?.total || 0} total items
                       </span>
-                      {analysis.status === 'final' && (
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                      )}
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4">
@@ -248,15 +298,21 @@ export default function SwotHistoryPage() {
 
                     <div className="mt-4 flex items-center gap-4 text-sm text-gray-500">
                       <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        Updated {new Date(analysis.updated_at).toLocaleDateString()}
+                        <Calendar className="h-4 w-4" />
+                        Created {new Date(analysis.created_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
                       </div>
-                      {analysis.finalized_at && (
-                        <div className="flex items-center gap-1">
-                          <CheckCircle className="h-4 w-4" />
-                          Finalized {new Date(analysis.finalized_at).toLocaleDateString()}
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        Last updated {new Date(analysis.updated_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </div>
                     </div>
                   </div>
 
