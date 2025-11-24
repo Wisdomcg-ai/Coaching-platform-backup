@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, Download, Printer, Loader2, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Printer, Loader2, ExternalLink, TrendingUp, AlertCircle } from 'lucide-react'
 
 interface OnePagePlanData {
   // Vision/Mission/Values
@@ -272,10 +272,10 @@ export default function OnePagePlan() {
         mission: visionMission.mission_statement || '',
         coreValues: (visionMission.core_values || []).filter((v: string) => v.trim()),
 
-        strengths: swotItems.filter((item: any) => item.category === 'strengths').slice(0, 5).map((item: any) => item.title),
-        weaknesses: swotItems.filter((item: any) => item.category === 'weaknesses').slice(0, 5).map((item: any) => item.title),
-        opportunities: swotItems.filter((item: any) => item.category === 'opportunities').slice(0, 5).map((item: any) => item.title),
-        threats: swotItems.filter((item: any) => item.category === 'threats').slice(0, 5).map((item: any) => item.title),
+        strengths: swotItems.filter((item: any) => item.category === 'strength').slice(0, 5).map((item: any) => item.title),
+        weaknesses: swotItems.filter((item: any) => item.category === 'weakness').slice(0, 5).map((item: any) => item.title),
+        opportunities: swotItems.filter((item: any) => item.category === 'opportunity').slice(0, 5).map((item: any) => item.title),
+        threats: swotItems.filter((item: any) => item.category === 'threat').slice(0, 5).map((item: any) => item.title),
 
         financialGoals: {
           year3: {
@@ -418,18 +418,18 @@ export default function OnePagePlan() {
           </button>
           <div className="flex gap-3">
             <button
+              onClick={() => router.push('/goals')}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Edit Strategic Plan
+            </button>
+            <button
               onClick={handlePrint}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium text-sm"
             >
               <Printer className="w-4 h-4" />
               Print
-            </button>
-            <button
-              onClick={() => {/* TODO: PDF export */}}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
-            >
-              <Download className="w-4 h-4" />
-              Export PDF
             </button>
           </div>
         </div>
@@ -442,13 +442,13 @@ export default function OnePagePlan() {
           <div className="border-b-4 border-gray-900 p-6 print:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 print:text-xl">{data.companyName}</h1>
-                <p className="text-sm text-gray-600 mt-1">One Page Strategic Plan</p>
+                <h1 className="text-3xl font-bold text-gray-900 print:text-2xl">{data.companyName}</h1>
+                <p className="text-base text-gray-600 mt-1">One Page Strategic Plan</p>
               </div>
-              <div className="text-right text-sm text-gray-600">
-                <p className="font-semibold">Year {data.planYear}</p>
-                <p>{new Date().toLocaleDateString()}</p>
-                <p className="text-xs text-red-600 mt-1">CONFIDENTIAL</p>
+              <div className="text-right">
+                <p className="text-base font-semibold text-gray-900">Year {data.planYear}</p>
+                <p className="text-sm text-gray-600">{new Date().toLocaleDateString()}</p>
+                <p className="text-sm text-red-600 mt-1 font-medium">CONFIDENTIAL</p>
               </div>
             </div>
           </div>
@@ -457,28 +457,28 @@ export default function OnePagePlan() {
           <div className="grid grid-cols-3 border-b border-gray-300">
             <div className="border-r border-gray-300 flex flex-col">
               <div className="bg-blue-50 px-3 py-2 border-b border-gray-300">
-                <h3 className="text-xs font-bold text-blue-900 uppercase text-center">Vision (Where We're Going)</h3>
+                <h3 className="text-sm font-bold text-blue-900 uppercase text-center">Vision (Where We're Going)</h3>
               </div>
-              <div className="flex-1 flex items-center justify-center p-3">
-                <p className="text-sm text-gray-900 leading-relaxed text-center">{data.vision || 'Not set'}</p>
+              <div className="flex-1 flex items-center justify-center p-4">
+                <p className="text-base text-gray-900 leading-relaxed text-center">{data.vision || 'Not set'}</p>
               </div>
             </div>
             <div className="border-r border-gray-300 flex flex-col">
               <div className="bg-blue-50 px-3 py-2 border-b border-gray-300">
-                <h3 className="text-xs font-bold text-blue-900 uppercase text-center">Mission (Why We Exist)</h3>
+                <h3 className="text-sm font-bold text-blue-900 uppercase text-center">Mission (Why We Exist)</h3>
               </div>
-              <div className="flex-1 flex items-center justify-center p-3">
-                <p className="text-sm text-gray-900 leading-relaxed text-center">{data.mission || 'Not set'}</p>
+              <div className="flex-1 flex items-center justify-center p-4">
+                <p className="text-base text-gray-900 leading-relaxed text-center">{data.mission || 'Not set'}</p>
               </div>
             </div>
             <div className="flex flex-col">
               <div className="bg-blue-50 px-3 py-2 border-b border-gray-300">
-                <h3 className="text-xs font-bold text-blue-900 uppercase text-center">Core Values</h3>
+                <h3 className="text-sm font-bold text-blue-900 uppercase text-center">Core Values</h3>
               </div>
-              <div className="flex-1 flex items-center justify-center p-3">
+              <div className="flex-1 flex items-center justify-center p-4">
                 <ul className="space-y-1.5 text-center">
                   {data.coreValues.slice(0, 8).map((value, idx) => (
-                    <li key={idx} className="text-xs text-gray-900">
+                    <li key={idx} className="text-sm text-gray-900">
                       {value}
                     </li>
                   ))}
@@ -490,37 +490,37 @@ export default function OnePagePlan() {
           {/* SWOT Row */}
           <div className="grid grid-cols-4 border-b border-gray-300">
             <div className="p-4 border-r border-gray-300">
-              <h3 className="text-xs font-bold text-green-700 uppercase mb-2">Strengths</h3>
-              <ol className="space-y-1">
+              <h3 className="text-sm font-bold text-green-700 uppercase mb-2">Strengths</h3>
+              <ol className="space-y-1.5">
                 {data.strengths.slice(0, 5).map((item, idx) => (
-                  <li key={idx} className="text-xs text-gray-800">{idx + 1}. {item}</li>
+                  <li key={idx} className="text-sm text-gray-800">{idx + 1}. {item}</li>
                 ))}
               </ol>
             </div>
 
             <div className="p-4 border-r border-gray-300">
-              <h3 className="text-xs font-bold text-orange-700 uppercase mb-2">Weaknesses</h3>
-              <ol className="space-y-1">
+              <h3 className="text-sm font-bold text-orange-700 uppercase mb-2">Weaknesses</h3>
+              <ol className="space-y-1.5">
                 {data.weaknesses.slice(0, 5).map((item, idx) => (
-                  <li key={idx} className="text-xs text-gray-800">{idx + 1}. {item}</li>
+                  <li key={idx} className="text-sm text-gray-800">{idx + 1}. {item}</li>
                 ))}
               </ol>
             </div>
 
             <div className="p-4 border-r border-gray-300">
-              <h3 className="text-xs font-bold text-blue-700 uppercase mb-2">Opportunities</h3>
-              <ol className="space-y-1">
+              <h3 className="text-sm font-bold text-blue-700 uppercase mb-2">Opportunities</h3>
+              <ol className="space-y-1.5">
                 {data.opportunities.slice(0, 5).map((item, idx) => (
-                  <li key={idx} className="text-xs text-gray-800">{idx + 1}. {item}</li>
+                  <li key={idx} className="text-sm text-gray-800">{idx + 1}. {item}</li>
                 ))}
               </ol>
             </div>
 
             <div className="p-4">
-              <h3 className="text-xs font-bold text-red-700 uppercase mb-2">Threats</h3>
-              <ol className="space-y-1">
+              <h3 className="text-sm font-bold text-red-700 uppercase mb-2">Threats</h3>
+              <ol className="space-y-1.5">
                 {data.threats.slice(0, 5).map((item, idx) => (
-                  <li key={idx} className="text-xs text-gray-800">{idx + 1}. {item}</li>
+                  <li key={idx} className="text-sm text-gray-800">{idx + 1}. {item}</li>
                 ))}
               </ol>
             </div>
