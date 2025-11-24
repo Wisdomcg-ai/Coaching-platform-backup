@@ -257,11 +257,15 @@ export default function OnePagePlan() {
 
       const visionMission = visionMissionData?.vision_mission || {}
 
-      // Load SWOT (Note: SWOT uses user.id as business_id)
-      devLog('[One Page Plan] 📅 Looking for SWOT:', { userId: user.id })
+      // Load SWOT - try both businessId and user.id since different parts of app may use different IDs
+      devLog('[One Page Plan] 📅 Looking for SWOT:', { businessId, userId: user.id })
 
-      // Try to get any SWOT data first
-      const { data: allSwotData, error: allSwotError } = await supabase
+      // Try businessId first (from profile), then fall back to user.id
+      let swotData = null
+      let swotItems: any[] = []
+
+      // First try with businessId (profile.id)
+      const { data: swotByBizId, error: swotError1 } = await supabase
         .from('swot_analyses')
         .select(`
           *,
@@ -273,15 +277,40 @@ export default function OnePagePlan() {
             status
           )
         `)
-        .eq('business_id', user.id)
+        .eq('business_id', businessId)
         .order('created_at', { ascending: false })
         .limit(1)
 
-      devLog('[One Page Plan] 💡 All SWOT data:', { data: allSwotData, error: allSwotError })
+      devLog('[One Page Plan] 💡 SWOT by businessId:', { data: swotByBizId, error: swotError1 })
 
-      // Use the most recent SWOT if found
-      const swotData = allSwotData && allSwotData.length > 0 ? allSwotData[0] : null
-      const swotItems = swotData?.swot_items || []
+      if (swotByBizId && swotByBizId.length > 0) {
+        swotData = swotByBizId[0]
+        swotItems = swotData?.swot_items || []
+      } else if (businessId !== user.id) {
+        // If businessId didn't work and it's different from user.id, try user.id
+        const { data: swotByUserId, error: swotError2 } = await supabase
+          .from('swot_analyses')
+          .select(`
+            *,
+            swot_items (
+              id,
+              category,
+              title,
+              description,
+              status
+            )
+          `)
+          .eq('business_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+
+        devLog('[One Page Plan] 💡 SWOT by userId:', { data: swotByUserId, error: swotError2 })
+
+        if (swotByUserId && swotByUserId.length > 0) {
+          swotData = swotByUserId[0]
+          swotItems = swotData?.swot_items || []
+        }
+      }
 
       // Debug SWOT items
       devLog('[One Page Plan] 💡 SWOT items extracted:', swotItems?.length)
@@ -291,6 +320,7 @@ export default function OnePagePlan() {
         archived: swotItems.filter((i: any) => i.status === 'archived').length,
         other: swotItems.filter((i: any) => !['active', 'carried-forward', 'archived'].includes(i.status)).length
       })
+      devLog('[One Page Plan] 💡 SWOT items sample:', swotItems.slice(0, 2))
 
       // Load Financial Goals & Core Metrics
       const { data: financialGoals, error: finError } = await supabase
@@ -824,7 +854,7 @@ export default function OnePagePlan() {
             <div className="bg-blue-50 px-4 py-2 border-b border-gray-300">
               <h3 className="text-sm font-bold text-blue-900 uppercase">Goals & Key Metrics</h3>
             </div>
-            <table className="w-full text-xs">
+            <table className="w-full text-sm print:text-xs">
               <colgroup>
                 <col className="w-[30%]" />
                 <col className="w-[20%]" />
