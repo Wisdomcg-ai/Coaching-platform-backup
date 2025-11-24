@@ -2,8 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, Printer, Loader2, ExternalLink, TrendingUp, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Printer, Loader2, ExternalLink, TrendingUp, AlertCircle, CheckCircle2, Circle, Lightbulb } from 'lucide-react'
+
+// Only log in development
+const isDev = process.env.NODE_ENV === 'development'
+const devLog = (message: string, ...args: any[]) => {
+  if (isDev) {
+    console.log(message, ...args)
+  }
+}
 
 interface OnePagePlanData {
   // Vision/Mission/Values
@@ -72,6 +81,79 @@ export default function OnePagePlan() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<OnePagePlanData | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+
+  // Calculate strategic health metrics
+  const calculatePlanHealth = (planData: OnePagePlanData) => {
+    const sections = [
+      { name: 'Vision', complete: !!planData.vision, link: '/vision-mission' },
+      { name: 'Mission', complete: !!planData.mission, link: '/vision-mission' },
+      { name: 'Core Values', complete: planData.coreValues.length >= 3, link: '/vision-mission' },
+      { name: 'SWOT Analysis', complete: planData.strengths.length > 0 && planData.weaknesses.length > 0, link: '/swot' },
+      { name: 'Financial Goals', complete: planData.financialGoals.year1.revenue > 0, link: '/goals' },
+      { name: '12-Month Initiatives', complete: planData.strategicInitiatives.length >= 3, link: '/goals' },
+      { name: 'Quarterly Rocks', complete: planData.quarterlyRocks.length >= 1, link: '/goals' },
+    ]
+
+    const completedCount = sections.filter(s => s.complete).length
+    const totalCount = sections.length
+    const percentage = Math.round((completedCount / totalCount) * 100)
+
+    return { sections, completedCount, totalCount, percentage }
+  }
+
+  // Generate coaching insights based on plan data
+  const generateCoachingInsights = (planData: OnePagePlanData) => {
+    const insights: string[] = []
+
+    // Vision/Mission insights
+    if (!planData.vision) {
+      insights.push('Define your 3-year vision to give your team a clear destination to work towards.')
+    }
+    if (!planData.mission) {
+      insights.push('Your mission statement helps everyone understand WHY your business exists.')
+    }
+    if (planData.coreValues.length < 3) {
+      insights.push('Add at least 3 core values to guide decision-making across your organization.')
+    }
+
+    // SWOT insights
+    if (planData.strengths.length === 0) {
+      insights.push('Identify your key strengths - these are your competitive advantages to leverage.')
+    }
+    if (planData.opportunities.length > 0 && planData.strategicInitiatives.length === 0) {
+      insights.push('You\'ve identified opportunities but no initiatives. Consider creating action plans.')
+    }
+    if (planData.threats.length > 0 && planData.quarterlyRocks.length === 0) {
+      insights.push('You\'ve identified threats. Add quarterly rocks to address your most urgent risks.')
+    }
+
+    // Goals insights
+    if (planData.financialGoals.year1.revenue > 0 && planData.financialGoals.quarter.revenue === 0) {
+      insights.push('Set quarterly revenue targets to track progress toward your annual goal.')
+    }
+    if (planData.strategicInitiatives.length > 10) {
+      insights.push('You have many initiatives. Consider prioritizing the top 5-7 for better focus.')
+    }
+    if (planData.quarterlyRocks.length > 5) {
+      insights.push('More than 5 quarterly rocks can dilute focus. Prioritize your top 3-5.')
+    }
+    if (planData.quarterlyRocks.length > 0 && planData.quarterlyRocks.every(r => !r.owner)) {
+      insights.push('Assign owners to your quarterly rocks to ensure accountability.')
+    }
+
+    // Positive insights when things are good
+    if (insights.length === 0) {
+      if (planData.strategicInitiatives.length >= 3 && planData.quarterlyRocks.length >= 3) {
+        insights.push('Your strategic plan is well-structured. Review quarterly to stay on track.')
+      }
+      if (planData.vision && planData.mission && planData.coreValues.length >= 3) {
+        insights.push('Strong foundation! Your vision, mission, and values create clear direction.')
+      }
+    }
+
+    return insights.slice(0, 3) // Return top 3 insights
+  }
 
   useEffect(() => {
     loadAllData()
@@ -103,7 +185,7 @@ export default function OnePagePlan() {
       setLoading(true)
       const { data: { user } } = await supabase.auth.getUser()
 
-      console.log('[One Page Plan] 🔍 User:', user?.id)
+      devLog('[One Page Plan] 🔍 User:', user?.id)
 
       if (!user) {
         router.push('/auth/login')
@@ -117,7 +199,7 @@ export default function OnePagePlan() {
         .eq('user_id', user.id)
         .single()
 
-      console.log('[One Page Plan] 🏢 Business Profile query:', { profile, error: profileError })
+      devLog('[One Page Plan] 🏢 Business Profile query:', { profile, error: profileError })
 
       // Fallback to user.id if no profile (same as strategic planning wizard)
       const businessId = profile?.id || user.id
@@ -147,7 +229,7 @@ export default function OnePagePlan() {
         }
       }
 
-      console.log('[One Page Plan] 👥 Team Members Map:', teamMembersMap)
+      devLog('[One Page Plan] 👥 Team Members Map:', teamMembersMap)
 
       // Get company name from businesses table
       const { data: businessData } = await supabase
@@ -158,7 +240,7 @@ export default function OnePagePlan() {
         .single()
 
       const companyName = businessData?.name || 'Your Company'
-      console.log('[One Page Plan] ✅ Business ID:', businessId, 'Name:', companyName)
+      devLog('[One Page Plan] ✅ Business ID:', businessId, 'Name:', companyName)
 
       // Load Vision/Mission/Values
       const { data: visionMissionData, error: vmError } = await supabase
@@ -167,7 +249,7 @@ export default function OnePagePlan() {
         .eq('user_id', user.id)
         .single()
 
-      console.log('[One Page Plan] 📖 Vision/Mission data:', { data: visionMissionData, error: vmError })
+      devLog('[One Page Plan] 📖 Vision/Mission data:', { data: visionMissionData, error: vmError })
 
       const visionMission = visionMissionData?.vision_mission || {}
 
@@ -175,7 +257,7 @@ export default function OnePagePlan() {
       const currentYear = new Date().getFullYear()
       const currentQuarter = `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`
 
-      console.log('[One Page Plan] 📅 Looking for SWOT:', { year: currentYear, quarter: currentQuarter, userId: user.id })
+      devLog('[One Page Plan] 📅 Looking for SWOT:', { year: currentYear, quarter: currentQuarter, userId: user.id })
 
       // Try to get any SWOT data first
       const { data: allSwotData, error: allSwotError } = await supabase
@@ -193,13 +275,13 @@ export default function OnePagePlan() {
         .order('created_at', { ascending: false })
         .limit(1)
 
-      console.log('[One Page Plan] 💡 All SWOT data:', { data: allSwotData, error: allSwotError })
+      devLog('[One Page Plan] 💡 All SWOT data:', { data: allSwotData, error: allSwotError })
 
       // Use the most recent SWOT if found
       const swotData = allSwotData && allSwotData.length > 0 ? allSwotData[0] : null
       const swotItems = swotData?.swot_items || []
 
-      console.log('[One Page Plan] 💡 SWOT items extracted:', swotItems?.length)
+      devLog('[One Page Plan] 💡 SWOT items extracted:', swotItems?.length)
 
       // Load Financial Goals & Core Metrics
       const { data: financialGoals, error: finError } = await supabase
@@ -208,7 +290,7 @@ export default function OnePagePlan() {
         .eq('business_id', businessId)
         .single()
 
-      console.log('[One Page Plan] 💰 Financial Goals data:', { data: financialGoals, error: finError })
+      devLog('[One Page Plan] 💰 Financial Goals data:', { data: financialGoals, error: finError })
 
       // Load KPIs
       const { data: kpisData, error: kpiError } = await supabase
@@ -216,7 +298,7 @@ export default function OnePagePlan() {
         .select('*')
         .eq('business_id', businessId)
 
-      console.log('[One Page Plan] 📊 KPIs data:', { count: kpisData?.length, error: kpiError })
+      devLog('[One Page Plan] 📊 KPIs data:', { count: kpisData?.length, error: kpiError })
 
       // Load Quarterly Targets
       const { data: quarterlyTargetsData, error: qtError } = await supabase
@@ -225,13 +307,13 @@ export default function OnePagePlan() {
         .eq('business_id', businessId)
         .single()
 
-      console.log('[One Page Plan] 📅 Quarterly Targets data:', { data: quarterlyTargetsData, error: qtError })
+      devLog('[One Page Plan] 📅 Quarterly Targets data:', { data: quarterlyTargetsData, error: qtError })
 
       // Quarterly targets is already an object (Supabase auto-parses JSONB)
       const allQuarterlyTargets = quarterlyTargetsData?.quarterly_targets || null
       const currentQuarterTargets = allQuarterlyTargets?.[currentQuarter.toLowerCase()] || {}
 
-      console.log('[One Page Plan] 📅 Current Quarter Targets:', { quarter: currentQuarter, targets: currentQuarterTargets })
+      devLog('[One Page Plan] 📅 Current Quarter Targets:', { quarter: currentQuarter, targets: currentQuarterTargets })
 
       // Load Strategic Initiatives (12-month plan)
       const { data: initiatives, error: initError } = await supabase
@@ -241,7 +323,7 @@ export default function OnePagePlan() {
         .eq('step_type', 'twelve_month')
         .order('order_index', { ascending: true })
 
-      console.log('[One Page Plan] 🎯 Strategic Initiatives:', { count: initiatives?.length, error: initError })
+      devLog('[One Page Plan] 🎯 Strategic Initiatives:', { count: initiatives?.length, error: initError })
 
       // Load current quarter initiatives for rocks
       const currentQuarterStepType = currentQuarter.toLowerCase() // 'q1', 'q2', 'q3', or 'q4'
@@ -257,10 +339,10 @@ export default function OnePagePlan() {
       // Note: We use quarterInitiatives (from strategic_initiatives table with current quarter filter)
       // instead of sprint_key_actions because sprint_key_actions doesn't have a quarter field
       // This ensures Quarterly Rocks always show the current quarter's initiatives
-      console.log('[One Page Plan] ⚡ Using Quarter Initiatives for Rocks:', { count: quarterInitiatives?.length })
+      devLog('[One Page Plan] ⚡ Using Quarter Initiatives for Rocks:', { count: quarterInitiatives?.length })
 
       // Debug: Log what we're about to assemble
-      console.log('[One Page Plan] 🔧 Assembling data...')
+      devLog('[One Page Plan] 🔧 Assembling data...')
       console.log('  - Vision Mission:', visionMission)
       console.log('  - SWOT Items:', swotItems?.length)
       console.log('  - Financial Goals structure:', financialGoals ? Object.keys(financialGoals) : 'null')
@@ -352,13 +434,14 @@ export default function OnePagePlan() {
         }
       }
 
-      console.log('[One Page Plan] ✅ Final assembled data:', planData)
-      console.log('[One Page Plan] 📋 Strategic Initiatives Array:', planData.strategicInitiatives)
-      console.log('[One Page Plan] 📋 First Initiative:', planData.strategicInitiatives[0])
-      console.log('[One Page Plan] 🪨 Quarterly Rocks Array:', planData.quarterlyRocks)
-      console.log('[One Page Plan] 🪨 First Rock:', planData.quarterlyRocks[0])
-      console.log('[One Page Plan] 👤 Owner Goals:', planData.ownerGoals)
+      devLog('[One Page Plan] ✅ Final assembled data:', planData)
+      devLog('[One Page Plan] 📋 Strategic Initiatives Array:', planData.strategicInitiatives)
+      devLog('[One Page Plan] 📋 First Initiative:', planData.strategicInitiatives[0])
+      devLog('[One Page Plan] 🪨 Quarterly Rocks Array:', planData.quarterlyRocks)
+      devLog('[One Page Plan] 🪨 First Rock:', planData.quarterlyRocks[0])
+      devLog('[One Page Plan] 👤 Owner Goals:', planData.ownerGoals)
       setData(planData)
+      setLastUpdated(new Date())
     } catch (err) {
       console.error('[One Page Plan] ❌ Error loading data:', err)
       console.error('[One Page Plan] ❌ Error details:', err instanceof Error ? err.message : String(err))
@@ -435,6 +518,114 @@ export default function OnePagePlan() {
         </div>
       </div>
 
+      {/* Strategic Health Dashboard - Hidden when printing */}
+      {data && (() => {
+        const health = calculatePlanHealth(data)
+        const insights = generateCoachingInsights(data)
+        return (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6 print:hidden">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <div className="flex items-start gap-6">
+                {/* Health Score */}
+                <div className="flex-shrink-0">
+                  <div className="relative">
+                    <svg className="w-20 h-20 transform -rotate-90">
+                      <circle
+                        cx="40"
+                        cy="40"
+                        r="36"
+                        stroke="#e5e7eb"
+                        strokeWidth="8"
+                        fill="none"
+                      />
+                      <circle
+                        cx="40"
+                        cy="40"
+                        r="36"
+                        stroke={health.percentage >= 70 ? '#22c55e' : health.percentage >= 40 ? '#f59e0b' : '#ef4444'}
+                        strokeWidth="8"
+                        fill="none"
+                        strokeDasharray={`${(health.percentage / 100) * 226} 226`}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-xl font-bold text-gray-900">{health.percentage}%</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-600 text-center mt-1">Plan Health</p>
+                </div>
+
+                {/* Section Checklist */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-2">Strategic Plan Completeness</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {health.sections.map((section, idx) => (
+                      <Link
+                        key={idx}
+                        href={section.link}
+                        className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded ${
+                          section.complete
+                            ? 'text-green-700 bg-green-50 hover:bg-green-100'
+                            : 'text-gray-600 bg-gray-50 hover:bg-gray-100'
+                        }`}
+                      >
+                        {section.complete ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                        ) : (
+                          <Circle className="w-3.5 h-3.5 text-gray-400" />
+                        )}
+                        <span className="truncate">{section.name}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Quarter Focus Visualization */}
+                <div className="flex-shrink-0">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-2">Quarter Focus</h3>
+                  <div className="flex gap-1">
+                    {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => (
+                      <div
+                        key={q}
+                        className={`w-10 h-10 rounded flex items-center justify-center text-xs font-semibold ${
+                          data.currentQuarter === q
+                            ? 'bg-blue-600 text-white ring-2 ring-blue-300'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
+                        {q}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 text-xs text-gray-600 space-y-0.5">
+                    <p><span className="font-medium">{data.strategicInitiatives.length}</span> annual initiatives</p>
+                    <p><span className="font-medium">{data.quarterlyRocks.length}</span> {data.currentQuarter} rocks</p>
+                  </div>
+                </div>
+
+                {/* Coaching Insights */}
+                {insights.length > 0 && (
+                  <div className="flex-shrink-0 max-w-xs">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Lightbulb className="w-4 h-4 text-amber-500" />
+                      <h3 className="text-sm font-semibold text-gray-900">Coaching Insights</h3>
+                    </div>
+                    <ul className="space-y-1.5">
+                      {insights.map((insight, idx) => (
+                        <li key={idx} className="text-xs text-gray-600 leading-relaxed">
+                          {insight}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* One Page Plan - Printable */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white shadow-lg rounded-lg print:shadow-none print:rounded-none">
@@ -448,6 +639,9 @@ export default function OnePagePlan() {
               <div className="text-right">
                 <p className="text-base font-semibold text-gray-900">Year {data.planYear}</p>
                 <p className="text-sm text-gray-600">{new Date().toLocaleDateString()}</p>
+                {lastUpdated && (
+                  <p className="text-xs text-gray-500">Updated {lastUpdated.toLocaleTimeString()}</p>
+                )}
                 <p className="text-sm text-red-600 mt-1 font-medium">CONFIDENTIAL</p>
               </div>
             </div>
@@ -460,7 +654,16 @@ export default function OnePagePlan() {
                 <h3 className="text-sm font-bold text-blue-900 uppercase text-center">Vision (Where We're Going)</h3>
               </div>
               <div className="flex-1 flex items-center justify-center p-4">
-                <p className="text-base text-gray-900 leading-relaxed text-center">{data.vision || 'Not set'}</p>
+                {data.vision ? (
+                  <p className="text-base text-gray-900 leading-relaxed text-center">{data.vision}</p>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500 mb-2">Vision not set</p>
+                    <Link href="/vision-mission" className="text-xs text-blue-600 hover:text-blue-800 underline">
+                      Set your vision →
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
             <div className="border-r border-gray-300 flex flex-col">
@@ -468,7 +671,16 @@ export default function OnePagePlan() {
                 <h3 className="text-sm font-bold text-blue-900 uppercase text-center">Mission (Why We Exist)</h3>
               </div>
               <div className="flex-1 flex items-center justify-center p-4">
-                <p className="text-base text-gray-900 leading-relaxed text-center">{data.mission || 'Not set'}</p>
+                {data.mission ? (
+                  <p className="text-base text-gray-900 leading-relaxed text-center">{data.mission}</p>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500 mb-2">Mission not set</p>
+                    <Link href="/vision-mission" className="text-xs text-blue-600 hover:text-blue-800 underline">
+                      Set your mission →
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex flex-col">
@@ -476,13 +688,22 @@ export default function OnePagePlan() {
                 <h3 className="text-sm font-bold text-blue-900 uppercase text-center">Core Values</h3>
               </div>
               <div className="flex-1 flex items-center justify-center p-4">
-                <ul className="space-y-1.5 text-center">
-                  {data.coreValues.slice(0, 8).map((value, idx) => (
-                    <li key={idx} className="text-sm text-gray-900">
-                      {value}
-                    </li>
-                  ))}
-                </ul>
+                {data.coreValues.length > 0 ? (
+                  <ul className="space-y-1.5 text-center">
+                    {data.coreValues.slice(0, 8).map((value, idx) => (
+                      <li key={idx} className="text-sm text-gray-900">
+                        {value}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500 mb-2">Core values not set</p>
+                    <Link href="/vision-mission" className="text-xs text-blue-600 hover:text-blue-800 underline">
+                      Add core values →
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -491,29 +712,56 @@ export default function OnePagePlan() {
           <div className="grid grid-cols-4 border-b border-gray-300">
             <div className="p-4 border-r border-gray-300">
               <h3 className="text-sm font-bold text-green-700 uppercase mb-2">Strengths</h3>
-              <ol className="space-y-1.5">
-                {data.strengths.slice(0, 5).map((item, idx) => (
-                  <li key={idx} className="text-sm text-gray-800">{idx + 1}. {item}</li>
-                ))}
-              </ol>
+              {data.strengths.length > 0 ? (
+                <ol className="space-y-1.5">
+                  {data.strengths.slice(0, 5).map((item, idx) => (
+                    <li key={idx} className="text-sm text-gray-800">{idx + 1}. {item}</li>
+                  ))}
+                </ol>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-xs text-gray-500 mb-2">No strengths identified</p>
+                  <Link href="/swot" className="text-xs text-blue-600 hover:text-blue-800 underline">
+                    Complete SWOT →
+                  </Link>
+                </div>
+              )}
             </div>
 
             <div className="p-4 border-r border-gray-300">
               <h3 className="text-sm font-bold text-orange-700 uppercase mb-2">Weaknesses</h3>
-              <ol className="space-y-1.5">
-                {data.weaknesses.slice(0, 5).map((item, idx) => (
-                  <li key={idx} className="text-sm text-gray-800">{idx + 1}. {item}</li>
-                ))}
-              </ol>
+              {data.weaknesses.length > 0 ? (
+                <ol className="space-y-1.5">
+                  {data.weaknesses.slice(0, 5).map((item, idx) => (
+                    <li key={idx} className="text-sm text-gray-800">{idx + 1}. {item}</li>
+                  ))}
+                </ol>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-xs text-gray-500 mb-2">No weaknesses identified</p>
+                  <Link href="/swot" className="text-xs text-blue-600 hover:text-blue-800 underline">
+                    Complete SWOT →
+                  </Link>
+                </div>
+              )}
             </div>
 
             <div className="p-4 border-r border-gray-300">
               <h3 className="text-sm font-bold text-blue-700 uppercase mb-2">Opportunities</h3>
-              <ol className="space-y-1.5">
-                {data.opportunities.slice(0, 5).map((item, idx) => (
-                  <li key={idx} className="text-sm text-gray-800">{idx + 1}. {item}</li>
-                ))}
-              </ol>
+              {data.opportunities.length > 0 ? (
+                <ol className="space-y-1.5">
+                  {data.opportunities.slice(0, 5).map((item, idx) => (
+                    <li key={idx} className="text-sm text-gray-800">{idx + 1}. {item}</li>
+                  ))}
+                </ol>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-xs text-gray-500 mb-2">No opportunities identified</p>
+                  <Link href="/swot" className="text-xs text-blue-600 hover:text-blue-800 underline">
+                    Complete SWOT →
+                  </Link>
+                </div>
+              )}
             </div>
 
             <div className="p-4">
