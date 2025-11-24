@@ -199,7 +199,7 @@ export default function OnePagePlan() {
       // Get business_id from business_profiles (same as strategic planning wizard)
       const { data: profile, error: profileError } = await supabase
         .from('business_profiles')
-        .select('id, industry, owner_info')
+        .select('id, industry, owner_info, key_roles')
         .eq('user_id', user.id)
         .single()
 
@@ -211,26 +211,22 @@ export default function OnePagePlan() {
       // Parse owner_info if it exists (JSONB field)
       const ownerInfo = profile?.owner_info || {}
 
-      // Build team members lookup map (ID -> name) from localStorage
+      // Build team members lookup map (ID -> name) from profile data
+      // This matches how Step690DaySprintV3 loads team members
       const teamMembersMap: Record<string, string> = {}
 
-      // Try to load team members from localStorage (same as Step5AnnualPlan)
-      if (typeof window !== 'undefined') {
-        const stored = localStorage.getItem('team_members')
-        if (stored) {
-          try {
-            const teamMembers = JSON.parse(stored)
-            if (Array.isArray(teamMembers)) {
-              teamMembers.forEach((member: any) => {
-                if (member.id && member.name) {
-                  teamMembersMap[member.id] = member.name
-                }
-              })
-            }
-          } catch (e) {
-            console.warn('[One Page Plan] Failed to parse team members from localStorage')
+      // Add owner from owner_info
+      if (ownerInfo.owner_name) {
+        teamMembersMap[`owner-${businessId}`] = ownerInfo.owner_name
+      }
+
+      // Add team members from key_roles
+      if (profile?.key_roles && Array.isArray(profile.key_roles)) {
+        profile.key_roles.forEach((role: any, index: number) => {
+          if (role.name && role.name.trim()) {
+            teamMembersMap[`role-${businessId}-${index}`] = role.name
           }
-        }
+        })
       }
 
       devLog('[One Page Plan] 👥 Team Members Map:', teamMembersMap)
