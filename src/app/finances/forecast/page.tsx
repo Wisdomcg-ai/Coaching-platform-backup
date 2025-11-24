@@ -26,6 +26,7 @@ import CSVImportWizard from './components/CSVImportWizard'
 import SaveVersionModal from './components/SaveVersionModal'
 import VersionsTab from './components/VersionsTab'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { getForecastFiscalYear } from './utils/fiscal-year'
 import CoachNavbar from '@/components/coach/CoachNavbar'
 
 export default function FinancialForecastPage() {
@@ -142,13 +143,10 @@ export default function FinancialForecastPage() {
 
       console.log(`[Forecast] Loading data for business: ${bizId}`)
 
-      // Get or create forecast for FY26
+      // Get or create forecast for current fiscal year
       // Fiscal year runs Jul 1 - Jun 30
-      // FY26 = Jul 1, 2025 - Jun 30, 2026
-      //
-      // We want to always forecast for FY26 (the year ahead from FY25 actuals)
-      // Until you're ready to move to FY27, this stays as 2026
-      const fiscalYear = 2026 // FY26 forecast
+      // Dynamically calculated based on current date
+      const fiscalYear = getForecastFiscalYear()
 
       const { forecast: loadedForecast, error: forecastError } =
         await ForecastService.getOrCreateForecast(bizId, uid, fiscalYear)
