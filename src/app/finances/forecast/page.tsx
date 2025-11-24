@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Loader2, TrendingUp, Users, Download, Upload, Link as LinkIcon, Settings, X, Lightbulb, Save, Clock } from 'lucide-react'
+import { Loader2, Settings, X, Lightbulb, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import ForecastService from './services/forecast-service'
 import './forecast-styles.css'
@@ -25,7 +25,10 @@ import VersionManager from './components/VersionManager'
 import CSVImportWizard from './components/CSVImportWizard'
 import SaveVersionModal from './components/SaveVersionModal'
 import VersionsTab from './components/VersionsTab'
+import XeroConnectionPanel from './components/XeroConnectionPanel'
+import ForecastTabs, { type ForecastTab } from './components/ForecastTabs'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { useXeroSync } from './hooks/useXeroSync'
 import { getForecastFiscalYear } from './utils/fiscal-year'
 import CoachNavbar from '@/components/coach/CoachNavbar'
 
@@ -42,12 +45,12 @@ export default function FinancialForecastPage() {
   const [employees, setEmployees] = useState<ForecastEmployee[]>([])
   const [xeroConnection, setXeroConnection] = useState<XeroConnection | null>(null)
 
-  const [activeTab, setActiveTab] = useState<'assumptions' | 'pl' | 'payroll' | 'versions'>(() => {
+  const [activeTab, setActiveTab] = useState<ForecastTab>(() => {
     // Remember last active tab from localStorage
     if (typeof window !== 'undefined') {
       const savedTab = localStorage.getItem('forecast-active-tab')
       if (savedTab && ['assumptions', 'pl', 'payroll', 'versions'].includes(savedTab)) {
-        return savedTab as 'assumptions' | 'pl' | 'payroll' | 'versions'
+        return savedTab as ForecastTab
       }
     }
     return 'assumptions'
@@ -61,6 +64,25 @@ export default function FinancialForecastPage() {
   const [versions, setVersions] = useState<FinancialForecast[]>([])
   const [showSaveVersionModal, setShowSaveVersionModal] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+
+  // Xero sync hook
+  const {
+    isSyncing,
+    handleConnectXero,
+    handleDisconnectXero,
+    handleSyncFromXero,
+    handleClearAndResync
+  } = useXeroSync({
+    forecastId: forecast?.id,
+    businessId,
+    onPlLinesUpdate: setPlLines,
+    onXeroConnectionUpdate: setXeroConnection,
+    onForecastClear: () => {
+      setForecast(null)
+      setPlLines([])
+      setEmployees([])
+    }
+  })
 
   // Save active tab to localStorage whenever it changes
   useEffect(() => {
@@ -639,151 +661,7 @@ export default function FinancialForecastPage() {
     toast.success('Applied annual increase to all Operating Expenses lines! Review and adjust in the P&L Forecast tab.')
   }
 
-  const handleConnectXero = () => {
-    // Redirect to integrations page - single source of truth for connections
-    window.location.href = '/integrations'
-  }
-
-  const handleDisconnectXero = () => {
-    // Redirect to integrations page to manage the connection
-    window.location.href = '/integrations'
-  }
-
-  const handleDisconnectAndClearAll = async () => {
-    if (!confirm('⚠️ WARNING: This will permanently disconnect Xero and delete ALL forecast data (P&L lines, employees, forecasts). This cannot be undone. Continue?')) {
-      return
-    }
-
-    if (!confirm('Are you absolutely sure? This will remove all sensitive data and you\'ll start fresh.')) {
-      return
-    }
-
-    setIsSaving(true)
-    try {
-      // 1. Delete all P&L lines for this business
-      if (forecast?.id) {
-        await supabase
-          .from('forecast_pl_lines')
-          .delete()
-          .eq('forecast_id', forecast.id)
-      }
-
-      // 2. Delete all employees for this business
-      if (forecast?.id) {
-        await supabase
-          .from('forecast_employees')
-          .delete()
-          .eq('forecast_id', forecast.id)
-      }
-
-      // 3. Delete all forecasts for this business
-      await supabase
-        .from('financial_forecasts')
-        .delete()
-        .eq('business_id', businessId)
-
-      // 4. Disconnect Xero
-      await supabase
-        .from('xero_connections')
-        .delete()
-        .eq('business_id', businessId)
-
-      // 5. Clear all state
-      setForecast(null)
-      setPlLines([])
-      setEmployees([])
-      setXeroConnection(null)
-
-      toast.success('Successfully disconnected Xero and cleared all data. Reloading...')
-
-      // Reload the page to start fresh
-      setTimeout(() => window.location.reload(), 1000)
-    } catch (err) {
-      console.error('[Forecast] Error disconnecting and clearing:', err)
-      toast.error('Error disconnecting and clearing data')
-    }
-    setIsSaving(false)
-  }
-
-  const handleClearAndResync = async () => {
-    if (!forecast?.id || !xeroConnection) return
-
-    if (!confirm('This will delete all existing P&L data and resync from Xero. Continue?')) {
-      return
-    }
-
-    setIsSaving(true)
-    try {
-      // Delete all existing Xero lines
-      await supabase
-        .from('forecast_pl_lines')
-        .delete()
-        .eq('forecast_id', forecast.id)
-        .eq('is_from_xero', true)
-
-      // Clear the state
-      setPlLines([])
-
-      // Wait a moment for the delete to process
-      await new Promise(resolve => setTimeout(resolve, 500))
-
-      // Now sync from Xero
-      const response = await fetch('/api/Xero/sync-forecast', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          forecast_id: forecast.id,
-          business_id: businessId
-        })
-      })
-
-      const result = await response.json()
-
-      if (result.success) {
-        // Reload P&L lines
-        const lines = await ForecastService.loadPLLines(forecast.id)
-        setPlLines(lines)
-        toast.success('Successfully cleared and resynced data from Xero!')
-      } else {
-        toast.error('Error syncing from Xero: ' + result.error)
-      }
-    } catch (err) {
-      console.error('[Forecast] Error clearing and resyncing:', err)
-      toast.error('Error clearing and resyncing')
-    }
-    setIsSaving(false)
-  }
-
-  const handleSyncFromXero = async () => {
-    if (!forecast?.id || !xeroConnection) return
-
-    setIsSaving(true)
-    try {
-      const response = await fetch('/api/Xero/sync-forecast', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          forecast_id: forecast.id,
-          business_id: businessId
-        })
-      })
-
-      const result = await response.json()
-
-      if (result.success) {
-        // Reload P&L lines
-        const lines = await ForecastService.loadPLLines(forecast.id)
-        setPlLines(lines)
-        toast.success('Successfully synced data from Xero!')
-      } else {
-        toast.error('Error syncing from Xero: ' + result.error)
-      }
-    } catch (err) {
-      console.error('[Forecast] Error syncing from Xero:', err)
-      toast.error('Error syncing from Xero')
-    }
-    setIsSaving(false)
-  }
+  // Xero handlers are now provided by useXeroSync hook
 
   // Calculate current forecast totals for Goals Panel
   const currentForecastTotals = useMemo(() => {
@@ -1205,72 +1083,15 @@ export default function FinancialForecastPage() {
 
           {/* Xero Connection Status */}
           <div className="border-t pt-4">
-            {xeroConnection ? (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      Connected to Xero: {xeroConnection.tenant_name}
-                    </p>
-                    {xeroConnection.last_synced_at && (
-                      <p className="text-xs text-gray-500">
-                        Last synced: {new Date(xeroConnection.last_synced_at).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={handleDisconnectXero}
-                    disabled={isSaving}
-                    className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-                  >
-                    <Settings className="w-4 h-4" />
-                    <span>Manage Connection</span>
-                  </button>
-                  <button
-                    onClick={handleClearAndResync}
-                    disabled={isSaving}
-                    className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
-                  >
-                    <Upload className="w-4 h-4" />
-                    <span>Clear & Resync</span>
-                  </button>
-                  <button
-                    onClick={handleSyncFromXero}
-                    disabled={isSaving}
-                    className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Sync from Xero</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
-                  <p className="text-sm text-gray-600">Not connected to Xero</p>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <button
-                    onClick={() => setShowCSVImport(true)}
-                    className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                  >
-                    <Upload className="w-4 h-4" />
-                    <span>Import CSV</span>
-                  </button>
-                  <button
-                    onClick={handleConnectXero}
-                    className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <LinkIcon className="w-4 h-4" />
-                    <span>Connect Xero</span>
-                  </button>
-                </div>
-              </div>
-            )}
+            <XeroConnectionPanel
+              xeroConnection={xeroConnection}
+              isSaving={isSaving || isSyncing}
+              onConnect={handleConnectXero}
+              onDisconnect={handleDisconnectXero}
+              onSync={handleSyncFromXero}
+              onClearAndResync={handleClearAndResync}
+              onOpenCSVImport={() => setShowCSVImport(true)}
+            />
           </div>
         </div>
 
@@ -1292,64 +1113,7 @@ export default function FinancialForecastPage() {
         )}
 
         {/* Tabs */}
-        <div className="bg-white rounded-lg shadow-sm mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6" aria-label="Tabs">
-              <button
-                onClick={() => setActiveTab('assumptions')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === 'assumptions'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <Settings className="w-4 h-4" />
-                  <span>Goals & Assumptions</span>
-                </div>
-              </button>
-              <button
-                onClick={() => setActiveTab('pl')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === 'pl'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <TrendingUp className="w-4 h-4" />
-                  <span>P&L Forecast</span>
-                </div>
-              </button>
-              <button
-                onClick={() => setActiveTab('payroll')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === 'payroll'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <Users className="w-4 h-4" />
-                  <span>Payroll & Staff</span>
-                </div>
-              </button>
-              <button
-                onClick={() => setActiveTab('versions')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === 'versions'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <Clock className="w-4 h-4" />
-                  <span>Versions</span>
-                </div>
-              </button>
-            </nav>
-          </div>
-        </div>
+        <ForecastTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
         {/* Content */}
         {activeTab === 'assumptions' && (
