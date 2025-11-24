@@ -9,7 +9,9 @@ import Step4RefineInitiatives from './components/Step4RefineInitiatives'
 import Step5AnnualPlan from './components/Step5AnnualPlan'
 import Step690DaySprintV3 from './components/Step690DaySprintV3'
 import { FinancialData, KPIData, StrategicInitiative, YearType } from './types'
-import { Target, ListChecks, Calendar, Zap, Brain, Rocket, ChevronLeft, ChevronRight, CheckCircle, Loader2 } from 'lucide-react'
+import { Target, ListChecks, Calendar, Zap, Brain, Rocket, ChevronLeft, ChevronRight, CheckCircle, Loader2, TrendingUp, AlertCircle, Info, HelpCircle } from 'lucide-react'
+import CoachNavbar from '@/components/coach/CoachNavbar'
+import Link from 'next/link'
 
 type StepNumber = 1 | 2 | 3 | 4 | 5
 
@@ -58,6 +60,76 @@ const STEPS: StepInfo[] = [
     description: 'Focus on Q1 with specific actions'
   }
 ]
+
+// Coaching help content for each step
+const STEP_COACHING: Record<StepNumber, { questions: string[]; tips: string[] }> = {
+  1: {
+    questions: [
+      "What does success look like 3 years from now? (Revenue, team size, lifestyle)",
+      "Which metrics truly matter to your business model? (Not just vanity metrics)",
+      "Are your goals aligned with your SWOT strengths and opportunities?",
+      "What growth rate is ambitious yet achievable based on your current trajectory?"
+    ],
+    tips: [
+      "Strong Goal: '$2M revenue, 15 employees, 4-day work week' - Specific, measurable, meaningful",
+      "Weak Goal: 'Grow the business and be successful' - Too vague, not actionable",
+      "Your 3-year vision should stretch you but not break you - aim for 3-5x growth, not 100x"
+    ]
+  },
+  2: {
+    questions: [
+      "What initiatives would leverage your biggest strengths?",
+      "What ideas directly address your critical weaknesses?",
+      "Which opportunities have the highest potential ROI?",
+      "What quick wins can build momentum while working on bigger initiatives?"
+    ],
+    tips: [
+      "Capture everything first - don't filter yet. Prioritization comes in Step 3.",
+      "Look at your SWOT: SO strategies (Strength+Opportunity) are often the highest value",
+      "Consider both revenue-generating AND operational improvement initiatives"
+    ]
+  },
+  3: {
+    questions: [
+      "Which 12-20 initiatives will move you closest to your 3-year goals?",
+      "Are you balancing quick wins (Q1-Q2) with strategic bets (Q3-Q4)?",
+      "Do you have the resources (time, money, people) to execute these?",
+      "Which initiatives are dependencies for others? (Do those first)"
+    ],
+    tips: [
+      "Aim for 12-20 initiatives total - more than that and you'll spread too thin",
+      "80/20 rule: 20% of initiatives will drive 80% of your progress - prioritize ruthlessly",
+      "It's okay to defer good ideas - focus creates results, spreading thin creates burnout"
+    ]
+  },
+  4: {
+    questions: [
+      "Which initiatives must happen in Q1 to enable the rest?",
+      "Are you front-loading too much? (Leave room for unexpected opportunities)",
+      "Does each quarter have a clear theme or focus area?",
+      "Have you scheduled time for quarterly reviews and course corrections?"
+    ],
+    tips: [
+      "Q1 should be your most concrete - you're executing this immediately",
+      "Q2-Q4 can be more flexible - adjust based on Q1 learnings",
+      "Balance 'foundation-building' initiatives with 'revenue-generating' ones each quarter"
+    ]
+  },
+  5: {
+    questions: [
+      "What are the 3-5 most critical actions that will define Q1 success?",
+      "Who specifically is responsible for each key action?",
+      "What's your weekly rhythm for reviewing progress and staying on track?",
+      "What will you stop doing to create space for these priorities?"
+    ],
+    tips: [
+      "90 days goes fast - focus is everything. Less is more.",
+      "Strong action: 'Launch MVP to 10 pilot customers by Mar 15 (Sarah owns)'",
+      "Weak action: 'Work on product development' - no deadline, no owner, not specific",
+      "Schedule weekly 15-min check-ins with yourself or team to maintain momentum"
+    ]
+  }
+}
 
 export default function StrategicPlanningPage() {
   const searchParams = useSearchParams()
@@ -118,6 +190,7 @@ export default function StrategicPlanningPage() {
 
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
   const [showKPIModal, setShowKPIModal] = useState(false)
+  const [showStepHelp, setShowStepHelp] = useState(false)
 
   // Auto-save whenever data changes
   useEffect(() => {
@@ -138,9 +211,10 @@ export default function StrategicPlanningPage() {
         await saveAllData()
         setIsSaving(false)
       }
-    }, 1000)
+    }, 3000) // 3 seconds - better for user experience
 
     return () => clearTimeout(saveTimer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isLoading,
     mounted,
@@ -153,8 +227,8 @@ export default function StrategicPlanningPage() {
     annualPlanByQuarter,
     sprintFocus,
     sprintKeyActions,
-    operationalActivities,
-    saveAllData
+    operationalActivities
+    // Note: saveAllData is intentionally excluded to prevent stale closure bugs
   ])
 
   const toggleSection = (section: string) => {
@@ -176,7 +250,7 @@ export default function StrategicPlanningPage() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Strategic Planning Wizard</h1>
-                <p className="text-gray-600 mt-1">Build your 3-year roadmap, step by step</p>
+                <p className="text-base text-gray-600 mt-1">Build your 3-year roadmap, step by step</p>
               </div>
             </div>
             <div className="w-full h-2 bg-gray-200 rounded-full"></div>
@@ -226,13 +300,14 @@ export default function StrategicPlanningPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <CoachNavbar businessId={businessId} />
       {/* Header */}
       <div className="bg-white border-b">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Strategic Planning Wizard</h1>
-              <p className="text-gray-600 mt-1">Build your 3-year roadmap, step by step</p>
+              <p className="text-base text-gray-600 mt-1">Build your 3-year roadmap, step by step</p>
             </div>
             <div className="flex items-center space-x-3">
               {isSaving && (
@@ -261,6 +336,30 @@ export default function StrategicPlanningPage() {
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* SWOT Integration Banner */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2 border-blue-200">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <TrendingUp className="w-5 h-5 text-blue-600" />
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">Strategic Context</h3>
+                <p className="text-sm text-gray-600">
+                  Your goals should align with your SWOT insights - leverage strengths, address weaknesses, seize opportunities, mitigate threats
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/swot"
+              className="inline-flex items-center px-4 py-2 bg-white border border-blue-300 rounded-lg text-sm font-medium text-blue-700 hover:bg-blue-50 transition-colors whitespace-nowrap"
+            >
+              <AlertCircle className="w-4 h-4 mr-2" />
+              View SWOT Analysis
+            </Link>
           </div>
         </div>
       </div>
@@ -303,19 +402,64 @@ export default function StrategicPlanningPage() {
       {/* Main Content */}
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Step Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-3">
-            {currentStepInfo && (
-              <>
-                <currentStepInfo.icon className="w-6 h-6 text-blue-600" />
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Step {currentStep}: {currentStepInfo.title}
-                </h2>
-              </>
-            )}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              {currentStepInfo && (
+                <>
+                  <currentStepInfo.icon className="w-6 h-6 text-blue-600" />
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Step {currentStep}: {currentStepInfo.title}
+                  </h2>
+                </>
+              )}
+            </div>
+            <button
+              onClick={() => setShowStepHelp(!showStepHelp)}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+            >
+              <HelpCircle className="w-4 h-4" />
+              {showStepHelp ? 'Hide' : 'Show'} Coaching Tips
+            </button>
           </div>
-          <p className="text-gray-600 ml-9">{currentStepInfo?.description}</p>
+          <p className="text-base text-gray-600 ml-9">{currentStepInfo?.description}</p>
         </div>
+
+        {/* Coaching Help Section */}
+        {showStepHelp && STEP_COACHING[currentStep] && (
+          <div className="mb-6 bg-amber-50 border-2 border-amber-200 rounded-lg p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Brain className="w-5 h-5 text-amber-700" />
+              <h3 className="text-lg font-semibold text-amber-900">Strategic Coaching for This Step</h3>
+            </div>
+
+            {/* Questions */}
+            <div className="mb-4">
+              <p className="text-base font-medium text-amber-900 mb-3">💡 Key Questions to Consider:</p>
+              <ul className="space-y-2">
+                {STEP_COACHING[currentStep].questions.map((question, idx) => (
+                  <li key={idx} className="flex items-start text-base text-amber-800">
+                    <span className="text-amber-600 mr-2 mt-1">•</span>
+                    <span>{question}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Tips */}
+            <div className="border-t border-amber-300 pt-4">
+              <p className="text-base font-medium text-amber-900 mb-3">✓ Best Practices:</p>
+              <ul className="space-y-2">
+                {STEP_COACHING[currentStep].tips.map((tip, idx) => (
+                  <li key={idx} className="flex items-start text-base text-amber-800">
+                    <span className="text-amber-600 mr-2 mt-1">→</span>
+                    <span>{tip}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
 
         {/* Step Content */}
         <div className="bg-white rounded-lg shadow-sm">
@@ -440,17 +584,9 @@ export default function StrategicPlanningPage() {
                 <h3 className="text-lg font-semibold text-green-900 mb-2">
                   🎉 Your Strategic Plan is Ready!
                 </h3>
-                <p className="text-green-800 mb-4">
+                <p className="text-base text-green-800">
                   You've completed all 5 steps and have a clear roadmap for the next 90 days and beyond. Time to execute!
                 </p>
-                <div className="flex items-center gap-3">
-                  <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
-                    📥 Export as PDF
-                  </button>
-                  <button className="px-4 py-2 bg-white text-green-600 border border-green-300 rounded-lg hover:bg-green-50 font-medium">
-                    👥 Share with Team
-                  </button>
-                </div>
               </div>
             </div>
           </div>
