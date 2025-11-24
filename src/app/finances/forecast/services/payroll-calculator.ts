@@ -1,20 +1,18 @@
 import type { PayrollFrequency, ForecastEmployee } from '../types'
+import {
+  TAX_BRACKETS_2024_25,
+  PAY_PERIODS_PER_YEAR,
+  SUPERANNUATION,
+  WORK_HOURS
+} from '../constants'
 
 export class PayrollCalculator {
   /**
    * Calculate pay per period from annual salary
    */
   static calculatePayPerPeriod(annualSalary: number, frequency: PayrollFrequency): number {
-    switch (frequency) {
-      case 'weekly':
-        return annualSalary / 52
-      case 'fortnightly':
-        return annualSalary / 26
-      case 'monthly':
-        return annualSalary / 12
-      default:
-        return 0
-    }
+    const periods = PAY_PERIODS_PER_YEAR[frequency]
+    return periods ? annualSalary / periods : 0
   }
 
   /**
@@ -24,7 +22,7 @@ export class PayrollCalculator {
     hourlyRate: number,
     standardHoursPerWeek: number
   ): number {
-    return hourlyRate * standardHoursPerWeek * 52
+    return hourlyRate * standardHoursPerWeek * PAY_PERIODS_PER_YEAR.weekly
   }
 
   /**
@@ -35,7 +33,7 @@ export class PayrollCalculator {
     standardHoursPerWeek: number
   ): number {
     if (standardHoursPerWeek === 0) return 0
-    return annualSalary / (standardHoursPerWeek * 52)
+    return annualSalary / (standardHoursPerWeek * PAY_PERIODS_PER_YEAR.weekly)
   }
 
   /**
@@ -54,7 +52,7 @@ export class PayrollCalculator {
       case 'fortnightly':
         return weeklyPay * 2
       case 'monthly':
-        return (weeklyPay * 52) / 12
+        return (weeklyPay * PAY_PERIODS_PER_YEAR.weekly) / PAY_PERIODS_PER_YEAR.monthly
       default:
         return 0
     }
@@ -62,45 +60,42 @@ export class PayrollCalculator {
 
   /**
    * Calculate superannuation per period
+   * Default rate is the current superannuation guarantee rate
    */
-  static calculateSuperPerPeriod(payPerPeriod: number, superRate: number = 0.12): number {
+  static calculateSuperPerPeriod(
+    payPerPeriod: number,
+    superRate: number = SUPERANNUATION.DEFAULT_RATE
+  ): number {
     return payPerPeriod * superRate
   }
 
   /**
    * Calculate PAYG tax per period using Australian tax brackets
    * Based on annual salary, then divided by periods
+   * Uses 2024-25 tax brackets from constants
    */
   static calculatePAYGPerPeriod(
     annualSalary: number,
     frequency: PayrollFrequency
   ): number {
-    // Australian tax brackets (2024-25)
+    const tax = TAX_BRACKETS_2024_25
     let annualTax = 0
 
-    if (annualSalary <= 18200) {
+    if (annualSalary <= tax.TAX_FREE_THRESHOLD) {
       annualTax = 0
-    } else if (annualSalary <= 45000) {
-      annualTax = (annualSalary - 18200) * 0.19
-    } else if (annualSalary <= 120000) {
-      annualTax = (annualSalary - 45000) * 0.325 + 5092
-    } else if (annualSalary <= 180000) {
-      annualTax = (annualSalary - 120000) * 0.37 + 29467
+    } else if (annualSalary <= tax.BRACKET_1_MAX) {
+      annualTax = (annualSalary - tax.TAX_FREE_THRESHOLD) * tax.BRACKET_1_RATE
+    } else if (annualSalary <= tax.BRACKET_2_MAX) {
+      annualTax = (annualSalary - tax.BRACKET_1_MAX) * tax.BRACKET_2_RATE + tax.BRACKET_2_BASE_TAX
+    } else if (annualSalary <= tax.BRACKET_3_MAX) {
+      annualTax = (annualSalary - tax.BRACKET_2_MAX) * tax.BRACKET_3_RATE + tax.BRACKET_3_BASE_TAX
     } else {
-      annualTax = (annualSalary - 180000) * 0.45 + 51667
+      annualTax = (annualSalary - tax.BRACKET_3_MAX) * tax.BRACKET_4_RATE + tax.BRACKET_4_BASE_TAX
     }
 
     // Divide by number of periods
-    switch (frequency) {
-      case 'weekly':
-        return annualTax / 52
-      case 'fortnightly':
-        return annualTax / 26
-      case 'monthly':
-        return annualTax / 12
-      default:
-        return 0
-    }
+    const periods = PAY_PERIODS_PER_YEAR[frequency]
+    return periods ? annualTax / periods : 0
   }
 
   /**
@@ -108,9 +103,9 @@ export class PayrollCalculator {
    */
   static calculateMonthlyCost(
     annualSalary: number,
-    superRate: number = 0.12
+    superRate: number = SUPERANNUATION.DEFAULT_RATE
   ): number {
-    const monthlySalary = annualSalary / 12
+    const monthlySalary = annualSalary / PAY_PERIODS_PER_YEAR.monthly
     const monthlySuper = monthlySalary * superRate
     return monthlySalary + monthlySuper
   }
@@ -122,14 +117,14 @@ export class PayrollCalculator {
   static recalculateEmployee(
     employee: ForecastEmployee,
     frequency: PayrollFrequency,
-    superRate: number = 0.12,
+    superRate: number = SUPERANNUATION.DEFAULT_RATE,
     changedField?: 'annual_salary' | 'hourly_rate'
   ): ForecastEmployee {
     const updated = { ...employee }
 
     // If annual salary was changed, recalculate hourly rate
     if (changedField === 'annual_salary' && updated.annual_salary) {
-      const standardHours = updated.standard_hours_per_week || 40 // Default to 40 hours
+      const standardHours = updated.standard_hours_per_week || WORK_HOURS.DEFAULT_HOURS_PER_WEEK
       updated.hourly_rate = this.calculateHourlyRateFromAnnual(
         updated.annual_salary,
         standardHours
@@ -138,7 +133,7 @@ export class PayrollCalculator {
 
     // If hourly rate was changed, recalculate annual salary
     if (changedField === 'hourly_rate' && updated.hourly_rate) {
-      const standardHours = updated.standard_hours_per_week || 40
+      const standardHours = updated.standard_hours_per_week || WORK_HOURS.DEFAULT_HOURS_PER_WEEK
       updated.annual_salary = this.calculateAnnualSalaryFromHourly(
         updated.hourly_rate,
         standardHours
@@ -262,7 +257,7 @@ export class PayrollCalculator {
     monthKey: string,
     frequency: PayrollFrequency,
     payDay?: string,
-    superRate: number = 0.12
+    superRate: number = SUPERANNUATION.DEFAULT_RATE
   ): number {
     if (!employee.annual_salary) return 0
 

@@ -5,6 +5,7 @@ import { Plus, X, Settings, Link as LinkIcon, ChevronDown, ChevronUp } from 'luc
 import type { FinancialForecast, ForecastEmployee, PayrollFrequency, PayDay, WageClassification, PLLine } from '../types'
 import ForecastService from '../services/forecast-service'
 import { PayrollCalculator } from '../services/payroll-calculator'
+import { SUPERANNUATION } from '../constants'
 
 interface PayrollTableProps {
   forecast: FinancialForecast
@@ -28,7 +29,7 @@ export default function PayrollTable({ forecast, employees, plLines, onSave, onU
     forecast.payroll_frequency || 'fortnightly'
   )
   const [payDay, setPayDay] = useState<PayDay>(forecast.pay_day || 'thursday')
-  const [superRate, setSuperRate] = useState<number>(forecast.superannuation_rate || 0.12)
+  const [superRate, setSuperRate] = useState<number>(forecast.superannuation_rate || SUPERANNUATION.DEFAULT_RATE)
 
   // P&L mapping state
   const [wagesOpexLineId, setWagesOpexLineId] = useState<string>(forecast.wages_opex_pl_line_id || '')
@@ -60,7 +61,9 @@ export default function PayrollTable({ forecast, employees, plLines, onSave, onU
       forecast.actual_start_month,
       forecast.actual_end_month,
       forecast.forecast_start_month,
-      forecast.forecast_end_month
+      forecast.forecast_end_month,
+      forecast.baseline_start_month,
+      forecast.baseline_end_month
     )
     setMonthColumns(columns)
   }, [forecast])
@@ -501,7 +504,7 @@ export default function PayrollTable({ forecast, employees, plLines, onSave, onU
               <input
                 type="number"
                 value={(superRate * 100).toFixed(1)}
-                onChange={(e) => setSuperRate(parseFloat(e.target.value) / 100 || 0.12)}
+                onChange={(e) => setSuperRate(parseFloat(e.target.value) / 100 || SUPERANNUATION.DEFAULT_RATE)}
                 step="0.1"
                 min="0"
                 max="100"
