@@ -149,7 +149,7 @@ export default function ManageAssessments() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading assessments...</p>
         </div>
       </div>
@@ -172,7 +172,7 @@ export default function ManageAssessments() {
             <h1 className="text-xl font-semibold text-gray-900">Manage Assessments</h1>
             <button
               onClick={() => router.push('/assessment')}
-              className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg"
+              className="flex items-center px-4 py-2 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-lg hover:from-teal-700 hover:to-teal-800 transition-all duration-200 shadow-lg"
             >
               <Plus className="h-5 w-5 mr-2" />
               New Assessment
@@ -211,7 +211,7 @@ export default function ManageAssessments() {
             <p className="text-gray-600 mb-6">Start fresh with a new assessment to evaluate your business.</p>
             <button
               onClick={() => router.push('/assessment')}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg"
+              className="px-6 py-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-lg hover:from-teal-700 hover:to-teal-800 transition-all duration-200 shadow-lg"
             >
               Start New Assessment
             </button>
@@ -257,7 +257,7 @@ export default function ManageAssessments() {
                     {assessment.completion_percentage === 100 && (
                       <button
                         onClick={() => router.push('/assessment/results')}
-                        className="px-3 py-1.5 text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors text-sm"
+                        className="px-3 py-1.5 text-teal-600 border border-teal-300 rounded-lg hover:bg-teal-50 transition-colors text-sm"
                       >
                         View Report
                       </button>
@@ -296,12 +296,12 @@ export default function ManageAssessments() {
         )}
 
         {/* Info Box */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-xl p-6">
+        <div className="mt-8 bg-teal-50 border border-teal-200 rounded-xl p-6">
           <div className="flex items-start space-x-3">
-            <AlertTriangle className="h-5 w-5 text-blue-600 mt-0.5" />
+            <AlertTriangle className="h-5 w-5 text-teal-600 mt-0.5" />
             <div>
-              <h3 className="font-semibold text-blue-900 mb-1">About Assessments</h3>
-              <ul className="text-sm text-blue-800 space-y-1">
+              <h3 className="font-semibold text-teal-900 mb-1">About Assessments</h3>
+              <ul className="text-sm text-teal-800 space-y-1">
                 <li>• We recommend completing assessments quarterly to track progress</li>
                 <li>• Each assessment provides a snapshot of your business at that point in time</li>
                 <li>• Deleting assessments is permanent and cannot be undone</li>

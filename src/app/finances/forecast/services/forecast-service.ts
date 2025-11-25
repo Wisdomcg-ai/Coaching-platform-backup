@@ -13,6 +13,75 @@ export class ForecastService {
   private static supabase = createClient()
 
   /**
+   * Calculate forecast periods based on current date and fiscal year
+   * Returns both baseline (prior FY for comparison) and current periods
+   * If we're in the fiscal year, split into YTD actuals + remaining forecast
+   * If we're before the fiscal year, entire period is forecast
+   */
+  private static calculateForecastPeriods(fiscalYear: number): {
+    baseline_start_month: string
+    baseline_end_month: string
+    actual_start_month: string
+    actual_end_month: string
+    forecast_start_month: string
+    forecast_end_month: string
+    is_rolling: boolean
+  } {
+    const today = new Date()
+    const fyStart = new Date(fiscalYear - 1, 6, 1) // Jul 1 of previous year (e.g., Jul 1, 2025 for FY26)
+    const fyEnd = new Date(fiscalYear, 5, 30) // Jun 30 of fiscal year (e.g., Jun 30, 2026 for FY26)
+
+    // Baseline is always the prior fiscal year (for patterns and comparison)
+    const baselineStart = `${fiscalYear - 2}-07` // Jul 2024 (FY25 start)
+    const baselineEnd = `${fiscalYear - 1}-06`   // Jun 2025 (FY25 end)
+
+    // Check if we're currently IN the fiscal year being forecasted
+    if (today >= fyStart && today <= fyEnd) {
+      // We're in the fiscal year - this is a rolling forecast
+      // Round down to last complete month
+      const lastCompleteMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+      const lastCompleteMonthStr = `${lastCompleteMonth.getFullYear()}-${String(lastCompleteMonth.getMonth() + 1).padStart(2, '0')}`
+
+      // Forecast starts from current month (or next month if today is near month end)
+      const forecastStart = new Date(today.getFullYear(), today.getMonth(), 1)
+      const forecastStartStr = `${forecastStart.getFullYear()}-${String(forecastStart.getMonth() + 1).padStart(2, '0')}`
+
+      console.log('[Forecast] Rolling forecast detected:', {
+        today: today.toISOString().split('T')[0],
+        fyStart: fyStart.toISOString().split('T')[0],
+        fyEnd: fyEnd.toISOString().split('T')[0],
+        baseline: `${baselineStart} to ${baselineEnd}`,
+        actualYTD: `${fiscalYear - 1}-07 to ${lastCompleteMonthStr}`,
+        forecastRemaining: `${forecastStartStr} to ${fiscalYear}-06`
+      })
+
+      return {
+        baseline_start_month: baselineStart,
+        baseline_end_month: baselineEnd,
+        actual_start_month: `${fiscalYear - 1}-07`, // Start of current FY (Jul 2025)
+        actual_end_month: lastCompleteMonthStr, // Last complete month (Oct 2025)
+        forecast_start_month: forecastStartStr, // Current/next month (Nov 2025)
+        forecast_end_month: `${fiscalYear}-06`, // End of FY (Jun 2026)
+        is_rolling: true
+      }
+    } else {
+      // Not in fiscal year yet - standard annual forecast
+      // Baseline = prior FY for patterns
+      // Actual = none yet (FY hasn't started)
+      // Forecast = entire upcoming FY
+      return {
+        baseline_start_month: baselineStart,
+        baseline_end_month: baselineEnd,
+        actual_start_month: `${fiscalYear - 1}-07`, // Jul 2025 (will have data once FY starts)
+        actual_end_month: `${fiscalYear - 1}-06`, // Jun 2025 (placeholder, will update when rolling)
+        forecast_start_month: `${fiscalYear - 1}-07`, // Jul 2025 (start of FY26)
+        forecast_end_month: `${fiscalYear}-06`, // Jun 2026 (end of FY26)
+        is_rolling: false
+      }
+    }
+  }
+
+  /**
    * Get or create a forecast for a business
    */
   static async getOrCreateForecast(
@@ -34,20 +103,47 @@ export class ForecastService {
         const forecast = existing[0]
         console.log('[Forecast] Found existing forecast:', forecast.id, 'fiscal_year:', forecast.fiscal_year)
 
-        // If the forecast has wrong fiscal year or dates, update them
-        if (forecast.fiscal_year !== fiscalYear ||
-            forecast.actual_start_month !== `${fiscalYear - 2}-07` ||
-            forecast.forecast_start_month !== `${fiscalYear - 1}-07`) {
-          console.log('[Forecast] Updating forecast dates to correct FY')
-          const { error: updateError } = await this.supabase
+        // Calculate correct periods based on current date (handles rolling forecasts)
+        const periods = this.calculateForecastPeriods(fiscalYear)
+
+        // Check if forecast needs updating (fiscal year or dates changed)
+        const needsUpdate =
+          forecast.fiscal_year !== fiscalYear ||
+          forecast.baseline_start_month !== periods.baseline_start_month ||
+          forecast.baseline_end_month !== periods.baseline_end_month ||
+          forecast.actual_start_month !== periods.actual_start_month ||
+          forecast.actual_end_month !== periods.actual_end_month ||
+          forecast.forecast_start_month !== periods.forecast_start_month ||
+          forecast.forecast_end_month !== periods.forecast_end_month
+
+        if (needsUpdate) {
+          console.log('[Forecast] Updating forecast dates:', {
+            old: {
+              baseline: `${forecast.baseline_start_month || 'none'} to ${forecast.baseline_end_month || 'none'}`,
+              actual: `${forecast.actual_start_month} to ${forecast.actual_end_month}`,
+              forecast: `${forecast.forecast_start_month} to ${forecast.forecast_end_month}`
+            },
+            new: {
+              baseline: `${periods.baseline_start_month} to ${periods.baseline_end_month}`,
+              actual: `${periods.actual_start_month} to ${periods.actual_end_month}`,
+              forecast: `${periods.forecast_start_month} to ${periods.forecast_end_month}`
+            },
+            isRolling: periods.is_rolling
+          })
+
+          const { error: updateError} = await this.supabase
             .from('financial_forecasts')
             .update({
               fiscal_year: fiscalYear,
-              name: `FY${fiscalYear} Financial Forecast`,
-              actual_start_month: `${fiscalYear - 2}-07`, // Jul 2024 (FY25 actuals)
-              actual_end_month: `${fiscalYear - 1}-06`, // Jun 2025 (FY25 actuals)
-              forecast_start_month: `${fiscalYear - 1}-07`, // Jul 2025 (FY26 forecast)
-              forecast_end_month: `${fiscalYear}-06`, // Jun 2026 (FY26 forecast)
+              name: periods.is_rolling
+                ? `FY${fiscalYear} Forecast (${new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })})`
+                : `FY${fiscalYear} Financial Forecast`,
+              baseline_start_month: periods.baseline_start_month,
+              baseline_end_month: periods.baseline_end_month,
+              actual_start_month: periods.actual_start_month,
+              actual_end_month: periods.actual_end_month,
+              forecast_start_month: periods.forecast_start_month,
+              forecast_end_month: periods.forecast_end_month,
               updated_at: new Date().toISOString()
             })
             .eq('id', forecast.id)
@@ -57,11 +153,15 @@ export class ForecastService {
           } else {
             // Return updated forecast
             forecast.fiscal_year = fiscalYear
-            forecast.name = `FY${fiscalYear} Financial Forecast`
-            forecast.actual_start_month = `${fiscalYear - 2}-07`
-            forecast.actual_end_month = `${fiscalYear - 1}-06`
-            forecast.forecast_start_month = `${fiscalYear - 1}-07`
-            forecast.forecast_end_month = `${fiscalYear}-06`
+            forecast.name = periods.is_rolling
+              ? `FY${fiscalYear} Forecast (${new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })})`
+              : `FY${fiscalYear} Financial Forecast`
+            forecast.baseline_start_month = periods.baseline_start_month
+            forecast.baseline_end_month = periods.baseline_end_month
+            forecast.actual_start_month = periods.actual_start_month
+            forecast.actual_end_month = periods.actual_end_month
+            forecast.forecast_start_month = periods.forecast_start_month
+            forecast.forecast_end_month = periods.forecast_end_month
           }
         }
 
@@ -69,19 +169,23 @@ export class ForecastService {
       }
 
       // Create new forecast
-      // fiscal_year represents the FORECAST year (e.g., 2026 for FY26)
-      // Actuals = previous fiscal year (FY25 = Jul 2024 - Jun 2025)
-      // Forecast = current fiscal year (FY26 = Jul 2025 - Jun 2026)
+      // Calculate periods based on current date
+      const periods = this.calculateForecastPeriods(fiscalYear)
+
       const newForecast: Partial<FinancialForecast> = {
         business_id: businessId,
         user_id: userId,
-        name: `FY${fiscalYear} Financial Forecast`,
+        name: periods.is_rolling
+          ? `FY${fiscalYear} Forecast (${new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })})`
+          : `FY${fiscalYear} Financial Forecast`,
         fiscal_year: fiscalYear,
         year_type: 'FY',
-        actual_start_month: `${fiscalYear - 2}-07`, // Jul 2024 (start of FY25)
-        actual_end_month: `${fiscalYear - 1}-06`, // Jun 2025 (end of FY25)
-        forecast_start_month: `${fiscalYear - 1}-07`, // Jul 2025 (start of FY26)
-        forecast_end_month: `${fiscalYear}-06`, // Jun 2026 (end of FY26)
+        baseline_start_month: periods.baseline_start_month,
+        baseline_end_month: periods.baseline_end_month,
+        actual_start_month: periods.actual_start_month,
+        actual_end_month: periods.actual_end_month,
+        forecast_start_month: periods.forecast_start_month,
+        forecast_end_month: periods.forecast_end_month,
         is_completed: false
       }
 
@@ -322,59 +426,170 @@ export class ForecastService {
   }
 
   /**
+   * Get current year month keys (YTD actuals)
+   * Returns array of month keys from baseline end to forecast start
+   */
+  static getCurrentYearMonthKeys(baselineEndMonth: string, forecastStartMonth: string): string[] {
+    const months: string[] = []
+
+    // Parse start and end months
+    const [startYear, startMonth] = baselineEndMonth.split('-').map(Number)
+    const [endYear, endMonth] = forecastStartMonth.split('-').map(Number)
+
+    // Start from the month after baseline ends
+    let currentYear = startYear
+    let currentMonth = startMonth + 1
+
+    // Adjust if we roll over into next year
+    if (currentMonth > 12) {
+      currentMonth = 1
+      currentYear++
+    }
+
+    // Generate months up to (but not including) forecast start
+    while (currentYear < endYear || (currentYear === endYear && currentMonth < endMonth)) {
+      const monthStr = String(currentMonth).padStart(2, '0')
+      months.push(`${currentYear}-${monthStr}`)
+
+      currentMonth++
+      if (currentMonth > 12) {
+        currentMonth = 1
+        currentYear++
+      }
+    }
+
+    return months
+  }
+
+  /**
+   * Get forecast month keys
+   * Returns array of month keys for the forecast period
+   */
+  static getForecastMonthKeys(forecastStartMonth: string, forecastEndMonth: string): string[] {
+    const months: string[] = []
+
+    // Parse start and end months
+    const [startYear, startMonth] = forecastStartMonth.split('-').map(Number)
+    const [endYear, endMonth] = forecastEndMonth.split('-').map(Number)
+
+    let currentYear = startYear
+    let currentMonth = startMonth
+
+    // Generate months from start to end (inclusive)
+    while (currentYear < endYear || (currentYear === endYear && currentMonth <= endMonth)) {
+      const monthStr = String(currentMonth).padStart(2, '0')
+      months.push(`${currentYear}-${monthStr}`)
+
+      currentMonth++
+      if (currentMonth > 12) {
+        currentMonth = 1
+        currentYear++
+      }
+    }
+
+    return months
+  }
+
+  /**
    * Generate month columns for the forecast table
    */
   static generateMonthColumns(
     actualStartMonth: string,
     actualEndMonth: string,
     forecastStartMonth: string,
-    forecastEndMonth: string
+    forecastEndMonth: string,
+    baselineStartMonth?: string,
+    baselineEndMonth?: string
   ) {
     const columns: Array<{
       key: string
       label: string
       isActual: boolean
       isForecast: boolean
+      isBaseline?: boolean
     }> = []
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-    // Generate actual months
-    let currentDate = new Date(actualStartMonth + '-01')
-    const actualEnd = new Date(actualEndMonth + '-01')
+    // Step 1: Generate baseline months (if provided) - FY25: Jul 24 - Jun 25
+    if (baselineStartMonth && baselineEndMonth) {
+      const [startYear, startMonth] = baselineStartMonth.split('-').map(Number)
+      const [endYear, endMonth] = baselineEndMonth.split('-').map(Number)
 
-    while (currentDate <= actualEnd) {
-      const year = currentDate.getFullYear()
-      const month = currentDate.getMonth()
-      const yearShort = year.toString().slice(-2)
+      let currentYear = startYear
+      let currentMonth = startMonth
 
-      columns.push({
-        key: `${year}-${(month + 1).toString().padStart(2, '0')}`,
-        label: `${monthNames[month]} ${yearShort}`,
-        isActual: true,
-        isForecast: false
-      })
+      while (currentYear < endYear || (currentYear === endYear && currentMonth <= endMonth)) {
+        const monthIndex = currentMonth - 1 // Convert to 0-based for array lookup
+        const yearShort = currentYear.toString().slice(-2)
 
-      currentDate.setMonth(currentDate.getMonth() + 1)
+        columns.push({
+          key: `${currentYear}-${currentMonth.toString().padStart(2, '0')}`,
+          label: `${monthNames[monthIndex]} ${yearShort}`,
+          isActual: true,
+          isForecast: false,
+          isBaseline: true
+        })
+
+        currentMonth++
+        if (currentMonth > 12) {
+          currentMonth = 1
+          currentYear++
+        }
+      }
     }
 
-    // Generate forecast months
-    currentDate = new Date(forecastStartMonth + '-01')
-    const forecastEnd = new Date(forecastEndMonth + '-01')
+    // Step 2: Generate FY26 columns in order (YTD actuals + forecast together)
+    // Start with current year YTD actuals - FY26 YTD: Jul 25 - Oct 25
+    const [actualStartYear, actualStartMonthNum] = actualStartMonth.split('-').map(Number)
+    const [actualEndYear, actualEndMonthNum] = actualEndMonth.split('-').map(Number)
 
-    while (currentDate <= forecastEnd) {
-      const year = currentDate.getFullYear()
-      const month = currentDate.getMonth()
-      const yearShort = year.toString().slice(-2)
+    let currentYear = actualStartYear
+    let currentMonth = actualStartMonthNum
+
+    while (currentYear < actualEndYear || (currentYear === actualEndYear && currentMonth <= actualEndMonthNum)) {
+      const monthIndex = currentMonth - 1
+      const yearShort = currentYear.toString().slice(-2)
 
       columns.push({
-        key: `${year}-${(month + 1).toString().padStart(2, '0')}`,
-        label: `${monthNames[month]} ${yearShort}`,
-        isActual: false,
-        isForecast: true
+        key: `${currentYear}-${currentMonth.toString().padStart(2, '0')}`,
+        label: `${monthNames[monthIndex]} ${yearShort}`,
+        isActual: true,
+        isForecast: false,
+        isBaseline: false
       })
 
-      currentDate.setMonth(currentDate.getMonth() + 1)
+      currentMonth++
+      if (currentMonth > 12) {
+        currentMonth = 1
+        currentYear++
+      }
+    }
+
+    // Step 3: Then add forecast months right after - FY26 Forecast: Nov 25 - Jun 26
+    const [forecastStartYear, forecastStartMonthNum] = forecastStartMonth.split('-').map(Number)
+    const [forecastEndYear, forecastEndMonthNum] = forecastEndMonth.split('-').map(Number)
+
+    currentYear = forecastStartYear
+    currentMonth = forecastStartMonthNum
+
+    while (currentYear < forecastEndYear || (currentYear === forecastEndYear && currentMonth <= forecastEndMonthNum)) {
+      const monthIndex = currentMonth - 1
+      const yearShort = currentYear.toString().slice(-2)
+
+      columns.push({
+        key: `${currentYear}-${currentMonth.toString().padStart(2, '0')}`,
+        label: `${monthNames[monthIndex]} ${yearShort}`,
+        isActual: false,
+        isForecast: true,
+        isBaseline: false
+      })
+
+      currentMonth++
+      if (currentMonth > 12) {
+        currentMonth = 1
+        currentYear++
+      }
     }
 
     return columns

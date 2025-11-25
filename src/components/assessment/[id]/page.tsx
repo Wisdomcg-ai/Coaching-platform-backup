@@ -100,7 +100,7 @@ export default function AssessmentResultsPage() {
       case 'improvement':
         return <AlertTriangle className="w-5 h-5 text-yellow-500" />;
       case 'opportunity':
-        return <Target className="w-5 h-5 text-blue-500" />;
+        return <Target className="w-5 h-5 text-teal-500" />;
       default:
         return <BarChart3 className="w-5 h-5 text-gray-500" />;
     }
@@ -123,7 +123,7 @@ export default function AssessmentResultsPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Analyzing your assessment results...</p>
         </div>
       </div>
@@ -138,7 +138,7 @@ export default function AssessmentResultsPage() {
           <p className="text-gray-600">Assessment not found</p>
           <button
             onClick={() => router.push('/dashboard')}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="mt-4 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
           >
             Return to Dashboard
           </button>
@@ -164,7 +164,7 @@ export default function AssessmentResultsPage() {
               <div className="h-6 w-px bg-gray-300"></div>
               <h1 className="text-2xl font-bold text-gray-900">Assessment Results</h1>
             </div>
-            <button className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <button className="flex items-center px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">
               <Download className="w-4 h-4 mr-2" />
               Export Report
             </button>
@@ -318,12 +318,12 @@ export default function AssessmentResultsPage() {
 
             {/* Opportunities */}
             <div className="space-y-3">
-              <h3 className="font-semibold text-blue-600 flex items-center">
+              <h3 className="font-semibold text-teal-600 flex items-center">
                 <Target className="w-5 h-5 mr-2" />
                 Opportunities
               </h3>
               {insights.filter(i => i.type === 'opportunity').map((insight, index) => (
-                <div key={index} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div key={index} className="bg-teal-50 border border-teal-200 rounded-lg p-4">
                   <div className="flex items-start">
                     {getInsightIcon(insight.type)}
                     <div className="ml-3 flex-1">
@@ -343,7 +343,7 @@ export default function AssessmentResultsPage() {
           <div className="mt-8 pt-6 border-t">
             <h3 className="font-semibold text-gray-900 mb-4">Recommended Next Steps</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button className="flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button className="flex items-center justify-center px-4 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700">
                 <Target className="w-5 h-5 mr-2" />
                 Set 90-Day Goals
               </button>

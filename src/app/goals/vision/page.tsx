@@ -349,17 +349,17 @@ export default function VisionTargetsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-slate-50">
         <Navigation />
         <div className="flex justify-center items-center h-[calc(100vh-64px)]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       <Navigation />
       
       <div className="max-w-6xl mx-auto p-6">
@@ -383,7 +383,7 @@ export default function VisionTargetsPage() {
                   type="number"
                   value={formData.three_year_revenue || ''}
                   onChange={(e) => handleInputChange('three_year_revenue', Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                   placeholder="5000000"
                 />
               </div>
@@ -397,7 +397,7 @@ export default function VisionTargetsPage() {
                 type="number"
                 value={formData.three_year_team_size || ''}
                 onChange={(e) => handleInputChange('three_year_team_size', Number(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                 placeholder="25"
               />
             </div>
@@ -411,7 +411,7 @@ export default function VisionTargetsPage() {
                   type="number"
                   value={formData.three_year_gross_margin_percent || ''}
                   onChange={(e) => handleInputChange('three_year_gross_margin_percent', Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                   placeholder="45"
                 />
                 <span className="ml-2">%</span>
@@ -427,7 +427,7 @@ export default function VisionTargetsPage() {
                   type="number"
                   value={formData.three_year_net_margin_percent || ''}
                   onChange={(e) => handleInputChange('three_year_net_margin_percent', Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                   placeholder="20"
                 />
                 <span className="ml-2">%</span>
@@ -441,7 +441,7 @@ export default function VisionTargetsPage() {
               <textarea
                 value={formData.three_year_strategic_position || ''}
                 onChange={(e) => handleInputChange('three_year_strategic_position', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                 rows={2}
                 placeholder="Market leader in our region, known for innovation and customer service..."
               />
@@ -454,7 +454,7 @@ export default function VisionTargetsPage() {
               <textarea
                 value={formData.three_year_capabilities || ''}
                 onChange={(e) => handleInputChange('three_year_capabilities', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                 rows={2}
                 placeholder="Advanced data analytics, AI integration, international expansion capabilities..."
               />
@@ -468,7 +468,7 @@ export default function VisionTargetsPage() {
             <h2 className="text-xl font-semibold">1-Year Goals</h2>
             <button
               onClick={() => setShowCalculator(true)}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="flex items-center px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700"
             >
               <Calculator className="h-4 w-4 mr-2" />
               Show Profit Calculator
@@ -486,7 +486,7 @@ export default function VisionTargetsPage() {
                   type="number"
                   value={formData.one_year_revenue || ''}
                   onChange={(e) => handleInputChange('one_year_revenue', Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                   placeholder="1500000"
                 />
               </div>
@@ -502,7 +502,7 @@ export default function VisionTargetsPage() {
                   type="number"
                   value={formData.one_year_gross_profit || ''}
                   onChange={(e) => handleInputChange('one_year_gross_profit', Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                   placeholder="600000"
                 />
               </div>
@@ -517,7 +517,7 @@ export default function VisionTargetsPage() {
                   type="number"
                   value={formData.one_year_gross_margin_percent || ''}
                   onChange={(e) => handleInputChange('one_year_gross_margin_percent', Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                   placeholder="40"
                 />
                 <span className="ml-2">%</span>
@@ -534,7 +534,7 @@ export default function VisionTargetsPage() {
                   type="number"
                   value={formData.one_year_net_profit || ''}
                   onChange={(e) => handleInputChange('one_year_net_profit', Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                   placeholder="225000"
                 />
               </div>
@@ -549,7 +549,7 @@ export default function VisionTargetsPage() {
                   type="number"
                   value={formData.one_year_net_margin_percent || ''}
                   onChange={(e) => handleInputChange('one_year_net_margin_percent', Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                   placeholder="15"
                 />
                 <span className="ml-2">%</span>
@@ -623,7 +623,7 @@ export default function VisionTargetsPage() {
                         addKPI(category)
                         if (!isExpanded) toggleCategory(category)
                       }}
-                      className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                      className="p-1 text-teal-600 hover:bg-teal-50 rounded"
                     >
                       <Plus className="h-5 w-5" />
                     </button>
@@ -638,7 +638,7 @@ export default function VisionTargetsPage() {
                 {isExpanded && (
                   <div className="px-4 pb-4">
                     {category === 'People & Team' && categoryKPIs.length === 0 && (
-                      <div className="mb-3 p-3 bg-blue-50 rounded text-sm">
+                      <div className="mb-3 p-3 bg-teal-50 rounded text-sm">
                         <p className="font-medium mb-2">Suggested People Metrics:</p>
                         <div className="flex flex-wrap gap-2">
                           {PEOPLE_METRICS.map(metric => (
@@ -658,7 +658,7 @@ export default function VisionTargetsPage() {
                                   kpis: [...(prev.kpis || []), newKPI]
                                 }))
                               }}
-                              className="px-2 py-1 bg-white border border-blue-300 rounded text-xs hover:bg-blue-100"
+                              className="px-2 py-1 bg-white border border-teal-300 rounded text-xs hover:bg-teal-100"
                             >
                               + {metric}
                             </button>
@@ -740,7 +740,7 @@ export default function VisionTargetsPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+            className="px-6 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save Vision & Targets'}
           </button>

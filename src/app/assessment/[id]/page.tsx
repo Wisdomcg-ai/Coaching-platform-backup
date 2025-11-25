@@ -63,7 +63,7 @@ export default function AssessmentResultsPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
       </div>
     );
   }
@@ -76,7 +76,7 @@ export default function AssessmentResultsPage() {
           <p className="text-gray-600 mb-4">This assessment could not be loaded.</p>
           <button
             onClick={() => router.push('/dashboard')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
           >
             Back to Dashboard
           </button>
@@ -151,7 +151,7 @@ export default function AssessmentResultsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-purple-50">
       {/* Header */}
       <div className="bg-white/90 backdrop-blur-sm border-b">
         <div className="max-w-6xl mx-auto px-4 py-6">
@@ -273,7 +273,7 @@ export default function AssessmentResultsPage() {
         {/* Recommendations Section */}
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
           <div className="flex items-center mb-6">
-            <Target className="w-6 h-6 text-blue-600 mr-3" />
+            <Target className="w-6 h-6 text-teal-600 mr-3" />
             <h2 className="text-2xl font-bold text-gray-900">Key Recommendations</h2>
           </div>
           
@@ -317,22 +317,22 @@ export default function AssessmentResultsPage() {
             </div>
 
             {/* Next Steps */}
-            <div className="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-lg">
+            <div className="bg-teal-50 border-l-4 border-teal-500 p-6 rounded-lg">
               <div className="flex items-center mb-3">
-                <TrendingUp className="w-5 h-5 text-blue-600 mr-2" />
-                <h3 className="font-semibold text-blue-900">Next Steps</h3>
+                <TrendingUp className="w-5 h-5 text-teal-600 mr-2" />
+                <h3 className="font-semibold text-teal-900">Next Steps</h3>
               </div>
-              <ul className="text-sm text-blue-800 space-y-2">
+              <ul className="text-sm text-teal-800 space-y-2">
                 <li className="flex items-center">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mr-2" />
+                  <div className="w-2 h-2 bg-teal-500 rounded-full mr-2" />
                   Set specific improvement goals
                 </li>
                 <li className="flex items-center">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mr-2" />
+                  <div className="w-2 h-2 bg-teal-500 rounded-full mr-2" />
                   Focus on priority areas first
                 </li>
                 <li className="flex items-center">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mr-2" />
+                  <div className="w-2 h-2 bg-teal-500 rounded-full mr-2" />
                   Schedule regular progress reviews
                 </li>
               </ul>
@@ -341,10 +341,10 @@ export default function AssessmentResultsPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
+        <div className="bg-gradient-to-r from-teal-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
           <div className="text-center mb-6">
             <h2 className="text-2xl font-bold mb-2">Ready to Take Action?</h2>
-            <p className="text-blue-100">
+            <p className="text-teal-100">
               Transform your assessment insights into actionable business improvements
             </p>
           </div>
@@ -352,13 +352,13 @@ export default function AssessmentResultsPage() {
           <div className="grid md:grid-cols-2 gap-4">
             <button
               onClick={() => router.push('/strategic-goals')}
-              className="bg-white text-blue-600 font-semibold py-3 px-6 rounded-lg hover:bg-blue-50 transition-colors"
+              className="bg-white text-teal-600 font-semibold py-3 px-6 rounded-lg hover:bg-teal-50 transition-colors"
             >
               Set Strategic Goals
             </button>
             <button
               onClick={() => router.push('/assessment')}
-              className="bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-800 transition-colors"
+              className="bg-teal-700 text-white font-semibold py-3 px-6 rounded-lg hover:bg-teal-800 transition-colors"
             >
               Retake Assessment
             </button>

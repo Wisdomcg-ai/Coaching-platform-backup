@@ -2,15 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { useStrategicPlanning } from './hooks/useStrategicPlanning'
+import { useStrategicPlanning, SaveStatus } from './hooks/useStrategicPlanning'
 import Step1GoalsAndKPIs from './components/Step1GoalsAndKPIs'
 import Step2StrategicIdeas from './components/Step2StrategicIdeas'
-import Step4RefineInitiatives from './components/Step4RefineInitiatives'
-import Step5AnnualPlan from './components/Step5AnnualPlan'
-import Step690DaySprintV3 from './components/Step690DaySprintV3'
-import { FinancialData, KPIData, StrategicInitiative, YearType } from './types'
-import { Target, ListChecks, Calendar, Zap, Brain, Rocket, ChevronLeft, ChevronRight, CheckCircle, Loader2, TrendingUp, AlertCircle, Info, HelpCircle, ChevronDown, Shield, AlertTriangle as AlertTriangleIcon, Lightbulb } from 'lucide-react'
-import CoachNavbar from '@/components/coach/CoachNavbar'
+import Step3PrioritizeInitiatives from './components/Step3PrioritizeInitiatives'
+import Step4AnnualPlan from './components/Step4AnnualPlan'
+import Step5SprintPlanning from './components/Step5SprintPlanning'
+import { Target, Calendar, Brain, Rocket, ChevronLeft, ChevronRight, CheckCircle, Loader2, TrendingUp, AlertCircle, HelpCircle, ChevronDown, Shield, AlertTriangle as AlertTriangleIcon, Lightbulb, Save, Cloud, CloudOff } from 'lucide-react'
+// Note: Coach view is at /coach/clients/[id]/goals
 import Link from 'next/link'
 import { createBrowserClient } from '@supabase/ssr'
 
@@ -141,13 +140,35 @@ const STEP_COACHING: Record<StepNumber, { questions: string[]; tips: string[] }>
   }
 }
 
+// Helper function to get save status display
+function getSaveStatusDisplay(status: SaveStatus, isDirty: boolean, lastSaved: Date | null) {
+  if (status === 'saving') {
+    return { text: 'Saving...', color: 'text-amber-600', icon: 'saving' }
+  }
+  if (status === 'saved') {
+    return { text: 'All changes saved', color: 'text-green-600', icon: 'saved' }
+  }
+  if (status === 'error') {
+    return { text: 'Failed to save', color: 'text-red-600', icon: 'error' }
+  }
+  if (isDirty) {
+    return { text: 'Unsaved changes', color: 'text-amber-600', icon: 'dirty' }
+  }
+  if (lastSaved) {
+    const seconds = Math.floor((Date.now() - lastSaved.getTime()) / 1000)
+    if (seconds < 60) return { text: 'All changes saved', color: 'text-gray-500', icon: 'idle' }
+    if (seconds < 3600) return { text: `Saved ${Math.floor(seconds / 60)}m ago`, color: 'text-gray-500', icon: 'idle' }
+    return { text: `Saved ${Math.floor(seconds / 3600)}h ago`, color: 'text-gray-500', icon: 'idle' }
+  }
+  return { text: '', color: 'text-gray-500', icon: 'idle' }
+}
+
 export default function StrategicPlanningPage() {
   const searchParams = useSearchParams()
 
   // Hydration fix: ensure state matches between server and client
   const [mounted, setMounted] = useState(false)
   const [currentStep, setCurrentStep] = useState<StepNumber>(1)
-  const [isSaving, setIsSaving] = useState(false)
 
   // Only render interactive content after mounting
   useEffect(() => {
@@ -167,6 +188,11 @@ export default function StrategicPlanningPage() {
   const {
     isLoading,
     error,
+    // Auto-save status
+    isDirty,
+    saveStatus,
+    lastSaved,
+    // Step 1
     financialData,
     updateFinancialValue,
     coreMetrics,
@@ -178,23 +204,24 @@ export default function StrategicPlanningPage() {
     yearType,
     setYearType,
     businessId,
+    ownerUserId,
     industry,
+    // Step 2
     strategicIdeas,
     setStrategicIdeas,
-    roadmapSuggestions,
-    setRoadmapSuggestions,
+    // Step 3-4
     twelveMonthInitiatives,
     setTwelveMonthInitiatives,
     annualPlanByQuarter,
     setAnnualPlanByQuarter,
     quarterlyTargets,
     setQuarterlyTargets,
+    // Step 5
     sprintFocus,
-    setSprintFocus,
     sprintKeyActions,
-    setSprintKeyActions,
     operationalActivities,
     setOperationalActivities,
+    // Save
     saveAllData
   } = useStrategicPlanning()
 
@@ -205,49 +232,22 @@ export default function StrategicPlanningPage() {
   const [swotItems, setSwotItems] = useState<SwotItem[]>([])
   const [loadingSwot, setLoadingSwot] = useState(false)
 
-  // Auto-save whenever data changes
-  useEffect(() => {
-    const saveTimer = setTimeout(async () => {
-      if (!isLoading && mounted && (
-        financialData ||
-        coreMetrics ||
-        kpis ||
-        strategicIdeas ||
-        roadmapSuggestions ||
-        twelveMonthInitiatives ||
-        annualPlanByQuarter ||
-        sprintFocus ||
-        sprintKeyActions ||
-        operationalActivities
-      )) {
-        setIsSaving(true)
-        await saveAllData()
-        setIsSaving(false)
-      }
-    }, 3000) // 3 seconds - better for user experience
+  // Manual save function (still available as fallback)
+  const handleSave = async () => {
+    if (saveStatus === 'saving') return
+    await saveAllData()
+  }
 
-    return () => clearTimeout(saveTimer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    isLoading,
-    mounted,
-    financialData,
-    coreMetrics,
-    kpis,
-    strategicIdeas,
-    roadmapSuggestions,
-    twelveMonthInitiatives,
-    annualPlanByQuarter,
-    sprintFocus,
-    sprintKeyActions,
-    operationalActivities
-    // Note: saveAllData is intentionally excluded to prevent stale closure bugs
-  ])
+  // Get current save status for display
+  const statusDisplay = getSaveStatusDisplay(saveStatus, isDirty, lastSaved)
 
   // Load SWOT data for strategic context
+  // Note: SWOT data is stored with user.id as business_id (see /swot/page.tsx)
   useEffect(() => {
     const loadSwotData = async () => {
-      if (!businessId || !mounted) return
+      // Use ownerUserId for SWOT queries since that's how SWOT page saves data
+      const swotBusinessId = ownerUserId || businessId
+      if (!swotBusinessId || !mounted) return
 
       try {
         setLoadingSwot(true)
@@ -256,11 +256,13 @@ export default function StrategicPlanningPage() {
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         )
 
+        console.log('[Goals] Loading SWOT data for business_id:', swotBusinessId)
+
         // Get the most recent SWOT analysis
         const { data: analysis, error: analysisError } = await supabase
           .from('swot_analyses')
           .select('id')
-          .eq('business_id', businessId)
+          .eq('business_id', swotBusinessId)
           .eq('type', 'quarterly')
           .order('year', { ascending: false })
           .order('quarter', { ascending: false })
@@ -268,6 +270,7 @@ export default function StrategicPlanningPage() {
           .single()
 
         if (analysisError || !analysis) {
+          console.log('[Goals] No SWOT analysis found:', analysisError?.message)
           setSwotItems([])
           return
         }
@@ -280,6 +283,7 @@ export default function StrategicPlanningPage() {
           .order('impact_level', { ascending: false })
 
         if (!itemsError && items) {
+          console.log('[Goals] Loaded SWOT items:', items.length)
           setSwotItems(items)
         }
       } catch (err) {
@@ -290,7 +294,7 @@ export default function StrategicPlanningPage() {
     }
 
     loadSwotData()
-  }, [businessId, mounted])
+  }, [ownerUserId, businessId, mounted])
 
   const toggleSection = (section: string) => {
     const newCollapsed = new Set(collapsedSections)
@@ -318,7 +322,7 @@ export default function StrategicPlanningPage() {
   // HYDRATION FIX: Show skeleton before mounting
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-slate-50">
         <div className="bg-white border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div className="flex items-center justify-between mb-6">
@@ -348,9 +352,9 @@ export default function StrategicPlanningPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <Loader2 className="w-12 h-12 animate-spin text-teal-600 mx-auto mb-4" />
           <p className="text-gray-600">Loading your strategic plan...</p>
         </div>
       </div>
@@ -359,7 +363,7 @@ export default function StrategicPlanningPage() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="text-center">
           <p className="text-red-600 font-medium mb-2">Error loading data</p>
           <p className="text-gray-600">{error}</p>
@@ -373,8 +377,7 @@ export default function StrategicPlanningPage() {
   const canGoNext = currentStep < 5
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <CoachNavbar businessId={businessId} />
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <div className="bg-white border-b">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -383,18 +386,52 @@ export default function StrategicPlanningPage() {
               <h1 className="text-3xl font-bold text-gray-900">Strategic Planning Wizard</h1>
               <p className="text-base text-gray-600 mt-1">Build your 3-year roadmap, step by step</p>
             </div>
-            <div className="flex items-center space-x-3">
-              {isSaving && (
-                <div className="flex items-center text-gray-600">
-                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                  <span className="text-sm">Saving...</span>
-                </div>
-              )}
-              {!isSaving && (
-                <div className="text-sm text-green-600 font-medium">
-                  ✓ Auto-saved
-                </div>
-              )}
+            <div className="flex items-center space-x-4">
+              {/* Auto-save status indicator */}
+              <div className="flex items-center gap-2">
+                {saveStatus === 'saving' && (
+                  <Loader2 className="animate-spin h-4 w-4 text-amber-600" />
+                )}
+                {saveStatus === 'saved' && (
+                  <Cloud className="h-4 w-4 text-green-600" />
+                )}
+                {saveStatus === 'error' && (
+                  <CloudOff className="h-4 w-4 text-red-600" />
+                )}
+                {saveStatus === 'idle' && isDirty && (
+                  <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                )}
+                {saveStatus === 'idle' && !isDirty && lastSaved && (
+                  <Cloud className="h-4 w-4 text-gray-400" />
+                )}
+                {statusDisplay.text && (
+                  <span className={`text-xs font-medium ${statusDisplay.color}`}>
+                    {statusDisplay.text}
+                  </span>
+                )}
+              </div>
+              {/* Manual save button (as fallback) */}
+              <button
+                onClick={handleSave}
+                disabled={saveStatus === 'saving' || (!isDirty && saveStatus !== 'error')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                  saveStatus === 'saving' || (!isDirty && saveStatus !== 'error')
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-teal-600 text-white hover:bg-teal-700 shadow-sm hover:shadow-md'
+                }`}
+              >
+                {saveStatus === 'saving' ? (
+                  <>
+                    <Loader2 className="animate-spin h-4 w-4" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    <span>Save Now</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
@@ -402,11 +439,11 @@ export default function StrategicPlanningPage() {
           <div className="space-y-2">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700">Overall Progress</span>
-              <span className="text-sm font-bold text-blue-600">{completedCount}/5 steps</span>
+              <span className="text-sm font-bold text-teal-600">{completedCount}/5 steps</span>
             </div>
             <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
               <div
-                className="h-full bg-blue-600 transition-all duration-300"
+                className="h-full bg-teal-600 transition-all duration-300"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -415,14 +452,14 @@ export default function StrategicPlanningPage() {
       </div>
 
       {/* SWOT Integration - Expandable Inline Summary */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2 border-blue-200">
+      <div className="bg-teal-50 border-b-2 border-teal-200">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <button
             onClick={() => setShowSwotSummary(!showSwotSummary)}
-            className="w-full py-4 flex items-center justify-between hover:bg-blue-50/50 transition-colors rounded-lg"
+            className="w-full py-4 flex items-center justify-between hover:bg-teal-100/50 transition-colors rounded-lg"
           >
             <div className="flex items-center gap-3">
-              <TrendingUp className="w-5 h-5 text-blue-600" />
+              <TrendingUp className="w-5 h-5 text-teal-600" />
               <div className="text-left">
                 <h3 className="text-base font-semibold text-gray-900">
                   Your Strategic Context {swotItems.length > 0 && `(${swotItems.length} SWOT items)`}
@@ -433,7 +470,7 @@ export default function StrategicPlanningPage() {
               </div>
             </div>
             <ChevronDown
-              className={`w-5 h-5 text-blue-600 transition-transform ${showSwotSummary ? 'rotate-180' : ''}`}
+              className={`w-5 h-5 text-teal-600 transition-transform ${showSwotSummary ? 'rotate-180' : ''}`}
             />
           </button>
 
@@ -442,19 +479,19 @@ export default function StrategicPlanningPage() {
             <div className="pb-4">
               {loadingSwot ? (
                 <div className="text-center py-8">
-                  <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
+                  <Loader2 className="w-8 h-8 animate-spin text-teal-600 mx-auto mb-2" />
                   <p className="text-sm text-gray-600">Loading SWOT insights...</p>
                 </div>
               ) : swotItems.length === 0 ? (
-                <div className="bg-white rounded-lg p-6 text-center border-2 border-dashed border-blue-200">
-                  <AlertCircle className="w-12 h-12 text-blue-400 mx-auto mb-3" />
+                <div className="bg-white rounded-lg p-6 text-center border-2 border-dashed border-teal-200">
+                  <AlertCircle className="w-12 h-12 text-teal-400 mx-auto mb-3" />
                   <h4 className="text-base font-semibold text-gray-900 mb-2">No SWOT Analysis Yet</h4>
                   <p className="text-sm text-gray-600 mb-4">
                     Complete your SWOT analysis first to see strategic insights here
                   </p>
                   <Link
                     href="/swot"
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                    className="inline-flex items-center px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
                   >
                     Go to SWOT Analysis →
                   </Link>
@@ -507,10 +544,10 @@ export default function StrategicPlanningPage() {
                     </div>
 
                     {/* Top Opportunities */}
-                    <div className="bg-white rounded-lg p-4 border-2 border-blue-200">
+                    <div className="bg-white rounded-lg p-4 border-2 border-teal-200">
                       <div className="flex items-center gap-2 mb-3">
-                        <Target className="w-4 h-4 text-blue-600" />
-                        <h4 className="font-semibold text-sm text-blue-900">
+                        <Target className="w-4 h-4 text-teal-600" />
+                        <h4 className="font-semibold text-sm text-teal-900">
                           Top Opportunities ({topOpportunities.length})
                         </h4>
                       </div>
@@ -520,7 +557,7 @@ export default function StrategicPlanningPage() {
                         <ul className="space-y-2">
                           {topOpportunities.map(item => (
                             <li key={item.id} className="flex items-start text-sm text-gray-700">
-                              <span className="text-blue-600 mr-2 mt-0.5">•</span>
+                              <span className="text-teal-600 mr-2 mt-0.5">•</span>
                               <span>{item.title}</span>
                             </li>
                           ))}
@@ -557,7 +594,7 @@ export default function StrategicPlanningPage() {
                       href="/swot"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+                      className="inline-flex items-center text-sm text-teal-600 hover:text-teal-800 font-medium"
                     >
                       View full SWOT analysis in new tab
                       <span className="ml-1">↗</span>
@@ -585,9 +622,9 @@ export default function StrategicPlanningPage() {
                     onClick={() => setCurrentStep(step.num)}
                     className={`flex items-center space-x-2 px-3 py-2 rounded-lg whitespace-nowrap transition-all ${
                       isActive
-                        ? 'bg-blue-100 text-blue-800 font-medium'
+                        ? 'bg-teal-100 text-teal-800 font-medium'
                         : isComplete
-                        ? 'bg-green-100 text-green-800'
+                        ? 'bg-amber-100 text-amber-800'
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                   >
@@ -613,7 +650,7 @@ export default function StrategicPlanningPage() {
             <div className="flex items-center gap-3">
               {currentStepInfo && (
                 <>
-                  <currentStepInfo.icon className="w-6 h-6 text-blue-600" />
+                  <currentStepInfo.icon className="w-6 h-6 text-teal-600" />
                   <h2 className="text-2xl font-bold text-gray-900">
                     Step {currentStep}: {currentStepInfo.title}
                   </h2>
@@ -622,7 +659,7 @@ export default function StrategicPlanningPage() {
             </div>
             <button
               onClick={() => setShowStepHelp(!showStepHelp)}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-teal-700 bg-teal-50 rounded-lg hover:bg-teal-100 transition-colors"
             >
               <HelpCircle className="w-4 h-4" />
               {showStepHelp ? 'Hide' : 'Show'} Coaching Tips
@@ -704,7 +741,7 @@ export default function StrategicPlanningPage() {
 
           {currentStep === 3 && (
             <div className="p-6">
-              <Step4RefineInitiatives
+              <Step3PrioritizeInitiatives
                 strategicIdeas={strategicIdeas}
                 twelveMonthInitiatives={twelveMonthInitiatives}
                 setTwelveMonthInitiatives={setTwelveMonthInitiatives}
@@ -715,7 +752,7 @@ export default function StrategicPlanningPage() {
 
           {currentStep === 4 && (
             <div className="p-6">
-              <Step5AnnualPlan
+              <Step4AnnualPlan
                 twelveMonthInitiatives={twelveMonthInitiatives}
                 annualPlanByQuarter={annualPlanByQuarter}
                 setAnnualPlanByQuarter={setAnnualPlanByQuarter}
@@ -732,7 +769,7 @@ export default function StrategicPlanningPage() {
 
           {currentStep === 5 && (
             <div className="p-6">
-              <Step690DaySprintV3
+              <Step5SprintPlanning
                 annualPlanByQuarter={annualPlanByQuarter}
                 setAnnualPlanByQuarter={setAnnualPlanByQuarter}
                 quarterlyTargets={quarterlyTargets}
@@ -772,7 +809,7 @@ export default function StrategicPlanningPage() {
             disabled={!canGoNext}
             className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
               canGoNext
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                ? 'bg-teal-600 text-white hover:bg-teal-700'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
             }`}
           >
@@ -800,7 +837,7 @@ export default function StrategicPlanningPage() {
       </div>
 
       {/* Footer */}
-      <div className="bg-gray-50 border-t mt-12 py-8">
+      <div className="bg-slate-50 border-t mt-12 py-8">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-sm text-gray-600">
             Need help? Contact your coaching team or check our guidance resources

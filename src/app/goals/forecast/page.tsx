@@ -228,7 +228,7 @@ export default function QuarterlyForecastPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -255,7 +255,7 @@ export default function QuarterlyForecastPage() {
               <select
                 value={selectedQuarter.quarter}
                 onChange={(e) => setSelectedQuarter({ ...selectedQuarter, quarter: parseInt(e.target.value) })}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
               >
                 <option value={1}>Q1</option>
                 <option value={2}>Q2</option>
@@ -266,7 +266,7 @@ export default function QuarterlyForecastPage() {
                 type="number"
                 value={selectedQuarter.year}
                 onChange={(e) => setSelectedQuarter({ ...selectedQuarter, year: parseInt(e.target.value) })}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 w-24"
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 w-24"
               />
             </div>
           </div>
@@ -296,7 +296,7 @@ export default function QuarterlyForecastPage() {
                           type="number"
                           value={formData.month1_revenue}
                           onChange={(e) => setFormData({ ...formData, month1_revenue: e.target.value })}
-                          className="w-full pl-7 pr-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                          className="w-full pl-7 pr-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-teal-500"
                         />
                       </div>
                     </td>
@@ -307,7 +307,7 @@ export default function QuarterlyForecastPage() {
                           type="number"
                           value={formData.month2_revenue}
                           onChange={(e) => setFormData({ ...formData, month2_revenue: e.target.value })}
-                          className="w-full pl-7 pr-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                          className="w-full pl-7 pr-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-teal-500"
                         />
                       </div>
                     </td>
@@ -318,7 +318,7 @@ export default function QuarterlyForecastPage() {
                           type="number"
                           value={formData.month3_revenue}
                           onChange={(e) => setFormData({ ...formData, month3_revenue: e.target.value })}
-                          className="w-full pl-7 pr-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                          className="w-full pl-7 pr-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-teal-500"
                         />
                       </div>
                     </td>
@@ -336,7 +336,7 @@ export default function QuarterlyForecastPage() {
                           step="0.1"
                           value={formData.month1_gross_profit_percent}
                           onChange={(e) => setFormData({ ...formData, month1_gross_profit_percent: e.target.value })}
-                          className="w-full pr-7 px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                          className="w-full pr-7 px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-teal-500"
                         />
                         <span className="absolute right-2 top-2 text-gray-500">%</span>
                       </div>
@@ -348,7 +348,7 @@ export default function QuarterlyForecastPage() {
                           step="0.1"
                           value={formData.month2_gross_profit_percent}
                           onChange={(e) => setFormData({ ...formData, month2_gross_profit_percent: e.target.value })}
-                          className="w-full pr-7 px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                          className="w-full pr-7 px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-teal-500"
                         />
                         <span className="absolute right-2 top-2 text-gray-500">%</span>
                       </div>
@@ -360,7 +360,7 @@ export default function QuarterlyForecastPage() {
                           step="0.1"
                           value={formData.month3_gross_profit_percent}
                           onChange={(e) => setFormData({ ...formData, month3_gross_profit_percent: e.target.value })}
-                          className="w-full pr-7 px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                          className="w-full pr-7 px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-teal-500"
                         />
                         <span className="absolute right-2 top-2 text-gray-500">%</span>
                       </div>
@@ -381,7 +381,7 @@ export default function QuarterlyForecastPage() {
                           step="0.1"
                           value={formData.month1_net_profit_percent}
                           onChange={(e) => setFormData({ ...formData, month1_net_profit_percent: e.target.value })}
-                          className="w-full pr-7 px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                          className="w-full pr-7 px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-teal-500"
                         />
                         <span className="absolute right-2 top-2 text-gray-500">%</span>
                       </div>
@@ -393,7 +393,7 @@ export default function QuarterlyForecastPage() {
                           step="0.1"
                           value={formData.month2_net_profit_percent}
                           onChange={(e) => setFormData({ ...formData, month2_net_profit_percent: e.target.value })}
-                          className="w-full pr-7 px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                          className="w-full pr-7 px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-teal-500"
                         />
                         <span className="absolute right-2 top-2 text-gray-500">%</span>
                       </div>
@@ -405,7 +405,7 @@ export default function QuarterlyForecastPage() {
                           step="0.1"
                           value={formData.month3_net_profit_percent}
                           onChange={(e) => setFormData({ ...formData, month3_net_profit_percent: e.target.value })}
-                          className="w-full pr-7 px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                          className="w-full pr-7 px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-teal-500"
                         />
                         <span className="absolute right-2 top-2 text-gray-500">%</span>
                       </div>
@@ -426,7 +426,7 @@ export default function QuarterlyForecastPage() {
                           type="number"
                           value={formData.month1_cash}
                           onChange={(e) => setFormData({ ...formData, month1_cash: e.target.value })}
-                          className="w-full pl-7 pr-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                          className="w-full pl-7 pr-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-teal-500"
                         />
                       </div>
                     </td>
@@ -437,7 +437,7 @@ export default function QuarterlyForecastPage() {
                           type="number"
                           value={formData.month2_cash}
                           onChange={(e) => setFormData({ ...formData, month2_cash: e.target.value })}
-                          className="w-full pl-7 pr-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                          className="w-full pl-7 pr-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-teal-500"
                         />
                       </div>
                     </td>
@@ -448,7 +448,7 @@ export default function QuarterlyForecastPage() {
                           type="number"
                           value={formData.month3_cash}
                           onChange={(e) => setFormData({ ...formData, month3_cash: e.target.value })}
-                          className="w-full pl-7 pr-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                          className="w-full pl-7 pr-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-teal-500"
                         />
                       </div>
                     </td>
@@ -503,7 +503,7 @@ export default function QuarterlyForecastPage() {
             <button
               type="submit"
               disabled={loading}
-              className="px-8 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="px-8 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50"
             >
               {loading ? 'Saving...' : 'Save Forecast'}
             </button>

@@ -223,7 +223,7 @@ export default function DashboardWrapper({ children }: { children: React.ReactNo
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar */}
       <div className="w-64 bg-white shadow-lg flex flex-col h-screen fixed left-0 top-0">
         <div className="p-6 border-b">
@@ -273,7 +273,7 @@ export default function DashboardWrapper({ children }: { children: React.ReactNo
                         href={item.href}
                         className={`flex items-center px-4 py-2 text-sm transition-colors ${
                           isActive
-                            ? 'bg-blue-50 text-blue-600 border-l-2 border-blue-600' 
+                            ? 'bg-teal-50 text-teal-600 border-l-2 border-teal-600' 
                             : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                         }`}
                       >
@@ -298,22 +298,22 @@ export default function DashboardWrapper({ children }: { children: React.ReactNo
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col ml-64">
         {/* Blue Metrics Bar */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4">
+        <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white px-6 py-4">
           <div className="grid grid-cols-4 gap-6">
             <div className="text-center">
-              <p className="text-xs uppercase text-blue-200 mb-1">Assessment</p>
+              <p className="text-xs uppercase text-teal-200 mb-1">Assessment</p>
               <p className="text-2xl font-bold">{businessData.assessmentScore}%</p>
             </div>
             <div className="text-center">
-              <p className="text-xs uppercase text-blue-200 mb-1">Stage</p>
+              <p className="text-xs uppercase text-teal-200 mb-1">Stage</p>
               <p className="text-2xl font-bold">{businessData.stage}</p>
             </div>
             <div className="text-center">
-              <p className="text-xs uppercase text-blue-200 mb-1">Rev Target</p>
+              <p className="text-xs uppercase text-teal-200 mb-1">Rev Target</p>
               <p className="text-2xl font-bold">{formatCurrency(businessData.revenueTarget)}</p>
             </div>
             <div className="text-center">
-              <p className="text-xs uppercase text-blue-200 mb-1">Net Profit Target</p>
+              <p className="text-xs uppercase text-teal-200 mb-1">Net Profit Target</p>
               <p className="text-2xl font-bold">{formatCurrency(businessData.profitTarget)}</p>
             </div>
           </div>

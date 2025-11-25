@@ -8,7 +8,6 @@ import toast, { Toaster } from 'react-hot-toast'
 import {
   ArrowLeft,
   ArrowRight,
-  Save,
   Building2,
   User,
   DollarSign,
@@ -27,10 +26,11 @@ import type { BusinessProfile, SaveStatus, ValidationError } from './types'
 
 const STEPS = [
   { id: 1, name: 'Company Information', icon: Building2 },
-  { id: 2, name: 'Owner Info', icon: User },
-  { id: 3, name: 'Financial Snapshot', icon: DollarSign },
-  { id: 4, name: 'Team & Organisation', icon: Users },
-  { id: 5, name: 'Current Situation', icon: Target },
+  { id: 2, name: 'Owner Profile', icon: User },
+  { id: 3, name: 'Your Goals & Vision', icon: Target },
+  { id: 4, name: 'Financial Snapshot', icon: DollarSign },
+  { id: 5, name: 'Team & Organisation', icon: Users },
+  { id: 6, name: 'Current Situation', icon: CheckCircle },
 ]
 
 // Industry list organized by category
@@ -174,8 +174,8 @@ export default function EnhancedBusinessProfile() {
     return `w-full h-11 px-4 border rounded-lg focus:ring-2 focus:outline-none transition-colors ${
       hasError
         ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
-        : 'border-gray-300 focus:border-blue-500 focus:ring-blue-100'
-    }`
+        : 'border-gray-300 focus:border-teal-500 focus:ring-teal-100'
+    } [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`
   }
 
   const getSelectClassName = (fieldName?: string) => {
@@ -183,12 +183,18 @@ export default function EnhancedBusinessProfile() {
     return `w-full h-11 pl-4 pr-10 border rounded-lg focus:ring-2 focus:outline-none transition-colors appearance-none bg-white cursor-pointer ${
       hasError
         ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
-        : 'border-gray-300 focus:border-blue-500 focus:ring-blue-100'
+        : 'border-gray-300 focus:border-teal-500 focus:ring-teal-100'
     } bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%236B7280%22%20d%3D%22M10.293%203.293L6%207.586%201.707%203.293A1%201%200%2000.293%204.707l5%205a1%201%200%20001.414%200l5-5a1%201%200%2010-1.414-1.414z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:16px_16px] bg-[center_right_12px] bg-no-repeat`
   }
 
   const getTextareaClassName = () => {
-    return 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-500 focus:outline-none transition-colors resize-none'
+    return 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-100 focus:border-teal-500 focus:outline-none transition-colors resize-none'
+  }
+
+  // Format number with commas
+  const formatCurrency = (value: number | undefined | null): string => {
+    if (!value && value !== 0) return ''
+    return value.toLocaleString('en-US', { maximumFractionDigits: 0 })
   }
 
   const loadBusiness = async () => {
@@ -254,7 +260,7 @@ export default function EnhancedBusinessProfile() {
     try {
       const profileData = {
         ...business,
-        profile_completed: calculateCompletion() >= 80
+        profile_completed: calculateCompletion() === 100
       }
 
       const { success, error } = await BusinessProfileService.saveBusinessProfile(
@@ -327,40 +333,43 @@ export default function EnhancedBusinessProfile() {
     let totalFields = 0
     let filledFields = 0
 
-    // Required fields check
-    const requiredFields = [
+    // Required business fields (5 fields)
+    const requiredBusinessFields: (keyof BusinessProfile)[] = [
       'name', 'industry', 'annual_revenue',
       'employee_count', 'years_in_operation'
     ]
+    totalFields += requiredBusinessFields.length
+    filledFields += requiredBusinessFields.filter(field => business[field]).length
 
-    totalFields += requiredFields.length
-    filledFields += requiredFields.filter(field => business[field]).length
-
-    // Optional but important fields
-    if (business.locations && business.locations.length > 0) filledFields++
-    if (business.gross_profit_margin) filledFields++
-    if (business.net_profit_margin) filledFields++
-
+    // Required owner_info fields (7 fields)
     const ownerInfo = business.owner_info || {}
-    if (ownerInfo.owner_name) filledFields++
-    if (ownerInfo.primary_goal) filledFields++
+    const requiredOwnerFields = [
+      'owner_name', 'ownership_percentage', 'primary_goal',
+      'time_horizon', 'current_hours', 'desired_role', 'risk_tolerance'
+    ] as const
+    totalFields += requiredOwnerFields.length
+    filledFields += requiredOwnerFields.filter(field => (ownerInfo as any)[field]).length
 
-    if (business.top_challenges && business.top_challenges.length > 0) filledFields++
-    if (business.growth_opportunities && business.growth_opportunities.length > 0) filledFields++
+    // Required financial fields (2 pairs - at least one from each)
+    // Gross Profit: at least one of $ or %
+    totalFields += 1
+    if (business.gross_profit || business.gross_profit_margin) filledFields++
 
-    totalFields += 7
+    // Net Profit: at least one of $ or %
+    totalFields += 1
+    if (business.net_profit || business.net_profit_margin) filledFields++
 
+    // Total: 14 required fields
     return totalFields > 0 ? Math.round((filledFields / totalFields) * 100) : 0
   }
 
-  // Calculate revenue stage
+  // Calculate revenue stage (matches Business Roadmap stages)
   const getRevenueStage = (revenue?: number | null): string => {
     if (!revenue) return 'Foundation'
-    if (revenue < 250000) return 'Foundation ($0-250K)'
-    if (revenue < 1000000) return 'Traction ($250K-1M)'
-    if (revenue < 3000000) return 'Scaling ($1M-3M)'
-    if (revenue < 5000000) return 'Optimization ($3M-5M)'
-    if (revenue < 10000000) return 'Leadership ($5M-10M)'
+    if (revenue < 500000) return 'Foundation ($0-$500K)'
+    if (revenue < 1000000) return 'Traction ($500K-$1M)'
+    if (revenue < 5000000) return 'Growth ($1M-$5M)'
+    if (revenue < 10000000) return 'Scale ($5M-$10M)'
     return 'Mastery ($10M+)'
   }
 
@@ -390,7 +399,7 @@ export default function EnhancedBusinessProfile() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 p-8 flex items-center justify-center">
         <div className="text-gray-600">Loading business profile...</div>
       </div>
     )
@@ -402,7 +411,7 @@ export default function EnhancedBusinessProfile() {
   const partners = ownerInfo.partners || []
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-slate-50 p-8">
       {/* Toast Notifications */}
       <Toaster position="top-right" />
 
@@ -411,7 +420,7 @@ export default function EnhancedBusinessProfile() {
         <div className="mb-8">
           <button
             onClick={() => router.push('/dashboard')}
-            className="mb-6 text-blue-600 hover:text-blue-700 flex items-center gap-2 font-medium transition-colors"
+            className="mb-6 text-teal-600 hover:text-teal-700 flex items-center gap-2 font-medium transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Dashboard
@@ -425,14 +434,23 @@ export default function EnhancedBusinessProfile() {
               </p>
             </div>
 
-            <div className="text-right bg-white px-6 py-4 rounded-lg border border-gray-200 shadow-sm">
+            <div className={`text-right px-6 py-4 rounded-lg border shadow-sm ${
+              calculateCompletion() === 100
+                ? 'bg-green-50 border-green-200'
+                : 'bg-white border-gray-200'
+            }`}>
               <div className={`text-3xl font-bold ${
-                calculateCompletion() >= 80 ? 'text-blue-600' :
-                calculateCompletion() >= 50 ? 'text-blue-500' : 'text-gray-400'
+                calculateCompletion() === 100 ? 'text-green-600' :
+                calculateCompletion() >= 80 ? 'text-teal-600' :
+                calculateCompletion() >= 50 ? 'text-teal-500' : 'text-gray-400'
               }`}>
                 {calculateCompletion()}%
               </div>
-              <div className="text-sm text-gray-600 mt-1">Complete</div>
+              <div className={`text-sm mt-1 font-semibold ${
+                calculateCompletion() === 100 ? 'text-green-700' : 'text-gray-600'
+              }`}>
+                {calculateCompletion() === 100 ? '✓ Complete!' : 'Complete'}
+              </div>
               {lastSaved && (
                 <div className="text-xs text-gray-500 mt-2">
                   Saved {lastSaved.toLocaleTimeString()}
@@ -456,22 +474,22 @@ export default function EnhancedBusinessProfile() {
                     onClick={() => setCurrentStep(step.id)}
                     className={`flex flex-col items-center gap-2 p-3 rounded-lg transition-all w-full ${
                       isActive
-                        ? 'bg-blue-50'
+                        ? 'bg-teal-50'
                         : 'hover:bg-gray-50'
                     }`}
                   >
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                       isActive
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-teal-600 text-white'
                         : isCompleted
-                        ? 'bg-blue-100 text-blue-600'
+                        ? 'bg-teal-100 text-teal-600'
                         : 'bg-gray-100 text-gray-400'
                     }`}>
                       <Icon className="w-5 h-5" />
                     </div>
                     <span className={`text-xs font-medium text-center transition-colors ${
                       isActive
-                        ? 'text-blue-600'
+                        ? 'text-teal-600'
                         : isCompleted
                         ? 'text-gray-700'
                         : 'text-gray-400'
@@ -481,7 +499,7 @@ export default function EnhancedBusinessProfile() {
                   </button>
                   {index < STEPS.length - 1 && (
                     <div className={`h-0.5 w-full mx-2 transition-colors ${
-                      isCompleted ? 'bg-blue-600' : 'bg-gray-200'
+                      isCompleted ? 'bg-teal-600' : 'bg-gray-200'
                     }`} />
                   )}
                 </div>
@@ -492,27 +510,52 @@ export default function EnhancedBusinessProfile() {
 
         {/* Form Content */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-8 relative">
-          {/* Save Status Indicator */}
-          <div className="absolute top-6 right-6">
+          {/* Auto-Save Status Indicator */}
+          <div className="absolute top-6 right-6 z-10">
             {saveStatus === 'saving' && (
-              <div className="flex items-center gap-2 text-blue-600 bg-blue-50 px-3 py-1.5 rounded-md">
-                <Save className="w-4 h-4 animate-pulse" />
-                <span className="text-sm font-medium">Saving...</span>
+              <div className="flex items-center gap-2 text-teal-600 bg-teal-50 px-3 py-1.5 rounded-md shadow-sm">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm font-medium">Auto-saving...</span>
               </div>
             )}
             {saveStatus === 'saved' && (
-              <div className="flex items-center gap-2 text-green-600 bg-green-50 px-3 py-1.5 rounded-md">
+              <div className="flex items-center gap-2 text-green-600 bg-green-50 px-3 py-1.5 rounded-md shadow-sm">
                 <CheckCircle className="w-4 h-4" />
-                <span className="text-sm font-medium">Saved</span>
+                <span className="text-sm font-medium">Auto-saved</span>
               </div>
             )}
             {saveStatus === 'error' && (
-              <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-1.5 rounded-md">
+              <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-1.5 rounded-md shadow-sm">
                 <AlertCircle className="w-4 h-4" />
-                <span className="text-sm font-medium">Error</span>
+                <span className="text-sm font-medium">Error saving</span>
               </div>
             )}
           </div>
+
+          {/* Profile Complete Success Banner */}
+          {calculateCompletion() === 100 && (
+            <div className="mb-8 bg-green-50 border-2 border-green-200 rounded-lg p-6">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0">
+                  <CheckCircle className="w-8 h-8 text-green-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-green-900 mb-2">
+                    🎉 Profile Complete!
+                  </h3>
+                  <p className="text-green-800 mb-4">
+                    Great! Now let's complete your business assessment to unlock personalized insights and recommendations.
+                  </p>
+                  <button
+                    onClick={() => router.push('/assessment')}
+                    className="px-6 py-2.5 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-sm"
+                  >
+                    Start Assessment →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Step 1: Company Information */}
           {currentStep === 1 && (
@@ -613,10 +656,10 @@ export default function EnhancedBusinessProfile() {
 
               {/* Online Presence */}
               <div className="border-t border-gray-200 pt-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Online Presence</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Online Presence</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                       <Globe className="inline w-4 h-4 mr-1" />
                       Website
                     </label>
@@ -627,13 +670,13 @@ export default function EnhancedBusinessProfile() {
                         const updated = { ...socialMedia, website: e.target.value }
                         handleJsonFieldChange('social_media', updated)
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={getInputClassName()}
                       placeholder="https://www.example.com"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                       <Linkedin className="inline w-4 h-4 mr-1" />
                       LinkedIn
                     </label>
@@ -644,13 +687,13 @@ export default function EnhancedBusinessProfile() {
                         const updated = { ...socialMedia, linkedin: e.target.value }
                         handleJsonFieldChange('social_media', updated)
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={getInputClassName()}
                       placeholder="https://linkedin.com/company/..."
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                       <Facebook className="inline w-4 h-4 mr-1" />
                       Facebook
                     </label>
@@ -661,13 +704,13 @@ export default function EnhancedBusinessProfile() {
                         const updated = { ...socialMedia, facebook: e.target.value }
                         handleJsonFieldChange('social_media', updated)
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={getInputClassName()}
                       placeholder="https://facebook.com/..."
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                       <Instagram className="inline w-4 h-4 mr-1" />
                       Instagram
                     </label>
@@ -678,7 +721,7 @@ export default function EnhancedBusinessProfile() {
                         const updated = { ...socialMedia, instagram: e.target.value }
                         handleJsonFieldChange('social_media', updated)
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={getInputClassName()}
                       placeholder="https://instagram.com/..."
                     />
                   </div>
@@ -687,7 +730,7 @@ export default function EnhancedBusinessProfile() {
 
               {/* Locations */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Locations / Service Areas
                 </label>
                 <div className="space-y-2">
@@ -697,13 +740,13 @@ export default function EnhancedBusinessProfile() {
                         type="text"
                         value={location}
                         onChange={(e) => handleArrayFieldChange('locations', index, e.target.value)}
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className={`flex-1 ${getInputClassName()}`}
                         placeholder="e.g., Sydney, Melbourne, Australia-wide"
                       />
                       {(business.locations?.length || 0) > 1 && (
                         <button
                           onClick={() => removeArrayItem('locations', index)}
-                          className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg"
+                          className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
                         >
                           Remove
                         </button>
@@ -712,7 +755,7 @@ export default function EnhancedBusinessProfile() {
                   ))}
                   <button
                     onClick={() => addArrayItem('locations')}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    className="text-teal-600 hover:text-teal-700 text-sm font-medium transition-colors"
                   >
                     + Add Location
                   </button>
@@ -721,17 +764,17 @@ export default function EnhancedBusinessProfile() {
             </div>
           )}
 
-          {/* Step 2: Owner Info */}
+          {/* Step 2: Owner Profile */}
           {currentStep === 2 && (
             <div className="space-y-8">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Owner Info</h2>
-                <p className="text-gray-600 mt-1">Tell us about yourself and your goals</p>
+                <h2 className="text-2xl font-bold text-gray-900">Owner Profile</h2>
+                <p className="text-gray-600 mt-1">Tell us about yourself and your ownership structure</p>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-900 leading-relaxed">
-                  Understanding your personal goals and ownership structure helps us provide coaching tailored to what YOU want.
+              <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
+                <p className="text-sm text-teal-900 leading-relaxed">
+                  Understanding your background and ownership structure helps us provide personalized coaching.
                 </p>
               </div>
 
@@ -741,7 +784,7 @@ export default function EnhancedBusinessProfile() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Owner/Founder Name
+                      Owner/Founder Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -757,7 +800,7 @@ export default function EnhancedBusinessProfile() {
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Ownership %
+                      Ownership % <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -777,7 +820,22 @@ export default function EnhancedBusinessProfile() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Date of Birth
+                    </label>
+                    <input
+                      type="date"
+                      value={ownerInfo.date_of_birth || ''}
+                      onChange={(e) => {
+                        const updated = { ...ownerInfo, date_of_birth: e.target.value }
+                        handleJsonFieldChange('owner_info', updated)
+                      }}
+                      className={getInputClassName()}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Total Years in Business (Any Business)
                     </label>
                     <input
@@ -787,14 +845,14 @@ export default function EnhancedBusinessProfile() {
                         const updated = { ...ownerInfo, total_years_business: parseInt(e.target.value) || 0 }
                         handleJsonFieldChange('owner_info', updated)
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={getInputClassName()}
                       min="0"
                       placeholder="0"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Years in THIS Business
                     </label>
                     <input
@@ -804,56 +862,14 @@ export default function EnhancedBusinessProfile() {
                         const updated = { ...ownerInfo, years_this_business: parseInt(e.target.value) || 0 }
                         handleJsonFieldChange('owner_info', updated)
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={getInputClassName()}
                       min="0"
                       placeholder="0"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      How Did You Start This Business?
-                    </label>
-                    <select
-                      value={ownerInfo.business_origin || ''}
-                      onChange={(e) => {
-                        const updated = { ...ownerInfo, business_origin: e.target.value }
-                        handleJsonFieldChange('owner_info', updated)
-                      }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">Select...</option>
-                      <option value="Started from scratch">Started from scratch</option>
-                      <option value="Bought existing business">Bought existing business</option>
-                      <option value="Inherited/Family business">Inherited/Family business</option>
-                      <option value="Partnership">Partnership</option>
-                      <option value="Franchise">Franchise</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Age Range
-                    </label>
-                    <select
-                      value={ownerInfo.age_range || ''}
-                      onChange={(e) => {
-                        const updated = { ...ownerInfo, age_range: e.target.value }
-                        handleJsonFieldChange('owner_info', updated)
-                      }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">Select...</option>
-                      <option value="20s">20s</option>
-                      <option value="30s">30s</option>
-                      <option value="40s">40s</option>
-                      <option value="50s">50s</option>
-                      <option value="60+">60+</option>
-                    </select>
-                  </div>
-
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Your Key Strengths/Expertise
                     </label>
                     <textarea
@@ -862,7 +878,7 @@ export default function EnhancedBusinessProfile() {
                         const updated = { ...ownerInfo, key_expertise: e.target.value }
                         handleJsonFieldChange('owner_info', updated)
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={getTextareaClassName()}
                       rows={2}
                       placeholder="e.g., Sales, Operations, Technical expertise, Finance..."
                     />
@@ -871,10 +887,10 @@ export default function EnhancedBusinessProfile() {
               </div>
 
               {/* Business Partners */}
-              <div className="border-b pb-6">
+              <div className="border-b border-gray-200 pb-8">
                 <div className="flex justify-between items-center mb-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-800">Business Partners</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">Business Partners</h3>
                     <p className="text-sm text-gray-600">Additional owners or partners in the business</p>
                   </div>
                 </div>
@@ -898,7 +914,7 @@ export default function EnhancedBusinessProfile() {
                         }
                         handleJsonFieldChange('owner_info', updated)
                       }}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
                     >
                       + Add First Partner
                     </button>
@@ -924,7 +940,7 @@ export default function EnhancedBusinessProfile() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
                               Partner Name
                             </label>
                             <input
@@ -936,13 +952,13 @@ export default function EnhancedBusinessProfile() {
                                 const updated = { ...ownerInfo, partners: updatedPartners }
                                 handleJsonFieldChange('owner_info', updated)
                               }}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              className={getInputClassName()}
                               placeholder="Partner's name"
                             />
                           </div>
 
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
                               Ownership %
                             </label>
                             <div className="relative">
@@ -955,17 +971,17 @@ export default function EnhancedBusinessProfile() {
                                   const updated = { ...ownerInfo, partners: updatedPartners }
                                   handleJsonFieldChange('owner_info', updated)
                                 }}
-                                className="w-full pr-8 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className={getInputClassName()}
                                 min="0"
                                 max="100"
                                 placeholder="0"
                               />
-                              <span className="absolute right-3 top-2 text-gray-500">%</span>
+                              <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">%</span>
                             </div>
                           </div>
 
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
                               Role/Title
                             </label>
                             <input
@@ -977,13 +993,13 @@ export default function EnhancedBusinessProfile() {
                                 const updated = { ...ownerInfo, partners: updatedPartners }
                                 handleJsonFieldChange('owner_info', updated)
                               }}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              className={getInputClassName()}
                               placeholder="e.g., Co-Founder, CFO"
                             />
                           </div>
 
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
                               Active Involvement
                             </label>
                             <select
@@ -994,7 +1010,7 @@ export default function EnhancedBusinessProfile() {
                                 const updated = { ...ownerInfo, partners: updatedPartners }
                                 handleJsonFieldChange('owner_info', updated)
                               }}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              className={getSelectClassName()}
                             >
                               <option value="">Select...</option>
                               <option value="Full-time active">Full-time active</option>
@@ -1005,7 +1021,7 @@ export default function EnhancedBusinessProfile() {
                           </div>
 
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
                               Years with Business
                             </label>
                             <input
@@ -1017,14 +1033,14 @@ export default function EnhancedBusinessProfile() {
                                 const updated = { ...ownerInfo, partners: updatedPartners }
                                 handleJsonFieldChange('owner_info', updated)
                               }}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              className={getInputClassName()}
                               min="0"
                               placeholder="0"
                             />
                           </div>
 
                           <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
                               Key Responsibilities
                             </label>
                             <textarea
@@ -1035,7 +1051,7 @@ export default function EnhancedBusinessProfile() {
                                 const updated = { ...ownerInfo, partners: updatedPartners }
                                 handleJsonFieldChange('owner_info', updated)
                               }}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              className={getTextareaClassName()}
                               rows={2}
                               placeholder="What does this partner focus on?"
                             />
@@ -1060,7 +1076,7 @@ export default function EnhancedBusinessProfile() {
                         const updated = { ...ownerInfo, partners: updatedPartners }
                         handleJsonFieldChange('owner_info', updated)
                       }}
-                      className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition-colors"
+                      className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-teal-500 hover:text-teal-600 transition-colors"
                     >
                       + Add Another Partner
                     </button>
@@ -1068,13 +1084,30 @@ export default function EnhancedBusinessProfile() {
                 )}
               </div>
 
+            </div>
+          )}
+
+          {/* Step 3: Your Goals & Vision */}
+          {currentStep === 3 && (
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Your Goals & Vision</h2>
+                <p className="text-gray-600 mt-1">What you want from your business and how you want to work</p>
+              </div>
+
+              <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
+                <p className="text-sm text-teal-900 leading-relaxed">
+                  Your goals drive our coaching recommendations. Be honest about what you want - there's no "right" answer.
+                </p>
+              </div>
+
               {/* Business Goals */}
-              <div className="border-b pb-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">What You Want From This Business</h3>
+              <div className="border-b border-gray-200 pb-8">
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">What You Want From This Business</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Primary Business Goal
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Primary Business Goal <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={ownerInfo.primary_goal || ''}
@@ -1082,7 +1115,7 @@ export default function EnhancedBusinessProfile() {
                         const updated = { ...ownerInfo, primary_goal: e.target.value }
                         handleJsonFieldChange('owner_info', updated)
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={getSelectClassName()}
                     >
                       <option value="">Select your main goal...</option>
                       <option value="Build income & wealth">Build income & wealth</option>
@@ -1095,8 +1128,8 @@ export default function EnhancedBusinessProfile() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Time Horizon
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Time Horizon <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={ownerInfo.time_horizon || ''}
@@ -1104,7 +1137,7 @@ export default function EnhancedBusinessProfile() {
                         const updated = { ...ownerInfo, time_horizon: e.target.value }
                         handleJsonFieldChange('owner_info', updated)
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={getSelectClassName()}
                     >
                       <option value="">How long do you plan to run this?</option>
                       <option value="1-2 years">1-2 years</option>
@@ -1116,7 +1149,7 @@ export default function EnhancedBusinessProfile() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Exit Strategy
                     </label>
                     <select
@@ -1125,7 +1158,7 @@ export default function EnhancedBusinessProfile() {
                         const updated = { ...ownerInfo, exit_strategy: e.target.value }
                         handleJsonFieldChange('owner_info', updated)
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={getSelectClassName()}
                     >
                       <option value="">What's your exit plan?</option>
                       <option value="Sell to third party">Sell to third party</option>
@@ -1139,12 +1172,12 @@ export default function EnhancedBusinessProfile() {
               </div>
 
               {/* Working Style */}
-              <div className="border-b pb-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Your Working Style</h3>
+              <div className="border-b border-gray-200 pb-8">
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Your Working Style</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Current Hours Per Week
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Current Hours Per Week <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="number"
@@ -1153,14 +1186,14 @@ export default function EnhancedBusinessProfile() {
                         const updated = { ...ownerInfo, current_hours: parseInt(e.target.value) || 0 }
                         handleJsonFieldChange('owner_info', updated)
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={getInputClassName()}
                       min="0"
                       placeholder="40"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Desired Hours Per Week
                     </label>
                     <input
@@ -1170,15 +1203,15 @@ export default function EnhancedBusinessProfile() {
                         const updated = { ...ownerInfo, desired_hours: parseInt(e.target.value) || 0 }
                         handleJsonFieldChange('owner_info', updated)
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={getInputClassName()}
                       min="0"
                       placeholder="30"
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Desired Role in Business
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Desired Role in Business <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={ownerInfo.desired_role || ''}
@@ -1186,7 +1219,7 @@ export default function EnhancedBusinessProfile() {
                         const updated = { ...ownerInfo, desired_role: e.target.value }
                         handleJsonFieldChange('owner_info', updated)
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={getSelectClassName()}
                     >
                       <option value="">Select...</option>
                       <option value="Working IN - doing the work">Working IN - doing the work</option>
@@ -1198,7 +1231,7 @@ export default function EnhancedBusinessProfile() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                       What You LOVE Doing
                     </label>
                     <textarea
@@ -1207,14 +1240,14 @@ export default function EnhancedBusinessProfile() {
                         const updated = { ...ownerInfo, love_doing: e.target.value }
                         handleJsonFieldChange('owner_info', updated)
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={getTextareaClassName()}
                       rows={2}
                       placeholder="What gives you energy?"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                       What You HATE Doing
                     </label>
                     <textarea
@@ -1223,7 +1256,7 @@ export default function EnhancedBusinessProfile() {
                         const updated = { ...ownerInfo, hate_doing: e.target.value }
                         handleJsonFieldChange('owner_info', updated)
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={getTextareaClassName()}
                       rows={2}
                       placeholder="What drains your energy?"
                     />
@@ -1233,49 +1266,53 @@ export default function EnhancedBusinessProfile() {
 
               {/* Financial Needs */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Personal Financial Needs</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Personal Financial Needs</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Minimum Income Needed (Annual)
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-2 text-gray-500">$</span>
+                      <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium pointer-events-none">$</span>
                       <input
-                        type="number"
-                        value={ownerInfo.minimum_income || ''}
+                        type="text"
+                        inputMode="numeric"
+                        value={ownerInfo.minimum_income ? formatCurrency(ownerInfo.minimum_income) : ''}
                         onChange={(e) => {
-                          const updated = { ...ownerInfo, minimum_income: parseFloat(e.target.value) || 0 }
+                          const numericValue = e.target.value.replace(/[^0-9]/g, '')
+                          const updated = { ...ownerInfo, minimum_income: numericValue ? parseFloat(numericValue) : 0 }
                           handleJsonFieldChange('owner_info', updated)
                         }}
-                        className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="100000"
+                        className="w-full h-11 pl-8 pr-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-100 focus:border-teal-500 focus:outline-none transition-colors"
+                        placeholder="100,000"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Target Income Desired (Annual)
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-2 text-gray-500">$</span>
+                      <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium pointer-events-none">$</span>
                       <input
-                        type="number"
-                        value={ownerInfo.target_income || ''}
+                        type="text"
+                        inputMode="numeric"
+                        value={ownerInfo.target_income ? formatCurrency(ownerInfo.target_income) : ''}
                         onChange={(e) => {
-                          const updated = { ...ownerInfo, target_income: parseFloat(e.target.value) || 0 }
+                          const numericValue = e.target.value.replace(/[^0-9]/g, '')
+                          const updated = { ...ownerInfo, target_income: numericValue ? parseFloat(numericValue) : 0 }
                           handleJsonFieldChange('owner_info', updated)
                         }}
-                        className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="250000"
+                        className="w-full h-11 pl-8 pr-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-100 focus:border-teal-500 focus:outline-none transition-colors"
+                        placeholder="250,000"
                       />
                     </div>
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Risk Tolerance
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Risk Tolerance <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={ownerInfo.risk_tolerance || ''}
@@ -1283,7 +1320,7 @@ export default function EnhancedBusinessProfile() {
                         const updated = { ...ownerInfo, risk_tolerance: e.target.value }
                         handleJsonFieldChange('owner_info', updated)
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={getSelectClassName()}
                     >
                       <option value="">Select...</option>
                       <option value="Conservative - Minimize risk">Conservative - Minimize risk</option>
@@ -1296,85 +1333,175 @@ export default function EnhancedBusinessProfile() {
             </div>
           )}
 
-          {/* Step 3: Financial Snapshot */}
-          {currentStep === 3 && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Financial Snapshot</h2>
-              
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <p className="text-sm text-blue-800">
-                  This data will be automatically synchronized with Xero once integrated. Manual entry for now.
-                </p>
+          {/* Step 4: Financial Snapshot */}
+          {currentStep === 4 && (
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Financial Snapshot</h2>
+                <p className="text-gray-600 mt-1">Last financial year numbers (or current year to date if that's more accurate)</p>
               </div>
 
               {/* Revenue Stage Indicator */}
               {business.annual_revenue && (
-                <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg p-6 text-white mb-6">
+                <div className="bg-teal-600 rounded-lg p-6 text-white">
                   <div className="text-sm opacity-90">Revenue Stage</div>
                   <div className="text-2xl font-bold mt-1">{getRevenueStage(business.annual_revenue)}</div>
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-6">
+                {/* Annual Revenue */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Annual Revenue *
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Annual Revenue (Last FY) <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2 text-gray-500">$</span>
+                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium pointer-events-none">$</span>
                     <input
-                      type="number"
-                      value={business.annual_revenue || ''}
+                      type="text"
+                      inputMode="numeric"
+                      value={business.annual_revenue ? formatCurrency(business.annual_revenue) : ''}
                       onChange={(e) => {
-                        handleFieldChange('annual_revenue', parseFloat(e.target.value) || 0)
+                        const numericValue = e.target.value.replace(/[^0-9]/g, '')
+                        const revenue = numericValue ? parseFloat(numericValue) : 0
+                        handleFieldChange('annual_revenue', revenue)
                         setValidationErrors(errors => errors.filter(e => e.field !== 'annual_revenue'))
+
+                        // Recalculate margins if profits are set
+                        if (business.gross_profit && revenue > 0) {
+                          handleFieldChange('gross_profit_margin', (business.gross_profit / revenue) * 100)
+                        }
+                        if (business.net_profit && revenue > 0) {
+                          handleFieldChange('net_profit_margin', (business.net_profit / revenue) * 100)
+                        }
                       }}
-                      className={`w-full pl-8 pr-4 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
-                        hasFieldError('annual_revenue')
-                          ? 'border-red-500 focus:ring-red-500'
-                          : 'border-gray-300 focus:ring-blue-500'
-                      }`}
+                      className="w-full h-11 pl-8 pr-4 border rounded-lg focus:ring-2 focus:outline-none transition-colors border-gray-300 focus:border-teal-500 focus:ring-teal-100"
                       placeholder="0"
                     />
                   </div>
                   {hasFieldError('annual_revenue') && (
-                    <p className="text-red-600 text-sm mt-1">{getFieldError('annual_revenue')}</p>
+                    <p className="text-red-600 text-sm mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {getFieldError('annual_revenue')}
+                    </p>
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Gross Margin (%)
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      value={business.gross_profit_margin || ''}
-                      onChange={(e) => handleFieldChange('gross_profit_margin', parseFloat(e.target.value) || 0)}
-                      className="w-full pr-8 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="0"
-                      min="0"
-                      max="100"
-                    />
-                    <span className="absolute right-3 top-2 text-gray-500">%</span>
+                {/* Gross Profit / Margin */}
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="text-md font-semibold text-gray-900 mb-4">Gross Profit <span className="text-sm font-normal text-gray-600">(Enter $ or %, we'll calculate the other)</span></h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Gross Profit ($) <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium pointer-events-none">$</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={business.gross_profit ? formatCurrency(business.gross_profit) : ''}
+                          onChange={(e) => {
+                            const numericValue = e.target.value.replace(/[^0-9]/g, '')
+                            const grossProfit = numericValue ? parseFloat(numericValue) : 0
+                            handleFieldChange('gross_profit', grossProfit)
+
+                            // Auto-calculate margin if revenue exists
+                            if (business.annual_revenue && business.annual_revenue > 0) {
+                              handleFieldChange('gross_profit_margin', (grossProfit / business.annual_revenue) * 100)
+                            }
+                          }}
+                          className="w-full h-11 pl-8 pr-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-100 focus:border-teal-500 focus:outline-none transition-colors"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Gross Margin (%) <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={business.gross_profit_margin || ''}
+                          onChange={(e) => {
+                            const margin = parseFloat(e.target.value) || 0
+                            handleFieldChange('gross_profit_margin', margin)
+
+                            // Auto-calculate profit if revenue exists
+                            if (business.annual_revenue && business.annual_revenue > 0) {
+                              handleFieldChange('gross_profit', (business.annual_revenue * margin) / 100)
+                            }
+                          }}
+                          className={getInputClassName()}
+                          placeholder="0"
+                          min="0"
+                          max="100"
+                          step="0.1"
+                        />
+                        <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">%</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Net Margin (%)
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      value={business.net_profit_margin || ''}
-                      onChange={(e) => handleFieldChange('net_profit_margin', parseFloat(e.target.value) || 0)}
-                      className="w-full pr-8 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="0"
-                      min="-100"
-                      max="100"
-                    />
-                    <span className="absolute right-3 top-2 text-gray-500">%</span>
+                {/* Net Profit / Margin */}
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="text-md font-semibold text-gray-900 mb-4">Net Profit <span className="text-sm font-normal text-gray-600">(Enter $ or %, we'll calculate the other)</span></h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Net Profit ($) <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium pointer-events-none">$</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={business.net_profit ? formatCurrency(business.net_profit) : ''}
+                          onChange={(e) => {
+                            const numericValue = e.target.value.replace(/[^0-9-]/g, '')
+                            const netProfit = numericValue ? parseFloat(numericValue) : 0
+                            handleFieldChange('net_profit', netProfit)
+
+                            // Auto-calculate margin if revenue exists
+                            if (business.annual_revenue && business.annual_revenue > 0) {
+                              handleFieldChange('net_profit_margin', (netProfit / business.annual_revenue) * 100)
+                            }
+                          }}
+                          className="w-full h-11 pl-8 pr-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-100 focus:border-teal-500 focus:outline-none transition-colors"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Net Margin (%) <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={business.net_profit_margin || ''}
+                          onChange={(e) => {
+                            const margin = parseFloat(e.target.value) || 0
+                            handleFieldChange('net_profit_margin', margin)
+
+                            // Auto-calculate profit if revenue exists
+                            if (business.annual_revenue && business.annual_revenue > 0) {
+                              handleFieldChange('net_profit', (business.annual_revenue * margin) / 100)
+                            }
+                          }}
+                          className={getInputClassName()}
+                          placeholder="0"
+                          min="-100"
+                          max="100"
+                          step="0.1"
+                        />
+                        <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">%</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1410,15 +1537,24 @@ export default function EnhancedBusinessProfile() {
             </div>
           )}
 
-          {/* Step 4: Team & Organisation */}
-          {currentStep === 4 && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Team & Organisation</h2>
-              
+          {/* Step 5: Team & Organisation */}
+          {currentStep === 5 && (
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Team & Organisation</h2>
+                <p className="text-gray-600 mt-1">Your team structure and key roles</p>
+              </div>
+
+              <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
+                <p className="text-sm text-teal-900 leading-relaxed">
+                  Understanding your team helps us identify capacity, delegation opportunities, and hiring needs.
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Total Employees *
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Total Employees <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -1427,19 +1563,19 @@ export default function EnhancedBusinessProfile() {
                       handleFieldChange('employee_count', parseInt(e.target.value) || 0)
                       setValidationErrors(errors => errors.filter(e => e.field !== 'employee_count'))
                     }}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
-                      hasFieldError('employee_count')
-                        ? 'border-red-500 focus:ring-red-500'
-                        : 'border-gray-300 focus:ring-blue-500'
-                    }`}
+                    className={getInputClassName('employee_count')}
                     min="0"
+                    placeholder="0"
                   />
                   {hasFieldError('employee_count') && (
-                    <p className="text-red-600 text-sm mt-1">{getFieldError('employee_count')}</p>
+                    <p className="text-red-600 text-sm mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {getFieldError('employee_count')}
+                    </p>
                   )}
                   {!hasFieldError('employee_count') && business.annual_revenue && business.employee_count && business.employee_count > 0 && (
-                    <p className="text-sm text-gray-600 mt-1">
-                      Revenue per employee: ${Math.round((business.annual_revenue / business.employee_count)).toLocaleString()}
+                    <p className="text-sm text-gray-600 mt-1.5">
+                      Revenue per employee: ${formatCurrency(Math.round(business.annual_revenue / business.employee_count))}
                     </p>
                   )}
                 </div>
@@ -1447,65 +1583,87 @@ export default function EnhancedBusinessProfile() {
 
               {/* Key Roles */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Team Members
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Key Team Members
                 </label>
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="grid grid-cols-3 gap-2 mb-2 px-3">
-                    <div className="text-xs font-medium text-gray-600">Role</div>
-                    <div className="text-xs font-medium text-gray-600">Name</div>
-                    <div className="text-xs font-medium text-gray-600">Status</div>
+                  <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 mb-2 px-3">
+                    <div className="text-xs font-semibold text-gray-600">Role</div>
+                    <div className="text-xs font-semibold text-gray-600">Name</div>
+                    <div className="text-xs font-semibold text-gray-600">Status</div>
+                    <div className="w-8"></div>
                   </div>
                   <div className="space-y-2">
-                    {((business.key_roles as any[] || []).length < 3 
+                    {((business.key_roles as any[] || []).length < 3
                       ? [...(business.key_roles as any[] || []), ...Array(3 - (business.key_roles as any[] || []).length).fill({ title: '', name: '', status: '' })]
                       : (business.key_roles as any[] || [])
-                    ).map((role: any, index: number) => (
-                      <div key={index} className="bg-white rounded-lg p-3 border border-gray-200">
-                        <div className="grid grid-cols-3 gap-2">
-                          <input
-                            type="text"
-                            value={role.title || ''}
-                            onChange={(e) => {
-                              const roles = [...(business.key_roles as any[] || [])]
-                              if (!roles[index]) roles[index] = { title: '', name: '', status: '' }
-                              roles[index] = { ...roles[index], title: e.target.value }
-                              handleJsonFieldChange('key_roles', roles)
-                            }}
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                            placeholder="e.g., CEO, Sales Manager"
-                          />
-                          <input
-                            type="text"
-                            value={role.name || ''}
-                            onChange={(e) => {
-                              const roles = [...(business.key_roles as any[] || [])]
-                              if (!roles[index]) roles[index] = { title: '', name: '', status: '' }
-                              roles[index] = { ...roles[index], name: e.target.value }
-                              handleJsonFieldChange('key_roles', roles)
-                            }}
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                            placeholder="Person's name"
-                          />
-                          <select
-                            value={role.status || ''}
-                            onChange={(e) => {
-                              const roles = [...(business.key_roles as any[] || [])]
-                              if (!roles[index]) roles[index] = { title: '', name: '', status: '' }
-                              roles[index] = { ...roles[index], status: e.target.value }
-                              handleJsonFieldChange('key_roles', roles)
-                            }}
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                          >
-                            <option value="">Select Status</option>
-                            <option value="Full Time">Full Time</option>
-                            <option value="Part Time">Part Time</option>
-                            <option value="Casual">Casual</option>
-                            <option value="Virtual Assistant">Virtual Assistant</option>
-                          </select>
+                    ).map((role: any, index: number) => {
+                      const actualRoles = business.key_roles as any[] || []
+                      const isActualRole = index < actualRoles.length
+                      const hasContent = role.title || role.name || role.status
+
+                      return (
+                        <div key={index} className="bg-white rounded-lg p-3 border border-gray-200">
+                          <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
+                            <input
+                              type="text"
+                              value={role.title || ''}
+                              onChange={(e) => {
+                                const roles = [...(business.key_roles as any[] || [])]
+                                if (!roles[index]) roles[index] = { title: '', name: '', status: '' }
+                                roles[index] = { ...roles[index], title: e.target.value }
+                                handleJsonFieldChange('key_roles', roles)
+                              }}
+                              className="h-10 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-100 focus:border-teal-500 focus:outline-none transition-colors"
+                              placeholder="e.g., CEO, Sales Manager"
+                            />
+                            <input
+                              type="text"
+                              value={role.name || ''}
+                              onChange={(e) => {
+                                const roles = [...(business.key_roles as any[] || [])]
+                                if (!roles[index]) roles[index] = { title: '', name: '', status: '' }
+                                roles[index] = { ...roles[index], name: e.target.value }
+                                handleJsonFieldChange('key_roles', roles)
+                              }}
+                              className="h-10 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-100 focus:border-teal-500 focus:outline-none transition-colors"
+                              placeholder="Person's name"
+                            />
+                            <select
+                              value={role.status || ''}
+                              onChange={(e) => {
+                                const roles = [...(business.key_roles as any[] || [])]
+                                if (!roles[index]) roles[index] = { title: '', name: '', status: '' }
+                                roles[index] = { ...roles[index], status: e.target.value }
+                                handleJsonFieldChange('key_roles', roles)
+                              }}
+                              className="h-10 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-100 focus:border-teal-500 focus:outline-none transition-colors appearance-none bg-white cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%236B7280%22%20d%3D%22M10.293%203.293L6%207.586%201.707%203.293A1%201%200%2000.293%204.707l5%205a1%201%200%20001.414%200l5-5a1%201%200%2010-1.414-1.414z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:14px_14px] bg-[center_right_8px] bg-no-repeat"
+                            >
+                              <option value="">Select Status</option>
+                              <option value="Full Time">Full Time</option>
+                              <option value="Part Time">Part Time</option>
+                              <option value="Casual">Casual</option>
+                              <option value="Virtual Assistant">Virtual Assistant</option>
+                            </select>
+                            {isActualRole && hasContent && (
+                              <button
+                                onClick={() => {
+                                  const roles = (business.key_roles as any[] || []).filter((_, i) => i !== index)
+                                  handleJsonFieldChange('key_roles', roles.length > 0 ? roles : [])
+                                }}
+                                className="w-8 h-8 flex items-center justify-center text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete role"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            )}
+                            {(!isActualRole || !hasContent) && (
+                              <div className="w-8"></div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                   {(business.key_roles as any[] || []).length >= 3 && (
                     <button
@@ -1513,7 +1671,7 @@ export default function EnhancedBusinessProfile() {
                         const roles = [...(business.key_roles as any[] || []), { title: '', name: '', status: '' }]
                         handleJsonFieldChange('key_roles', roles)
                       }}
-                      className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                      className="mt-3 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm font-medium transition-colors"
                     >
                       + Add Another Role
                     </button>
@@ -1523,20 +1681,23 @@ export default function EnhancedBusinessProfile() {
             </div>
           )}
 
-          {/* Step 5: Current Situation */}
-          {currentStep === 5 && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Current Situation</h2>
-              
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-                <p className="text-sm text-amber-800">
+          {/* Step 6: Current Situation */}
+          {currentStep === 6 && (
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Current Situation</h2>
+                <p className="text-gray-600 mt-1">Your challenges and opportunities</p>
+              </div>
+
+              <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
+                <p className="text-sm text-teal-900 leading-relaxed">
                   This provides critical context for AI recommendations. Be specific and honest about your challenges and opportunities.
                 </p>
               </div>
 
               {/* Top Challenges */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-4">
                   Top 3 Current Challenges
                 </label>
                 <div className="space-y-3">
@@ -1553,7 +1714,7 @@ export default function EnhancedBusinessProfile() {
                             challenges[index] = e.target.value
                             handleFieldChange('top_challenges', challenges)
                           }}
-                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className={`flex-1 ${getTextareaClassName()}`}
                           rows={2}
                           placeholder={`Challenge ${index + 1}: Be specific about what's holding you back...`}
                         />
@@ -1565,7 +1726,7 @@ export default function EnhancedBusinessProfile() {
 
               {/* Growth Opportunities */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-4">
                   Top 3 Growth Opportunities
                 </label>
                 <div className="space-y-3">
@@ -1582,7 +1743,7 @@ export default function EnhancedBusinessProfile() {
                             opportunities[index] = e.target.value
                             handleFieldChange('growth_opportunities', opportunities)
                           }}
-                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className={`flex-1 ${getTextareaClassName()}`}
                           rows={2}
                           placeholder={`Opportunity ${index + 1}: What could accelerate your growth...`}
                         />
@@ -1592,9 +1753,9 @@ export default function EnhancedBusinessProfile() {
                 </div>
               </div>
 
-              {/* Additional Context - NEW SECTION */}
+              {/* Additional Context */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Anything Else We Should Know?
                 </label>
                 <p className="text-xs text-gray-600 mb-2">
@@ -1606,7 +1767,7 @@ export default function EnhancedBusinessProfile() {
                     const updated = { ...ownerInfo, additional_context: e.target.value }
                     handleJsonFieldChange('owner_info', updated)
                   }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={getTextareaClassName()}
                   rows={4}
                   placeholder="Share any additional information that might be helpful for your coaching journey..."
                 />
@@ -1615,46 +1776,24 @@ export default function EnhancedBusinessProfile() {
           )}
 
           {/* Navigation Buttons */}
-          <div className="flex justify-between mt-8 pt-6 border-t border-gray-200">
+          <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
             <button
               onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
               disabled={currentStep === 1}
-              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
                 currentStep === 1
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               <ArrowLeft className="w-5 h-5" />
               Previous
             </button>
 
-            <button
-              onClick={manualSave}
-              disabled={isSaving}
-              className={`px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                isSaving
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700'
-              } text-white`}
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-5 h-5" />
-                  Save Changes
-                </>
-              )}
-            </button>
-
             {currentStep < STEPS.length && (
               <button
                 onClick={() => setCurrentStep(Math.min(STEPS.length, currentStep + 1))}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 rounded-lg font-medium transition-all"
+                className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white hover:bg-teal-700 rounded-lg font-semibold transition-colors shadow-sm"
               >
                 Next
                 <ArrowRight className="w-5 h-5" />
@@ -1663,11 +1802,8 @@ export default function EnhancedBusinessProfile() {
 
             {currentStep === STEPS.length && (
               <button
-                onClick={() => {
-                  manualSave()
-                  router.push('/dashboard')
-                }}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 rounded-lg font-medium transition-all"
+                onClick={() => router.push('/dashboard')}
+                className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white hover:bg-teal-700 rounded-lg font-semibold transition-colors shadow-sm"
               >
                 Complete Profile
                 <CheckCircle className="w-5 h-5" />
@@ -1675,29 +1811,6 @@ export default function EnhancedBusinessProfile() {
             )}
           </div>
         </div>
-
-        {/* Profile Summary Card */}
-        {calculateCompletion() >= 80 && (
-          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-lg p-6 mt-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5" />
-                  Profile Complete!
-                </h3>
-                <p className="text-sm opacity-90 mt-1">
-                  Your comprehensive business context is ready to power AI-driven insights
-                </p>
-              </div>
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="px-6 py-2 bg-white text-green-600 rounded-lg hover:bg-gray-100 transition-colors font-medium"
-              >
-                View Dashboard
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

@@ -1,0 +1,70 @@
+import { createClient } from '@/lib/supabase/client'
+
+export type SystemRole = 'super_admin' | 'coach' | 'client'
+
+export interface UserWithRole {
+  id: string
+  email: string
+  role: SystemRole
+}
+
+/**
+ * Get the current user's system role
+ */
+export async function getUserSystemRole(): Promise<SystemRole | null> {
+  const supabase = createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data, error } = await supabase
+    .from('system_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .single()
+
+  if (error || !data) return 'client' // Default to client if no role found
+
+  return data.role as SystemRole
+}
+
+/**
+ * Check if current user is super admin
+ */
+export async function isSuperAdmin(): Promise<boolean> {
+  const role = await getUserSystemRole()
+  return role === 'super_admin'
+}
+
+/**
+ * Check if current user is coach
+ */
+export async function isCoach(): Promise<boolean> {
+  const role = await getUserSystemRole()
+  return role === 'coach'
+}
+
+/**
+ * Get redirect path based on user role
+ */
+export function getRedirectPathForRole(role: SystemRole): string {
+  switch (role) {
+    case 'super_admin':
+      return '/admin'
+    case 'coach':
+      return '/coach/clients'
+    case 'client':
+      return '/dashboard'
+    default:
+      return '/dashboard'
+  }
+}
+
+/**
+ * Redirect user to appropriate dashboard based on their role
+ */
+export async function redirectToRoleDashboard() {
+  const role = await getUserSystemRole()
+  if (!role) return '/login'
+  return getRedirectPathForRole(role)
+}

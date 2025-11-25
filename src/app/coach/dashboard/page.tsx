@@ -160,7 +160,7 @@ export default function CoachDashboard() {
   const getHealthColor = (status: string | null | undefined) => {
     switch (status?.toUpperCase()) {
       case 'THRIVING': return 'bg-green-100 text-green-800 border-green-200'
-      case 'STRONG': return 'bg-blue-100 text-blue-800 border-blue-200'
+      case 'STRONG': return 'bg-teal-100 text-teal-800 border-teal-200'
       case 'STABLE': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
       case 'BUILDING': return 'bg-orange-100 text-orange-800 border-orange-200'
       case 'STRUGGLING': return 'bg-red-100 text-red-800 border-red-200'
@@ -190,7 +190,7 @@ export default function CoachDashboard() {
       <SidebarLayout>
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
-            <RefreshCw className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+            <RefreshCw className="h-8 w-8 animate-spin text-teal-600 mx-auto mb-4" />
             <p className="text-gray-600">Loading coach dashboard...</p>
           </div>
         </div>
@@ -215,7 +215,7 @@ export default function CoachDashboard() {
                 <p className="text-sm text-gray-600">Total Clients</p>
                 <p className="text-3xl font-bold text-gray-900">{stats.totalClients}</p>
               </div>
-              <Users className="h-10 w-10 text-blue-500" />
+              <Users className="h-10 w-10 text-teal-500" />
             </div>
           </div>
 
@@ -269,7 +269,7 @@ export default function CoachDashboard() {
                   </div>
                   <Link
                     href={`/dashboard?client=${client.business.id}`}
-                    className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center"
+                    className="text-teal-600 hover:text-teal-700 font-medium text-sm flex items-center"
                   >
                     View Client <ChevronRight className="h-4 w-4 ml-1" />
                   </Link>
@@ -287,7 +287,7 @@ export default function CoachDashboard() {
               onClick={() => setSelectedView('grid')}
               className={`px-4 py-2 rounded-lg font-medium ${
                 selectedView === 'grid' 
-                  ? 'bg-blue-600 text-white' 
+                  ? 'bg-teal-600 text-white' 
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -297,7 +297,7 @@ export default function CoachDashboard() {
               onClick={() => setSelectedView('list')}
               className={`px-4 py-2 rounded-lg font-medium ${
                 selectedView === 'list' 
-                  ? 'bg-blue-600 text-white' 
+                  ? 'bg-teal-600 text-white' 
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -355,7 +355,7 @@ export default function CoachDashboard() {
                   
                   <Link
                     href={`/dashboard?client=${client.business.id}`}
-                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-center block font-medium"
+                    className="w-full bg-teal-600 text-white py-2 px-4 rounded-lg hover:bg-teal-700 transition-colors text-center block font-medium"
                   >
                     View Client
                   </Link>
@@ -437,7 +437,7 @@ export default function CoachDashboard() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <Link
                         href={`/dashboard?client=${client.business.id}`}
-                        className="text-blue-600 hover:text-blue-700 font-medium flex items-center"
+                        className="text-teal-600 hover:text-teal-700 font-medium flex items-center"
                       >
                         <Eye className="h-4 w-4 mr-1" />
                         View

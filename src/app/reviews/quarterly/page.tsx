@@ -272,9 +272,9 @@ export default function QuarterlyReviewPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <Loader2 className="w-12 h-12 animate-spin text-teal-600 mx-auto mb-4" />
           <p className="text-gray-600">Loading quarterly review...</p>
         </div>
       </div>
@@ -283,7 +283,7 @@ export default function QuarterlyReviewPage() {
 
   if (!currentQuarter) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600">Unable to determine current quarter</p>
         </div>
@@ -292,7 +292,7 @@ export default function QuarterlyReviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <div className="bg-white border-b">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -306,7 +306,7 @@ export default function QuarterlyReviewPage() {
             <button
               onClick={handleCompleteQuarter}
               disabled={isSaving}
-              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50"
+              className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium disabled:opacity-50"
             >
               {isSaving ? (
                 <>
@@ -324,12 +324,12 @@ export default function QuarterlyReviewPage() {
 
           {/* Progress Summary */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
               <div className="flex items-center gap-3">
-                <Target className="w-8 h-8 text-blue-600" />
+                <Target className="w-8 h-8 text-teal-600" />
                 <div>
-                  <p className="text-sm text-blue-700 font-medium">Total Initiatives</p>
-                  <p className="text-2xl font-bold text-blue-900">{initiatives.length}</p>
+                  <p className="text-sm text-teal-700 font-medium">Total Initiatives</p>
+                  <p className="text-2xl font-bold text-teal-900">{initiatives.length}</p>
                 </div>
               </div>
             </div>
@@ -385,7 +385,7 @@ export default function QuarterlyReviewPage() {
                   onClick={() => setActiveSection(section.id)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-all ${
                     isActive
-                      ? 'bg-blue-100 text-blue-800 font-medium'
+                      ? 'bg-teal-100 text-teal-800 font-medium'
                       : 'text-gray-600 hover:bg-gray-100'
                   }`}
                 >
@@ -414,7 +414,7 @@ export default function QuarterlyReviewPage() {
                   <p className="text-slate-600">No initiatives assigned to this quarter</p>
                   <button
                     onClick={() => router.push('/goals?step=5')}
-                    className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
+                    className="mt-4 text-teal-600 hover:text-teal-700 font-medium"
                   >
                     Assign initiatives →
                   </button>
@@ -425,7 +425,7 @@ export default function QuarterlyReviewPage() {
                     const isExpanded = expandedInitiatives.has(initiative.id)
                     const statusColors = {
                       not_started: 'bg-slate-100 text-slate-700 border-slate-300',
-                      in_progress: 'bg-blue-100 text-blue-700 border-blue-300',
+                      in_progress: 'bg-teal-100 text-teal-700 border-teal-300',
                       completed: 'bg-green-100 text-green-700 border-green-300',
                       cancelled: 'bg-red-100 text-red-700 border-red-300',
                       on_hold: 'bg-amber-100 text-amber-700 border-amber-300'
@@ -452,7 +452,7 @@ export default function QuarterlyReviewPage() {
                                     initiative.priority === 'high'
                                       ? 'bg-orange-100 text-orange-700'
                                       : initiative.priority === 'medium'
-                                      ? 'bg-blue-100 text-blue-700'
+                                      ? 'bg-teal-100 text-teal-700'
                                       : 'bg-slate-100 text-slate-600'
                                   }`}>
                                     {initiative.priority.toUpperCase()} PRIORITY
@@ -473,7 +473,7 @@ export default function QuarterlyReviewPage() {
                             </div>
                             <div className="w-full bg-slate-200 rounded-full h-2">
                               <div
-                                className="bg-blue-600 h-2 rounded-full transition-all"
+                                className="bg-teal-600 h-2 rounded-full transition-all"
                                 style={{ width: `${initiative.progressPercentage || 0}%` }}
                               />
                             </div>
@@ -496,7 +496,7 @@ export default function QuarterlyReviewPage() {
                                 <select
                                   value={initiative.status || 'not_started'}
                                   onChange={(e) => updateInitiativeStatus(initiative.id, e.target.value as InitiativeStatus)}
-                                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                                 >
                                   <option value="not_started">Not Started</option>
                                   <option value="in_progress">In Progress</option>
@@ -544,7 +544,7 @@ export default function QuarterlyReviewPage() {
                 <p className="text-slate-600">No KPIs configured</p>
                 <button
                   onClick={() => router.push('/goals?step=1')}
-                  className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
+                  className="mt-4 text-teal-600 hover:text-teal-700 font-medium"
                 >
                   Add KPIs →
                 </button>
@@ -568,7 +568,7 @@ export default function QuarterlyReviewPage() {
                         value={kpiActuals[kpi.id] || ''}
                         onChange={(e) => updateKPIActual(kpi.id, parseFloat(e.target.value) || 0)}
                         placeholder={`Enter actual ${kpi.unit}`}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                       />
                     </div>
                   </div>
@@ -596,7 +596,7 @@ export default function QuarterlyReviewPage() {
                     onChange={(e) => setWins(e.target.value)}
                     rows={4}
                     placeholder="What are you proud of this quarter? What successes did you achieve?"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
 
@@ -609,7 +609,7 @@ export default function QuarterlyReviewPage() {
                     onChange={(e) => setChallenges(e.target.value)}
                     rows={4}
                     placeholder="What obstacles did you face? What slowed you down?"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
 
@@ -622,7 +622,7 @@ export default function QuarterlyReviewPage() {
                     onChange={(e) => setLearnings(e.target.value)}
                     rows={4}
                     placeholder="What insights did you gain? What would you do differently?"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
 
@@ -635,7 +635,7 @@ export default function QuarterlyReviewPage() {
                     onChange={(e) => setAdjustments(e.target.value)}
                     rows={4}
                     placeholder="Based on this quarter, what adjustments will you make going forward?"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
 
@@ -648,7 +648,7 @@ export default function QuarterlyReviewPage() {
                     onChange={(e) => setOverallReflection(e.target.value)}
                     rows={4}
                     placeholder="Any other thoughts, observations, or notes about this quarter?"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
               </div>
@@ -657,25 +657,25 @@ export default function QuarterlyReviewPage() {
         )}
 
         {/* Next Steps */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <div className="mt-8 bg-teal-50 border border-teal-200 rounded-lg p-6">
           <div className="flex items-start gap-4">
-            <ArrowRight className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+            <ArrowRight className="w-6 h-6 text-teal-600 flex-shrink-0 mt-1" />
             <div>
-              <h3 className="font-semibold text-blue-900 mb-2">Next Steps</h3>
-              <p className="text-sm text-blue-800 mb-4">
+              <h3 className="font-semibold text-teal-900 mb-2">Next Steps</h3>
+              <p className="text-sm text-teal-800 mb-4">
                 After completing this review, you'll create a snapshot and can plan the next quarter.
               </p>
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleCompleteQuarter}
                   disabled={isSaving}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50"
+                  className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium disabled:opacity-50"
                 >
                   {isSaving ? 'Saving...' : 'Complete Quarter & Save Snapshot'}
                 </button>
                 <button
                   onClick={() => router.push('/goals?step=5')}
-                  className="px-4 py-2 bg-white text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 font-medium"
+                  className="px-4 py-2 bg-white text-teal-600 border border-teal-300 rounded-lg hover:bg-teal-50 font-medium"
                 >
                   Plan Next Quarter
                 </button>

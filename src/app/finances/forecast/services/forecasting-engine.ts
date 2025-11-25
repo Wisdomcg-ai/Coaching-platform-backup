@@ -282,16 +282,19 @@ export class ForecastingEngine {
 
   /**
    * Batch recalculate all forecasts for all lines
+   * @param baselineMonthKeys - Baseline period months (e.g., FY25) for analysis calculations
+   * @param actualMonthKeys - All actual months (baseline + current YTD) for forecasting methods that need them
    */
   static recalculateAllForecasts(
     lines: PLLine[],
-    actualMonthKeys: string[],
-    forecastMonthKeys: string[]
+    baselineMonthKeys: string[],
+    forecastMonthKeys: string[],
+    actualMonthKeys?: string[] // Optional: if not provided, use baselineMonthKeys
   ): PLLine[] {
-    // First pass: calculate analysis for all lines
+    // First pass: calculate analysis for all lines using ONLY baseline months
     const linesWithAnalysis = lines.map(line => ({
       ...line,
-      analysis: this.calculateAnalysis(line, lines, actualMonthKeys)
+      analysis: this.calculateAnalysis(line, lines, baselineMonthKeys)
     }))
 
     // Second pass: apply forecasting methods
@@ -299,13 +302,16 @@ export class ForecastingEngine {
     let updatedLines = [...linesWithAnalysis]
     const maxIterations = 5 // Prevent infinite loops
 
+    // Use baseline months for forecasting methods unless actualMonthKeys is provided
+    const monthsForForecasting = actualMonthKeys || baselineMonthKeys
+
     for (let iteration = 0; iteration < maxIterations; iteration++) {
       updatedLines = updatedLines.map(line => {
         const forecastMonths = this.applyForecastMethod(
           line,
           updatedLines,
           forecastMonthKeys,
-          actualMonthKeys
+          monthsForForecasting
         )
 
         return {

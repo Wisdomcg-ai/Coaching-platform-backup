@@ -143,23 +143,23 @@ export function KPISystemTest() {
       <div className="mb-6">
         <h3 className="text-lg font-semibold mb-2">Performance Stats</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-blue-50 p-3 rounded">
-            <div className="text-sm text-blue-600">Total KPIs</div>
-            <div className="font-semibold text-blue-900">{stats.total}</div>
+          <div className="bg-teal-50 p-3 rounded">
+            <div className="text-sm text-teal-600">Total KPIs</div>
+            <div className="font-semibold text-teal-900">{stats.total}</div>
           </div>
-          <div className="bg-blue-50 p-3 rounded">
-            <div className="text-sm text-blue-600">Load Time</div>
-            <div className="font-semibold text-blue-900">
+          <div className="bg-teal-50 p-3 rounded">
+            <div className="text-sm text-teal-600">Load Time</div>
+            <div className="font-semibold text-teal-900">
               {stats.loadTime ? `${stats.loadTime}ms` : 'N/A'}
             </div>
           </div>
-          <div className="bg-blue-50 p-3 rounded">
-            <div className="text-sm text-blue-600">Cache Hit Rate</div>
-            <div className="font-semibold text-blue-900">{stats.cacheHitRate}</div>
+          <div className="bg-teal-50 p-3 rounded">
+            <div className="text-sm text-teal-600">Cache Hit Rate</div>
+            <div className="font-semibold text-teal-900">{stats.cacheHitRate}</div>
           </div>
-          <div className="bg-blue-50 p-3 rounded">
-            <div className="text-sm text-blue-600">Services</div>
-            <div className="font-semibold text-blue-900">
+          <div className="bg-teal-50 p-3 rounded">
+            <div className="text-sm text-teal-600">Services</div>
+            <div className="font-semibold text-teal-900">
               {health?.services ? Object.values(health.services).filter(Boolean).length : 0}/3
             </div>
           </div>
@@ -205,7 +205,7 @@ export function KPISystemTest() {
       <div className="flex gap-4">
         <button
           onClick={runTests}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700"
           disabled={loading}
         >
           {loading ? 'Testing...' : 'Run Tests Again'}

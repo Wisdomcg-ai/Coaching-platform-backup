@@ -102,7 +102,7 @@ export default function WisdomRoadmapTable() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-teal-600 mx-auto mb-3" />
           <div className="text-gray-600">Loading your roadmap...</div>
@@ -112,7 +112,7 @@ export default function WisdomRoadmapTable() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Stage Change Celebration */}
       {stageChange?.changed && (
         <div className="bg-gradient-to-r from-teal-500 to-teal-600 text-white">

@@ -1,7 +1,48 @@
-// /app/goals/hooks/useStrategicPlanning.ts
+/**
+ * Strategic Planning Hook
+ * =======================
+ *
+ * CRITICAL: BUSINESS ID ARCHITECTURE
+ * -----------------------------------
+ * This application has THREE different ID types that can represent a "business":
+ *
+ * 1. `user.id` (from Supabase Auth)
+ *    - The authenticated user's ID
+ *    - Example: '52343ba5-7da0-4d76-8f5f-73f336164aa6'
+ *    - USED BY: SWOT analysis data (swot_items table uses this as business_id)
+ *
+ * 2. `businesses.id` (from businesses table)
+ *    - The business entity ID in the multi-tenant system
+ *    - Example: '8c8c63b2-bdc4-4115-9375-8d0fd89acc00'
+ *    - USED BY: Coach-client relationships, assigned_coach_id
+ *
+ * 3. `business_profiles.id` (from business_profiles table)
+ *    - The business profile ID containing business details
+ *    - Example: 'fa0a80e8-e58e-40aa-b34a-8db667d4b221'
+ *    - USED BY: ALL strategic planning data (goals, KPIs, initiatives, etc.)
+ *
+ * IMPORTANT RULES:
+ * ----------------
+ * - Strategic planning data (financial goals, initiatives, KPIs) is stored using business_profiles.id
+ * - SWOT data is stored using user.id (the owner's auth ID)
+ * - When loading data for coach view, use businesses.id to find the client,
+ *   but use business_profiles.id to load/save the actual planning data
+ * - The `ownerUserId` state tracks the original owner's user.id for SWOT queries
+ *
+ * AUTO-SAVE IMPLEMENTATION:
+ * ------------------------
+ * - Auto-save is enabled with proper safeguards
+ * - isDirty flag tracks when USER makes changes (not when loading data)
+ * - isLoadComplete flag prevents save during initial data load
+ * - 2-second debounce prevents excessive saves
+ * - Empty state guard prevents saving empty data
+ * - Manual save button remains as fallback
+ *
+ * @param overrideBusinessId - Pass a businesses.id when viewing as a coach
+ */
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { FinancialData, CoreMetricsData, KPIData, StrategicInitiative, YearType, MonthlyTargetsData } from '../types'
 import { STANDARD_KPIS, INDUSTRY_KPIS } from '../utils/constants'
 import { FinancialService } from '../services/financial-service'
@@ -17,14 +58,36 @@ interface KeyAction {
   dueDate?: string
 }
 
-export function useStrategicPlanning() {
+export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+
+export function useStrategicPlanning(overrideBusinessId?: string) {
   // Loading & Error States
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [businessId, setBusinessId] = useState<string>('')
   const [userId, setUserId] = useState<string>('')
+  const [ownerUserId, setOwnerUserId] = useState<string>('') // The actual owner's user.id for SWOT queries
   const [industry, setIndustry] = useState<string>('building_construction')
   const supabase = createClient()
+
+  // Auto-save states
+  const [isDirty, setIsDirty] = useState(false)
+  const [isLoadComplete, setIsLoadComplete] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
+
+  // Auto-save refs
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isSavingRef = useRef(false)
+
+  // Mark data as dirty and trigger auto-save
+  const markDirty = useCallback(() => {
+    if (!isLoadComplete) {
+      console.log('[AutoSave] Skipping markDirty - load not complete')
+      return
+    }
+    setIsDirty(true)
+  }, [isLoadComplete])
 
   // Step 1: Financial Data & KPIs - Initialize with empty defaults to prevent hydration mismatch
   const [financialData, setFinancialData] = useState<FinancialData>({
@@ -146,8 +209,9 @@ export function useStrategicPlanning() {
 
         return newData
       })
+      markDirty()
     },
-    []
+    [markDirty]
   )
 
   // Update core metrics value
@@ -160,8 +224,9 @@ export function useStrategicPlanning() {
           [period]: value
         }
       }))
+      markDirty()
     },
-    []
+    [markDirty]
   )
 
   // Update KPI value
@@ -174,8 +239,9 @@ export function useStrategicPlanning() {
             : kpi
         )
       )
+      markDirty()
     },
-    []
+    [markDirty]
   )
 
   // Add KPI
@@ -195,21 +261,41 @@ export function useStrategicPlanning() {
       }
       return [...prev, newKPI]
     })
-  }, [])
+    markDirty()
+  }, [markDirty])
 
   // Delete KPI
   const deleteKPI = useCallback((kpiId: string) => {
     setKpis(prev => prev.filter(k => k.id !== kpiId))
-  }, [])
+    markDirty()
+  }, [markDirty])
 
   // Save all data to Supabase with auto-debouncing
   const saveAllData = useCallback(async () => {
+    // Guard: prevent concurrent saves
+    if (isSavingRef.current) {
+      console.log('[AutoSave] Already saving, skipping...')
+      return false
+    }
+
     try {
       if (!businessId || !userId) {
         console.log('[Strategic Planning] ⚠️ Cannot save: missing businessId or userId')
         return false
       }
 
+      // Guard: Don't save empty financial data (prevents data loss)
+      if (financialData.revenue.current === 0 &&
+          financialData.revenue.year1 === 0 &&
+          financialData.revenue.year2 === 0 &&
+          financialData.revenue.year3 === 0 &&
+          !isLoadComplete) {
+        console.log('[AutoSave] Skipping save - empty state guard triggered')
+        return false
+      }
+
+      isSavingRef.current = true
+      setSaveStatus('saving')
       console.log('[Strategic Planning] 💾 Saving to Supabase...')
       console.log('[Strategic Planning] 📊 Annual Plan by Quarter:', {
         q1: annualPlanByQuarter.q1?.map(i => ({ id: i.id, title: i.title, assignedTo: i.assignedTo })),
@@ -388,10 +474,16 @@ export function useStrategicPlanning() {
       }
 
       console.log('[Strategic Planning] ✅ Successfully saved all data')
+      isSavingRef.current = false
+      setSaveStatus('saved')
+      setLastSaved(new Date())
+      setIsDirty(false)
       return true
     } catch (err) {
       console.error('[Strategic Planning] ❌ Error saving data:', err)
       setError('Failed to save data')
+      isSavingRef.current = false
+      setSaveStatus('error')
       return false
     }
   }, [
@@ -408,7 +500,8 @@ export function useStrategicPlanning() {
     quarterlyTargets,
     sprintFocus,
     sprintKeyActions,
-    operationalActivities
+    operationalActivities,
+    isLoadComplete
   ])
 
   // Load data from Supabase on mount
@@ -428,22 +521,53 @@ export function useStrategicPlanning() {
 
         setUserId(user.id)
 
-        // Get business profile to get business_id and industry
-        const { data: profile } = await supabase
-          .from('business_profiles')
-          .select('id, industry')
-          .eq('user_id', user.id)
-          .single()
+        // If overrideBusinessId is provided (coach viewing client), use it
+        let bizId: string
+        let ownerUser: string = user.id
 
-        const bizId = profile?.id || user.id
+        if (overrideBusinessId) {
+          // Coach view - use the client's business_id
+          bizId = overrideBusinessId
+
+          // Get the owner_id from the businesses table for SWOT queries
+          const { data: business } = await supabase
+            .from('businesses')
+            .select('owner_id')
+            .eq('id', overrideBusinessId)
+            .single()
+
+          if (business?.owner_id) {
+            ownerUser = business.owner_id
+          }
+
+          console.log(`[Strategic Planning] 📥 Coach view - loading client business: ${bizId}, owner: ${ownerUser}`)
+        } else {
+          // Normal user view - get their business_profile
+          // IMPORTANT: Goals data is stored with business_profiles.id as the business_id
+          // This is different from businesses.id - do not change this!
+          const { data: profile, error: profileError } = await supabase
+            .from('business_profiles')
+            .select('id, industry')
+            .eq('user_id', user.id)
+            .single()
+
+          console.log(`[Strategic Planning] 🔍 User ID: ${user.id}`)
+          console.log(`[Strategic Planning] 🔍 Profile query result:`, { profile, profileError: profileError?.message })
+
+          bizId = profile?.id || user.id
+          ownerUser = user.id // For SWOT queries, SWOT stores with user.id as business_id
+
+          console.log(`[Strategic Planning] 🔍 Using bizId: ${bizId}, ownerUser: ${ownerUser}`)
+
+          // Set industry from profile, fallback to default
+          if (profile?.industry) {
+            setIndustry(profile.industry)
+            console.log(`[Strategic Planning] ✅ Loaded industry: ${profile.industry}`)
+          }
+        }
 
         setBusinessId(bizId)
-
-        // Set industry from profile, fallback to default
-        if (profile?.industry) {
-          setIndustry(profile.industry)
-          console.log(`[Strategic Planning] ✅ Loaded industry: ${profile.industry}`)
-        }
+        setOwnerUserId(ownerUser)
 
         console.log(`[Strategic Planning] 📥 Loading data for business: ${bizId}`)
 
@@ -540,6 +664,12 @@ export function useStrategicPlanning() {
         }
 
         setIsLoading(false)
+        // Mark that initial load is complete - auto-save can now run
+        // Use a small delay to ensure all state updates have settled
+        setTimeout(() => {
+          setIsLoadComplete(true)
+          console.log('[AutoSave] Load complete - auto-save now enabled')
+        }, 500)
       } catch (err) {
         console.error('[Strategic Planning] ❌ Error loading data:', err)
         setError('Failed to load saved data')
@@ -548,39 +678,123 @@ export function useStrategicPlanning() {
     }
 
     loadData()
-  }, [supabase])
+  }, [supabase, overrideBusinessId])
 
-  // Auto-save to Supabase when data changes (debounced)
+  // Auto-save effect - triggers when isDirty is true
   useEffect(() => {
-    if (!businessId || !userId || isLoading) return
+    // Only auto-save if:
+    // 1. Load is complete (prevents saving during initial load)
+    // 2. Data is dirty (user has made changes)
+    // 3. We have business and user IDs
+    if (!isLoadComplete || !isDirty || !businessId || !userId) {
+      return
+    }
 
-    const timeoutId = setTimeout(() => {
+    console.log('[AutoSave] Change detected, scheduling save in 2 seconds...')
+
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+
+    // Set new debounced save
+    saveTimeoutRef.current = setTimeout(() => {
+      console.log('[AutoSave] Executing auto-save...')
       saveAllData()
-    }, 2000) // Save 2 seconds after last change
+    }, 2000)
 
-    return () => clearTimeout(timeoutId)
-  }, [
-    financialData,
-    kpis,
-    yearType,
-    strategicIdeas,
-    roadmapSuggestions,
-    twelveMonthInitiatives,
-    annualPlanByQuarter,
-    quarterlyTargets,
-    sprintFocus,
-    sprintKeyActions,
-    operationalActivities,
-    businessId,
-    userId,
-    isLoading,
-    saveAllData
-  ])
+    // Cleanup timeout on unmount or dependency change
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [isLoadComplete, isDirty, businessId, userId, saveAllData])
+
+  // Reset saved status after 3 seconds
+  useEffect(() => {
+    if (saveStatus === 'saved') {
+      const timer = setTimeout(() => {
+        setSaveStatus('idle')
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [saveStatus])
+
+  // Warn user about unsaved changes on page unload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty && isLoadComplete) {
+        e.preventDefault()
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?'
+        return e.returnValue
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isDirty, isLoadComplete])
+
+  // Wrapper functions for setters that also mark dirty
+  const setStrategicIdeasWithDirty = useCallback((ideas: StrategicInitiative[] | ((prev: StrategicInitiative[]) => StrategicInitiative[])) => {
+    setStrategicIdeas(ideas)
+    markDirty()
+  }, [markDirty])
+
+  const setRoadmapSuggestionsWithDirty = useCallback((suggestions: StrategicInitiative[] | ((prev: StrategicInitiative[]) => StrategicInitiative[])) => {
+    setRoadmapSuggestions(suggestions)
+    markDirty()
+  }, [markDirty])
+
+  const setTwelveMonthInitiativesWithDirty = useCallback((initiatives: StrategicInitiative[] | ((prev: StrategicInitiative[]) => StrategicInitiative[])) => {
+    setTwelveMonthInitiatives(initiatives)
+    markDirty()
+  }, [markDirty])
+
+  const setAnnualPlanByQuarterWithDirty = useCallback((plan: Record<string, StrategicInitiative[]> | ((prev: Record<string, StrategicInitiative[]>) => Record<string, StrategicInitiative[]>)) => {
+    setAnnualPlanByQuarter(plan)
+    markDirty()
+  }, [markDirty])
+
+  const setQuarterlyTargetsWithDirty = useCallback((targets: Record<string, { q1: string; q2: string; q3: string; q4: string }> | ((prev: Record<string, { q1: string; q2: string; q3: string; q4: string }>) => Record<string, { q1: string; q2: string; q3: string; q4: string }>)) => {
+    setQuarterlyTargets(targets)
+    markDirty()
+  }, [markDirty])
+
+  const setMonthlyTargetsWithDirty = useCallback((targets: MonthlyTargetsData | ((prev: MonthlyTargetsData) => MonthlyTargetsData)) => {
+    setMonthlyTargets(targets)
+    markDirty()
+  }, [markDirty])
+
+  const setSprintFocusWithDirty = useCallback((focus: StrategicInitiative[] | ((prev: StrategicInitiative[]) => StrategicInitiative[])) => {
+    setSprintFocus(focus)
+    markDirty()
+  }, [markDirty])
+
+  const setSprintKeyActionsWithDirty = useCallback((actions: KeyAction[] | ((prev: KeyAction[]) => KeyAction[])) => {
+    setSprintKeyActions(actions)
+    markDirty()
+  }, [markDirty])
+
+  const setOperationalActivitiesWithDirty = useCallback((activities: OperationalActivity[] | ((prev: OperationalActivity[]) => OperationalActivity[])) => {
+    setOperationalActivities(activities)
+    markDirty()
+  }, [markDirty])
+
+  const setYearTypeWithDirty = useCallback((type: YearType) => {
+    setYearType(type)
+    markDirty()
+  }, [markDirty])
 
   return {
     // Loading & Error
     isLoading,
     error,
+
+    // Auto-save status
+    isDirty,
+    saveStatus,
+    lastSaved,
 
     // Step 1
     financialData,
@@ -592,41 +806,43 @@ export function useStrategicPlanning() {
     addKPI,
     deleteKPI,
     yearType,
-    setYearType,
+    setYearType: setYearTypeWithDirty,
     businessId,
+    ownerUserId, // The owner's user.id for SWOT queries
     industry,
 
     // Step 2
     strategicIdeas,
-    setStrategicIdeas,
+    setStrategicIdeas: setStrategicIdeasWithDirty,
 
     // Step 3
     roadmapSuggestions,
-    setRoadmapSuggestions,
+    setRoadmapSuggestions: setRoadmapSuggestionsWithDirty,
 
     // Step 4
     twelveMonthInitiatives,
-    setTwelveMonthInitiatives,
+    setTwelveMonthInitiatives: setTwelveMonthInitiativesWithDirty,
 
     // Step 5
     annualPlanByQuarter,
-    setAnnualPlanByQuarter,
+    setAnnualPlanByQuarter: setAnnualPlanByQuarterWithDirty,
     quarterlyTargets,
-    setQuarterlyTargets,
+    setQuarterlyTargets: setQuarterlyTargetsWithDirty,
     monthlyTargets,
-    setMonthlyTargets,
+    setMonthlyTargets: setMonthlyTargetsWithDirty,
 
     // Step 6
     sprintFocus,
-    setSprintFocus,
+    setSprintFocus: setSprintFocusWithDirty,
     sprintKeyActions,
-    setSprintKeyActions,
+    setSprintKeyActions: setSprintKeyActionsWithDirty,
 
     // Operational Activities
     operationalActivities,
-    setOperationalActivities,
+    setOperationalActivities: setOperationalActivitiesWithDirty,
 
     // Save
-    saveAllData
+    saveAllData,
+    markDirty
   }
 }

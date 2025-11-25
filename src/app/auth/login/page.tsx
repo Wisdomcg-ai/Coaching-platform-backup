@@ -63,8 +63,8 @@ export default function LoginPage() {
 
         if (signInError) throw signInError
 
-        // Redirect to goals page
-        router.push('/goals')
+        // Redirect to dashboard
+        router.push('/dashboard')
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred. Please try again.')
@@ -78,10 +78,10 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/goals`
+          redirectTo: `${window.location.origin}/dashboard`
         }
       })
-      
+
       if (error) throw error
     } catch (err: any) {
       setError(err.message || 'Failed to sign in with Google')
@@ -89,11 +89,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-            <Building2 className="h-8 w-8 text-blue-600" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-teal-100 rounded-full mb-4">
+            <Building2 className="h-8 w-8 text-teal-600" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">
             {isSignUp ? 'Create Your Account' : 'Welcome Back'}
@@ -130,7 +130,7 @@ export default function LoginPage() {
                   type="text"
                   value={formData.companyName}
                   onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   placeholder="Your Company Name"
                   required={isSignUp}
                 />
@@ -148,7 +148,7 @@ export default function LoginPage() {
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                 placeholder="you@company.com"
                 required
               />
@@ -165,7 +165,7 @@ export default function LoginPage() {
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                 placeholder="••••••••"
                 required
                 minLength={6}
@@ -181,7 +181,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center font-medium"
+            className="w-full bg-teal-600 text-white py-2 px-4 rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center font-medium"
           >
             {isLoading ? (
               <>
@@ -226,7 +226,7 @@ export default function LoginPage() {
               setError(null)
               setSuccess(null)
             }}
-            className="text-blue-600 hover:text-blue-700 font-medium"
+            className="text-teal-600 hover:text-teal-700 font-medium"
           >
             {isSignUp ? 'Sign In' : 'Sign Up'}
           </button>

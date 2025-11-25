@@ -12,10 +12,9 @@ export interface Partner {
 export interface OwnerInfo {
   owner_name?: string
   ownership_percentage?: number
+  date_of_birth?: string
   total_years_business?: number
   years_this_business?: number
-  business_origin?: 'Started from scratch' | 'Bought existing business' | 'Inherited/Family business' | 'Partnership' | 'Franchise' | ''
-  age_range?: '20s' | '30s' | '40s' | '50s' | '60+' | ''
   key_expertise?: string
   partners?: Partner[]
   primary_goal?: 'Build income & wealth' | 'Create freedom & lifestyle' | 'Make an impact' | 'Build to sell' | 'Create legacy' | 'Survive & stabilize' | ''
@@ -65,7 +64,9 @@ export interface BusinessProfile {
 
   // Financial Data
   annual_revenue?: number
+  gross_profit?: number
   gross_profit_margin?: number
+  net_profit?: number
   net_profit_margin?: number
   cash_in_bank?: number
 

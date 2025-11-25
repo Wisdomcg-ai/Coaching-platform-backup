@@ -372,7 +372,7 @@ export default function WeeklyReviewPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <Loader2 className="w-12 h-12 animate-spin text-teal-600 mx-auto mb-4" />
           <p className="text-gray-600">Loading your weekly review...</p>
         </div>
       </div>
@@ -392,7 +392,7 @@ export default function WeeklyReviewPage() {
   const isCurrentWeek = currentWeekStart === WeeklyReviewService.getWeekStart()
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-slate-50 p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header with Week Navigation */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -422,22 +422,22 @@ export default function WeeklyReviewPage() {
           </div>
 
           {/* Week Selector */}
-          <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between bg-teal-50 border border-teal-200 rounded-lg p-4">
             <button
               onClick={() => navigateWeek('prev')}
-              className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-teal-100 rounded-lg transition-colors"
             >
-              <ChevronLeft className="w-5 h-5 text-blue-700" />
+              <ChevronLeft className="w-5 h-5 text-teal-700" />
             </button>
 
             <div className="text-center">
               <div className="flex items-center space-x-2">
-                <Calendar className="w-5 h-5 text-blue-700" />
-                <span className="text-lg font-semibold text-blue-900">
+                <Calendar className="w-5 h-5 text-teal-700" />
+                <span className="text-lg font-semibold text-teal-900">
                   {formatDateRange(review.week_start_date, review.week_end_date)}
                 </span>
                 {isCurrentWeek && (
-                  <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded-full font-medium">
+                  <span className="px-2 py-1 bg-teal-600 text-white text-xs rounded-full font-medium">
                     Current Week
                   </span>
                 )}
@@ -446,10 +446,10 @@ export default function WeeklyReviewPage() {
 
             <button
               onClick={() => navigateWeek('next')}
-              className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-teal-100 rounded-lg transition-colors"
               disabled={isCurrentWeek}
             >
-              <ChevronRight className={`w-5 h-5 ${isCurrentWeek ? 'text-gray-400' : 'text-blue-700'}`} />
+              <ChevronRight className={`w-5 h-5 ${isCurrentWeek ? 'text-gray-400' : 'text-teal-700'}`} />
             </button>
           </div>
         </div>
@@ -465,7 +465,7 @@ export default function WeeklyReviewPage() {
                   onClick={() => loadWeek(r.week_start_date)}
                   className={`w-full flex items-center justify-between p-4 rounded-lg border transition-colors ${
                     r.week_start_date === currentWeekStart
-                      ? 'bg-blue-50 border-blue-300'
+                      ? 'bg-teal-50 border-teal-300'
                       : 'bg-white border-gray-200 hover:bg-gray-50'
                   }`}
                 >
@@ -497,7 +497,7 @@ export default function WeeklyReviewPage() {
         {/* Section 1: Reflection */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-            <Trophy className="w-6 h-6 text-blue-600 mr-3" />
+            <Trophy className="w-6 h-6 text-teal-600 mr-3" />
             Reflection
           </h2>
 
@@ -528,7 +528,7 @@ export default function WeeklyReviewPage() {
                 onChange={(e) => setNewWin(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && addWin()}
                 placeholder="Add a win or highlight..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
               <button
                 onClick={addWin}
@@ -566,7 +566,7 @@ export default function WeeklyReviewPage() {
                 onChange={(e) => setNewChallenge(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && addChallenge()}
                 placeholder="Add a challenge or frustration..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
               <button
                 onClick={addChallenge}
@@ -587,7 +587,7 @@ export default function WeeklyReviewPage() {
               value={review.key_learning}
               onChange={(e) => updateReview({ key_learning: e.target.value })}
               placeholder="What was the most important thing you learned this week?"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               rows={3}
             />
           </div>
@@ -596,7 +596,7 @@ export default function WeeklyReviewPage() {
         {/* Section 2: Accountability - Goals from Last Week */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-            <Target className="w-6 h-6 text-blue-600 mr-3" />
+            <Target className="w-6 h-6 text-teal-600 mr-3" />
             Accountability - Last Week's Goals
           </h2>
 
@@ -618,7 +618,7 @@ export default function WeeklyReviewPage() {
                         )
                         updateReview({ last_week_goals: updated, completion_rate: completionRate })
                       }}
-                      className="mt-1 w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                      className="mt-1 w-5 h-5 text-teal-600 rounded focus:ring-2 focus:ring-teal-500"
                     />
                     <div className="flex-1">
                       <p className={`font-medium ${goal.achieved ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
@@ -633,16 +633,16 @@ export default function WeeklyReviewPage() {
                           updateReview({ last_week_goals: updated })
                         }}
                         placeholder="Add a comment..."
-                        className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                       />
                     </div>
                   </div>
                 </div>
               ))}
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <div className="mt-4 p-4 bg-teal-50 rounded-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-blue-900">Completion Rate</span>
-                  <span className="text-2xl font-bold text-blue-600">{review.completion_rate}%</span>
+                  <span className="text-sm font-semibold text-teal-900">Completion Rate</span>
+                  <span className="text-2xl font-bold text-teal-600">{review.completion_rate}%</span>
                 </div>
               </div>
             </div>
@@ -652,7 +652,7 @@ export default function WeeklyReviewPage() {
         {/* Section 3: Weekly Checklist */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-            <CheckSquare className="w-6 h-6 text-blue-600 mr-3" />
+            <CheckSquare className="w-6 h-6 text-teal-600 mr-3" />
             Weekly Checklist
           </h2>
 
@@ -672,19 +672,19 @@ export default function WeeklyReviewPage() {
                       updated[idx].completed = e.target.checked
                       updateReview({ disciplines_completed: updated })
                     }}
-                    className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                    className="w-5 h-5 text-teal-600 rounded focus:ring-2 focus:ring-teal-500"
                   />
                   {is90DayPlan ? (
                     <Link
                       href="/goals?step=5"
-                      className={`flex-1 ${discipline.completed ? 'text-gray-500 line-through' : 'text-blue-600 hover:text-blue-800'} underline`}
+                      className={`flex-1 ${discipline.completed ? 'text-gray-500 line-through' : 'text-teal-600 hover:text-teal-800'} underline`}
                     >
                       {discipline.discipline}
                     </Link>
                   ) : isDashboard ? (
                     <Link
                       href="/business-dashboard"
-                      className={`flex-1 ${discipline.completed ? 'text-gray-500 line-through' : 'text-blue-600 hover:text-blue-800'} underline`}
+                      className={`flex-1 ${discipline.completed ? 'text-gray-500 line-through' : 'text-teal-600 hover:text-teal-800'} underline`}
                     >
                       {discipline.discipline}
                     </Link>
@@ -713,11 +713,11 @@ export default function WeeklyReviewPage() {
                 onChange={(e) => setNewDiscipline(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && addDiscipline()}
                 placeholder="+ Additional discipline..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
               <button
                 onClick={addDiscipline}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
               >
                 <Plus className="w-5 h-5" />
               </button>
@@ -728,7 +728,7 @@ export default function WeeklyReviewPage() {
         {/* Section 4: Goals for Next Week */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-            <Target className="w-6 h-6 text-blue-600 mr-3" />
+            <Target className="w-6 h-6 text-teal-600 mr-3" />
             Goals for Next Week
           </h2>
 
@@ -753,7 +753,7 @@ export default function WeeklyReviewPage() {
                         updateReview({ next_week_goals: updated })
                       }}
                       placeholder={`Goal ${idx + 1}${idx < 3 ? ' (required)' : ''}`}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     />
                   </div>
                   {idx >= 3 && review.next_week_goals[idx] && (
@@ -773,7 +773,7 @@ export default function WeeklyReviewPage() {
                   onClick={() => {
                     updateReview({ next_week_goals: [...review.next_week_goals, ''] })
                   }}
-                  className="flex items-center space-x-2 px-4 py-2 text-blue-600 hover:text-blue-700 font-medium"
+                  className="flex items-center space-x-2 px-4 py-2 text-teal-600 hover:text-teal-700 font-medium"
                 >
                   <Plus className="w-5 h-5" />
                   <span>Add Another Goal</span>
@@ -809,7 +809,7 @@ export default function WeeklyReviewPage() {
                 type="date"
                 value={newDate}
                 onChange={(e) => setNewDate(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
               <input
                 type="text"
@@ -817,7 +817,7 @@ export default function WeeklyReviewPage() {
                 onChange={(e) => setNewDateDesc(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && addImportantDate()}
                 placeholder="Description..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
               <button
                 onClick={addImportantDate}
@@ -860,7 +860,7 @@ export default function WeeklyReviewPage() {
                 onChange={(e) => setNewStopDoing(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && addStopDoing()}
                 placeholder="What should you stop doing?"
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
               <button
                 onClick={addStopDoing}
@@ -898,7 +898,7 @@ export default function WeeklyReviewPage() {
                 onChange={(e) => setNewStartDoing(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && addStartDoing()}
                 placeholder="What should you start doing?"
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
               <button
                 onClick={addStartDoing}
@@ -922,7 +922,7 @@ export default function WeeklyReviewPage() {
                   onClick={() => updateReview({ week_rating: rating })}
                   className={`w-12 h-12 rounded-lg font-bold transition-colors ${
                     review.week_rating === rating
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-teal-600 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
@@ -934,7 +934,7 @@ export default function WeeklyReviewPage() {
               value={review.rating_reason}
               onChange={(e) => updateReview({ rating_reason: e.target.value })}
               placeholder="Why did you give this rating?"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               rows={3}
             />
           </div>
@@ -943,7 +943,7 @@ export default function WeeklyReviewPage() {
         {/* Section 6: Questions for Coach */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-            <MessageCircle className="w-6 h-6 text-blue-600 mr-3" />
+            <MessageCircle className="w-6 h-6 text-teal-600 mr-3" />
             Questions for Coach
           </h2>
 
@@ -963,7 +963,7 @@ export default function WeeklyReviewPage() {
                   <span className={`px-2 py-1 text-xs rounded-full font-medium ${
                     q.priority === 'high' ? 'bg-red-100 text-red-700' :
                     q.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-blue-100 text-blue-700'
+                    'bg-teal-100 text-teal-700'
                   }`}>
                     {q.priority.toUpperCase()} PRIORITY
                   </span>
@@ -982,7 +982,7 @@ export default function WeeklyReviewPage() {
               value={newQuestion}
               onChange={(e) => setNewQuestion(e.target.value)}
               placeholder="What question do you have for your coach?"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               rows={3}
             />
             <div className="flex items-center space-x-3">
@@ -995,7 +995,7 @@ export default function WeeklyReviewPage() {
                       newQuestionPriority === priority
                         ? priority === 'high' ? 'bg-red-600 text-white' :
                           priority === 'medium' ? 'bg-yellow-600 text-white' :
-                          'bg-blue-600 text-white'
+                          'bg-teal-600 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
@@ -1005,7 +1005,7 @@ export default function WeeklyReviewPage() {
               </div>
               <button
                 onClick={addCoachQuestion}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
               >
                 Add Question
               </button>
@@ -1020,7 +1020,7 @@ export default function WeeklyReviewPage() {
             className={`w-full py-4 rounded-lg font-bold text-lg transition-colors ${
               review.is_completed
                 ? 'bg-green-600 text-white hover:bg-green-700'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-teal-600 text-white hover:bg-teal-700'
             }`}
           >
             {review.is_completed ? '✓ Review Completed' : 'Mark as Complete'}

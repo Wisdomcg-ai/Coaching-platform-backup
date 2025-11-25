@@ -141,7 +141,7 @@ export default function CreateGoalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -181,7 +181,7 @@ export default function CreateGoalPage() {
                 }}
                 className={`p-4 rounded-lg border-2 transition-colors ${
                   formData.goal_type === 'annual'
-                    ? 'border-blue-500 bg-blue-50'
+                    ? 'border-teal-500 bg-teal-50'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
@@ -221,7 +221,7 @@ export default function CreateGoalPage() {
                   required
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   placeholder={goalType === 'annual' ? 'e.g., Achieve $1M in revenue' : 'e.g., Launch new product line'}
                 />
               </div>
@@ -234,7 +234,7 @@ export default function CreateGoalPage() {
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   placeholder="Describe what success looks like for this goal..."
                 />
               </div>
@@ -247,7 +247,7 @@ export default function CreateGoalPage() {
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   >
                     <option value="strategic">Strategic</option>
                     <option value="financial">Financial</option>
@@ -264,7 +264,7 @@ export default function CreateGoalPage() {
                   <select
                     value={formData.priority}
                     onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   >
                     <option value="1">1 - Highest</option>
                     <option value="2">2 - High</option>
@@ -283,7 +283,7 @@ export default function CreateGoalPage() {
                   <select
                     value={formData.parent_goal_id}
                     onChange={(e) => setFormData({ ...formData, parent_goal_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   >
                     <option value="">None - Independent Rock</option>
                     {annualGoals.map((goal) => (
@@ -301,7 +301,7 @@ export default function CreateGoalPage() {
                   id="is_critical"
                   checked={formData.is_critical}
                   onChange={(e) => setFormData({ ...formData, is_critical: e.target.checked })}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
                 />
                 <label htmlFor="is_critical" className="ml-2 text-sm text-gray-700">
                   Mark as critical (must be achieved)
@@ -325,7 +325,7 @@ export default function CreateGoalPage() {
                     required
                     value={formData.start_date}
                     onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   />
                 </div>
 
@@ -338,7 +338,7 @@ export default function CreateGoalPage() {
                     required
                     value={formData.end_date}
                     onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   />
                 </div>
               </div>
@@ -351,7 +351,7 @@ export default function CreateGoalPage() {
                   type="text"
                   value={formData.owner_name}
                   onChange={(e) => setFormData({ ...formData, owner_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   placeholder="e.g., John Smith, Sales Team"
                 />
               </div>
@@ -372,7 +372,7 @@ export default function CreateGoalPage() {
                   type="text"
                   value={formData.target_metric}
                   onChange={(e) => setFormData({ ...formData, target_metric: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   placeholder="e.g., Revenue, Customers, Units Sold"
                 />
               </div>
@@ -387,7 +387,7 @@ export default function CreateGoalPage() {
                     step="0.01"
                     value={formData.target_value}
                     onChange={(e) => setFormData({ ...formData, target_value: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     placeholder="e.g., 1000000"
                   />
                 </div>
@@ -400,7 +400,7 @@ export default function CreateGoalPage() {
                     type="text"
                     value={formData.unit_of_measure}
                     onChange={(e) => setFormData({ ...formData, unit_of_measure: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     placeholder="e.g., $, customers, %"
                   />
                 </div>
@@ -416,7 +416,7 @@ export default function CreateGoalPage() {
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               placeholder="Any additional context, resources needed, or dependencies..."
             />
           </div>
@@ -432,7 +432,7 @@ export default function CreateGoalPage() {
             <button
               type="submit"
               disabled={loading}
-              className="bg-blue-600 text-white px-8 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-teal-600 text-white px-8 py-2 rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Creating...' : `Create ${goalType === 'annual' ? 'Annual Goal' : '90-Day Rock'}`}
             </button>

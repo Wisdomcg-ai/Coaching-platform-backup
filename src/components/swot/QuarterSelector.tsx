@@ -106,7 +106,7 @@ export function QuarterSelector({
     const quarterData = getQuarterData(quarter, selectedYear);
     
     if (quarterData.isCurrent) {
-      return 'bg-blue-100 text-blue-700 border-blue-300';
+      return 'bg-teal-100 text-teal-700 border-teal-300';
     }
     if (quarterData.isPast) {
       return 'bg-gray-50 text-gray-600 hover:bg-gray-100';
@@ -145,7 +145,7 @@ export function QuarterSelector({
           className={`
             inline-flex items-center px-4 py-2 border rounded-md text-sm font-medium
             ${currentQuarter.isCurrent 
-              ? 'border-blue-300 bg-blue-50 text-blue-700' 
+              ? 'border-teal-300 bg-teal-50 text-teal-700' 
               : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
             }
           `}
@@ -218,14 +218,14 @@ export function QuarterSelector({
                     className={`
                       relative px-4 py-3 rounded-lg border transition-all
                       ${getQuarterStyle(q)}
-                      ${isSelected ? 'ring-2 ring-blue-500' : ''}
+                      ${isSelected ? 'ring-2 ring-teal-500' : ''}
                     `}
                   >
                     <div className="text-left">
                       <div className="flex items-center justify-between">
                         <span className="font-medium">Q{quarter}</span>
                         {isSelected && (
-                          <Check className="h-4 w-4 text-blue-600" />
+                          <Check className="h-4 w-4 text-teal-600" />
                         )}
                       </div>
                       <div className="text-xs mt-1 opacity-75">
@@ -254,7 +254,7 @@ export function QuarterSelector({
                   onQuarterChange(quarterData);
                   setIsOpen(false);
                 }}
-                className="text-blue-600 hover:text-blue-700 font-medium"
+                className="text-teal-600 hover:text-teal-700 font-medium"
               >
                 Go to Current Quarter
               </button>

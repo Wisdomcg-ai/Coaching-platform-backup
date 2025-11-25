@@ -87,11 +87,11 @@ export default function IntegrationsPage() {
         <button
           onClick={connectToXero}
           disabled={loading || !selectedBusiness}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+          className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:bg-gray-400"
         >
           Connect to Xero
         </button>
-        {message && <div className="mt-4 p-3 bg-blue-100 rounded">{message}</div>}
+        {message && <div className="mt-4 p-3 bg-teal-100 rounded">{message}</div>}
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">

@@ -92,7 +92,7 @@ export default function AssessmentHistory() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading assessment history...</p>
         </div>
       </div>
@@ -115,7 +115,7 @@ export default function AssessmentHistory() {
             <h1 className="text-xl font-semibold text-gray-900">Assessment History</h1>
             <button
               onClick={() => router.push('/assessment')}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
             >
               New Assessment
             </button>
@@ -131,7 +131,7 @@ export default function AssessmentHistory() {
             <p className="text-gray-600 mb-6">You haven't completed any assessments yet.</p>
             <button
               onClick={() => router.push('/assessment')}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg"
+              className="px-6 py-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-lg hover:from-teal-700 hover:to-teal-800 transition-all duration-200 shadow-lg"
             >
               Start Your First Assessment
             </button>
@@ -149,7 +149,7 @@ export default function AssessmentHistory() {
                     className={`
                       p-4 rounded-lg border-2 cursor-pointer transition-all
                       ${selectedAssessment?.id === assessment.id
-                        ? 'border-blue-500 bg-blue-50'
+                        ? 'border-teal-500 bg-teal-50'
                         : 'border-gray-200 bg-white hover:border-gray-300'
                       }
                     `}
@@ -183,7 +183,7 @@ export default function AssessmentHistory() {
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-1.5">
                           <div
-                            className="bg-blue-600 h-1.5 rounded-full"
+                            className="bg-teal-600 h-1.5 rounded-full"
                             style={{ width: `${assessment.percentage}%` }}
                           />
                         </div>
@@ -206,11 +206,11 @@ export default function AssessmentHistory() {
                   </div>
 
                   {/* Overall Score */}
-                  <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 text-white mb-6">
+                  <div className="bg-gradient-to-r from-teal-600 to-teal-700 rounded-xl p-6 text-white mb-6">
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="text-lg font-semibold mb-1">Overall Health Score</h3>
-                        <p className="text-blue-100">Business Health Status</p>
+                        <p className="text-teal-100">Business Health Status</p>
                       </div>
                       <div className="text-center">
                         <div className="text-4xl font-bold">{selectedAssessment.total_score || 0}</div>
@@ -260,7 +260,7 @@ export default function AssessmentHistory() {
                   <div className="flex space-x-4">
                     <button
                       onClick={() => router.push(`/dashboard/assessment-results?id=${selectedAssessment.id}`)}
-                      className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg"
+                      className="flex-1 px-6 py-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-lg hover:from-teal-700 hover:to-teal-800 transition-all duration-200 shadow-lg"
                     >
                       View Full Report
                     </button>

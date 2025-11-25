@@ -489,9 +489,9 @@ export default function SwotPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading SWOT Analysis...</p>
         </div>
       </div>
@@ -499,7 +499,7 @@ export default function SwotPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -612,7 +612,7 @@ export default function SwotPage() {
                   const categoryColors: Record<SwotCategory, string> = {
                     strength: 'bg-green-100 text-green-800 border-green-300',
                     weakness: 'bg-red-100 text-red-800 border-red-300',
-                    opportunity: 'bg-blue-100 text-blue-800 border-blue-300',
+                    opportunity: 'bg-teal-100 text-teal-800 border-teal-300',
                     threat: 'bg-orange-100 text-orange-800 border-orange-300'
                   };
 
@@ -645,7 +645,7 @@ export default function SwotPage() {
         {(swotItems.strengths.length > 0 || swotItems.weaknesses.length > 0 ||
           swotItems.opportunities.length > 0 || swotItems.threats.length > 0) && (
           <div className="mt-8">
-            <div className="bg-white rounded-lg shadow-sm p-6 border-2 border-blue-200">
+            <div className="bg-white rounded-lg shadow-sm p-6 border-2 border-teal-200">
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Strategy Formation</h2>
@@ -655,7 +655,7 @@ export default function SwotPage() {
                 </div>
               </div>
 
-              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="mb-6 p-4 bg-teal-50 rounded-lg border border-teal-200">
                 <p className="text-base font-medium text-gray-800 mb-2">💡 How to Form Strategies:</p>
                 <p className="text-base text-gray-700 mb-3">
                   The power of SWOT comes from combining insights across quadrants. Use these frameworks to create strategies:
@@ -698,8 +698,8 @@ export default function SwotPage() {
                 </div>
 
                 {/* ST Strategy */}
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <h3 className="text-lg font-semibold text-blue-800 mb-2">
+                <div className="p-4 bg-teal-50 rounded-lg border border-teal-200">
+                  <h3 className="text-lg font-semibold text-teal-800 mb-2">
                     ST: Strength + Threat
                   </h3>
                   <p className="text-sm text-gray-700 mb-3">

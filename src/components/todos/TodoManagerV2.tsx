@@ -262,7 +262,7 @@ function MorningRitual({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6 text-white rounded-t-xl">
+        <div className="bg-gradient-to-r from-purple-600 to-teal-600 p-6 text-white rounded-t-xl">
           <h2 className="text-2xl font-bold mb-2">Morning Ritual</h2>
           <p className="text-purple-100">5 minutes to set up your perfect day</p>
           
@@ -813,7 +813,7 @@ export default function TodoManagerV2({ userId, businessId, userRole }: TodoMana
   const filteredTodos = getFilteredTodos()
   
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Morning Ritual Modal */}
       {showMorningRitual && (
         <MorningRitual
@@ -857,7 +857,7 @@ export default function TodoManagerV2({ userId, businessId, userRole }: TodoMana
               <div className="text-xs text-gray-600">Done Today</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{stats.due_today}</div>
+              <div className="text-2xl font-bold text-teal-600">{stats.due_today}</div>
               <div className="text-xs text-gray-600">Due Today</div>
             </div>
             <div className="text-center">
@@ -876,7 +876,7 @@ export default function TodoManagerV2({ userId, businessId, userRole }: TodoMana
         </div>
         
         {/* Quick Add - More Visible */}
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-sm p-6 mb-6 border border-blue-200">
+        <div className="bg-gradient-to-r from-teal-50 to-purple-50 rounded-lg shadow-sm p-6 mb-6 border border-teal-200">
           <form onSubmit={handleQuickAdd} className="space-y-4">
             <div className="flex gap-2">
               <input
@@ -884,12 +884,12 @@ export default function TodoManagerV2({ userId, businessId, userRole }: TodoMana
                 value={quickAddText}
                 onChange={(e) => setQuickAddText(e.target.value)}
                 placeholder="What needs to be done? (Natural language: 'Call client tomorrow' or 'Review report urgent')"
-                className="flex-1 px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-lg"
+                className="flex-1 px-4 py-3 border-2 border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-lg"
                 autoFocus
               />
               <button
                 type="submit"
-                className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                className="px-8 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium"
               >
                 Add Task
               </button>
@@ -907,7 +907,7 @@ export default function TodoManagerV2({ userId, businessId, userRole }: TodoMana
                       onClick={() => setSelectedDate(option)}
                       className={`px-4 py-2 rounded-lg font-medium transition-all ${
                         selectedDate === option
-                          ? 'bg-blue-600 text-white shadow-md scale-105'
+                          ? 'bg-teal-600 text-white shadow-md scale-105'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                     >
@@ -974,7 +974,7 @@ export default function TodoManagerV2({ userId, businessId, userRole }: TodoMana
                   onClick={() => setActiveView(view.id as TodoView)}
                   className={`px-4 py-2 rounded-lg flex items-center gap-1 ${
                     activeView === view.id
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-teal-600 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
@@ -1006,7 +1006,7 @@ export default function TodoManagerV2({ userId, businessId, userRole }: TodoMana
         <div className="bg-white rounded-lg shadow-sm p-6">
           {loading ? (
             <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mx-auto"></div>
             </div>
           ) : filteredTodos.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
@@ -1030,7 +1030,7 @@ export default function TodoManagerV2({ userId, businessId, userRole }: TodoMana
                       ${todo.is_must ? 'border-yellow-400 bg-yellow-50' :
                         todo.is_top_three ? 'border-red-400 bg-red-50' :
                         overdue ? 'border-red-300 bg-red-50' :
-                        dueToday ? 'border-blue-300 bg-blue-50' :
+                        dueToday ? 'border-teal-300 bg-teal-50' :
                         'border-gray-200 hover:bg-gray-50'}
                     `}
                   >
@@ -1051,7 +1051,7 @@ export default function TodoManagerV2({ userId, businessId, userRole }: TodoMana
                               <span className="text-white text-xs">✓</span>
                             </div>
                           ) : todo.status === 'in-progress' ? (
-                            <div className="w-6 h-6 rounded-full bg-blue-500 animate-pulse" />
+                            <div className="w-6 h-6 rounded-full bg-teal-500 animate-pulse" />
                           ) : (
                             <div className="w-6 h-6 rounded-full border-2 border-gray-300 hover:border-gray-400" />
                           )}
@@ -1120,7 +1120,7 @@ export default function TodoManagerV2({ userId, businessId, userRole }: TodoMana
                         
                         <button
                           onClick={() => startEdit(todo)}
-                          className="p-2 text-gray-400 hover:text-blue-600"
+                          className="p-2 text-gray-400 hover:text-teal-600"
                         >
                           ✏️
                         </button>
@@ -1229,7 +1229,7 @@ export default function TodoManagerV2({ userId, businessId, userRole }: TodoMana
                 </button>
                 <button
                   onClick={saveEdit}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
                 >
                   Save Changes
                 </button>

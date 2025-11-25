@@ -16,10 +16,10 @@ export default function OpExBulkControls({ onApplyBulkIncrease }: OpExBulkContro
   }
 
   return (
-    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
+    <div className="bg-gradient-to-r from-teal-50 to-teal-50 border border-teal-200 rounded-xl p-6">
       <div className="flex items-start gap-4">
         <div className="flex-shrink-0">
-          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
             <Sparkles className="w-5 h-5 text-white" />
           </div>
         </div>
@@ -42,7 +42,7 @@ export default function OpExBulkControls({ onApplyBulkIncrease }: OpExBulkContro
                   type="number"
                   value={annualIncrease}
                   onChange={(e) => setAnnualIncrease(e.target.value)}
-                  className="w-24 px-4 py-2.5 text-lg font-semibold text-gray-900 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  className="w-24 px-4 py-2.5 text-lg font-semibold text-gray-900 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all"
                   placeholder="5"
                   step="0.5"
                   min="0"
@@ -54,7 +54,7 @@ export default function OpExBulkControls({ onApplyBulkIncrease }: OpExBulkContro
 
             <button
               onClick={handleApply}
-              className="px-8 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-sm hover:shadow-md"
+              className="px-8 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 active:bg-teal-800 transition-colors shadow-sm hover:shadow-md"
             >
               Apply to All Lines
             </button>

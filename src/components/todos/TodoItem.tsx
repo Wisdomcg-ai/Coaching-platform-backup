@@ -127,7 +127,7 @@ export default function TodoItem({
     <div 
       className={`
         group border rounded-lg p-3 mb-2 transition-all
-        ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}
+        ${isSelected ? 'border-teal-500 bg-teal-50' : 'border-gray-200 hover:border-gray-300'}
         ${todo.status === 'completed' ? 'opacity-60' : ''}
         ${compact ? 'py-2' : ''}
       `}
@@ -138,10 +138,10 @@ export default function TodoItem({
           onClick={handleStatusClick}
           className={`
             mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 transition-all
-            ${isSelecting ? 'hover:border-blue-500' : ''}
-            ${isSelected ? 'bg-blue-500 border-blue-500' : ''}
+            ${isSelecting ? 'hover:border-teal-500' : ''}
+            ${isSelected ? 'bg-teal-500 border-teal-500' : ''}
             ${todo.status === 'completed' ? 'bg-green-500 border-green-500' : ''}
-            ${todo.status === 'in-progress' ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}
+            ${todo.status === 'in-progress' ? 'bg-teal-500 border-teal-500' : 'border-gray-300'}
           `}
         >
           {isSelected && (
@@ -184,7 +184,7 @@ export default function TodoItem({
                 
                 {/* Recurring indicator */}
                 {todo.recurrence_pattern && (
-                  <Repeat className="w-4 h-4 text-blue-500" />
+                  <Repeat className="w-4 h-4 text-teal-500" />
                 )}
                 
                 {/* Priority indicator */}

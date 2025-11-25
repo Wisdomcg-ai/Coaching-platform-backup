@@ -32,8 +32,8 @@ export default function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShort
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Keyboard className="w-5 h-5 text-blue-600" />
+              <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
+                <Keyboard className="w-5 h-5 text-teal-600" />
               </div>
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Keyboard Shortcuts</h2>
@@ -83,9 +83,9 @@ export default function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShort
             </div>
 
             {/* Footer Note */}
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-xs text-blue-800">
-                <strong>Tip:</strong> Press <kbd className="px-1.5 py-0.5 text-xs font-semibold text-blue-900 bg-blue-100 border border-blue-300 rounded">?</kbd> anytime to show this help dialog.
+            <div className="mt-6 p-4 bg-teal-50 border border-teal-200 rounded-lg">
+              <p className="text-xs text-teal-800">
+                <strong>Tip:</strong> Press <kbd className="px-1.5 py-0.5 text-xs font-semibold text-teal-900 bg-teal-100 border border-teal-300 rounded">?</kbd> anytime to show this help dialog.
               </p>
             </div>
           </div>

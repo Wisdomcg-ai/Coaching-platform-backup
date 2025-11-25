@@ -101,11 +101,11 @@ export function CoachDashboard({ coachId, supabase, onClose }: CoachDashboardPro
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
+        <div className="bg-gradient-to-r from-teal-600 to-purple-600 p-6 text-white">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-bold mb-2">Coach Dashboard</h2>
-              <p className="text-blue-100">Monitor all client progress and engagement</p>
+              <p className="text-teal-100">Monitor all client progress and engagement</p>
             </div>
             <button
               onClick={onClose}
@@ -120,7 +120,7 @@ export function CoachDashboard({ coachId, supabase, onClose }: CoachDashboardPro
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
           {loading ? (
             <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
               <p className="text-gray-600">Loading client data...</p>
             </div>
           ) : clients.length === 0 ? (
@@ -132,8 +132,8 @@ export function CoachDashboard({ coachId, supabase, onClose }: CoachDashboardPro
             <div className="space-y-4">
               {/* Summary Stats */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-blue-600">
+                <div className="bg-teal-50 rounded-lg p-4">
+                  <div className="text-2xl font-bold text-teal-600">
                     {clients.length}
                   </div>
                   <div className="text-sm text-gray-600">Active Clients</div>
@@ -209,7 +209,7 @@ export function CoachDashboard({ coachId, supabase, onClose }: CoachDashboardPro
                             <div className="flex items-center">
                               <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
                                 <div
-                                  className="bg-blue-600 h-2 rounded-full"
+                                  className="bg-teal-600 h-2 rounded-full"
                                   style={{ width: `${completionRate}%` }}
                                 />
                               </div>

@@ -122,10 +122,19 @@ export interface FinancialForecast {
   description?: string
   fiscal_year: number
   year_type: 'CY' | 'FY'
-  actual_start_month: string // e.g., "2024-07"
-  actual_end_month: string
-  forecast_start_month: string
-  forecast_end_month: string
+
+  // Baseline period (typically prior fiscal year for comparison/patterns)
+  baseline_start_month?: string // e.g., "2024-07" (FY25 start)
+  baseline_end_month?: string   // e.g., "2025-06" (FY25 end)
+
+  // Current year actuals (for rolling forecasts, this is YTD of fiscal year being forecasted)
+  actual_start_month: string // e.g., "2025-07" (FY26 start when rolling)
+  actual_end_month: string   // e.g., "2025-10" (last complete month when rolling)
+
+  // Forecast period (remaining months to forecast)
+  forecast_start_month: string // e.g., "2025-11" (next month when rolling)
+  forecast_end_month: string   // e.g., "2026-06" (FY26 end)
+
   is_completed?: boolean
   completed_at?: string
   last_xero_sync_at?: string
@@ -191,6 +200,7 @@ export interface MonthColumn {
   label: string // e.g., "Jul 24"
   isActual: boolean
   isForecast: boolean
+  isBaseline?: boolean // true for baseline period (e.g., FY25), false for current year actuals (e.g., FY26 YTD)
 }
 
 export const EMPLOYEE_CATEGORIES = [

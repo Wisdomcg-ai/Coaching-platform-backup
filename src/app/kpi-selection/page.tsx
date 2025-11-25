@@ -174,7 +174,7 @@ export default function KPISelectionPage() {
   const getCategoryColor = (category: string) => {
     switch(category) {
       case 'ATTRACT': return 'bg-purple-100 text-purple-800 border-purple-200'
-      case 'CONVERT': return 'bg-blue-100 text-blue-800 border-blue-200'
+      case 'CONVERT': return 'bg-teal-100 text-teal-800 border-teal-200'
       case 'DELIVER': return 'bg-green-100 text-green-800 border-green-200'
       case 'DELIGHT': return 'bg-pink-100 text-pink-800 border-pink-200'
       case 'PEOPLE': return 'bg-orange-100 text-orange-800 border-orange-200'
@@ -185,7 +185,7 @@ export default function KPISelectionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -207,7 +207,7 @@ export default function KPISelectionPage() {
       </div>
 
       {/* Business Context Bar */}
-      <div className="bg-blue-50 border-b border-blue-100">
+      <div className="bg-teal-50 border-b border-teal-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-6 text-sm">
@@ -262,7 +262,7 @@ export default function KPISelectionPage() {
           </div>
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
           >
             <Plus className="w-5 h-5 mr-2" />
             {selectedKPIs.length > 0 ? 'Manage KPIs' : 'Select KPIs'}
@@ -344,7 +344,7 @@ export default function KPISelectionPage() {
             </p>
             <button
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
             >
               <Plus className="w-5 h-5 mr-2" />
               Select Your First KPIs
@@ -396,7 +396,7 @@ export default function KPISelectionPage() {
       {isSaving && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 flex items-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-4"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mr-4"></div>
             <span>Saving KPIs...</span>
           </div>
         </div>

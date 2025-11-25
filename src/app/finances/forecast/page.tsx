@@ -26,7 +26,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useXeroSync } from './hooks/useXeroSync'
 import { useVersionManager } from './hooks/useVersionManager'
 import { getForecastFiscalYear } from './utils/fiscal-year'
-import CoachNavbar from '@/components/coach/CoachNavbar'
+// Note: Coach view is at /coach/clients/[id]/forecast
 
 export default function FinancialForecastPage() {
   const supabase = createClient()
@@ -501,7 +501,7 @@ export default function FinancialForecastPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <Loader2 className="w-12 h-12 animate-spin text-teal-600 mx-auto mb-4" />
           <p className="text-gray-600">Loading financial forecast...</p>
         </div>
       </div>
@@ -547,8 +547,7 @@ export default function FinancialForecastPage() {
 
   return (
     <>
-      <CoachNavbar businessId={businessId} />
-      <div className="min-h-screen bg-gray-50 p-8">
+      <div className="min-h-screen bg-slate-50 p-8">
         <div className="max-w-[1600px] mx-auto">
         {/* Error Banner */}
         {error && !isLoading && (
@@ -579,7 +578,7 @@ export default function FinancialForecastPage() {
                 className={`flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 ${
                   hasUnsavedChanges
                     ? 'bg-orange-600 hover:bg-orange-700 animate-pulse'
-                    : 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-teal-600 hover:bg-teal-700'
                 }`}
               >
                 <Save className="w-4 h-4" />

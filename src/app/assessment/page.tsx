@@ -680,9 +680,9 @@ export default function AssessmentPage() {
   // Show loading state while checking for saved draft
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4" />
           <p className="text-gray-600">Loading assessment...</p>
         </div>
       </div>
@@ -690,7 +690,7 @@ export default function AssessmentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-slate-50">
       <div className="bg-white/90 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -699,7 +699,7 @@ export default function AssessmentPage() {
               <p className="text-sm text-gray-600 mt-1">
                 30 questions • 12-15 minutes
                 {Object.keys(answers).length > 0 && (
-                  <span className="ml-2 text-blue-600 font-medium">
+                  <span className="ml-2 text-teal-600 font-medium">
                     • {Object.keys(answers).length}/30 answered
                   </span>
                 )}
@@ -708,7 +708,7 @@ export default function AssessmentPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => router.push('/assessment/history')}
-                className="text-blue-600 hover:text-blue-700 px-3 py-1 rounded-lg hover:bg-blue-50 text-sm font-medium"
+                className="text-teal-600 hover:text-teal-700 px-3 py-1 rounded-lg hover:bg-teal-50 text-sm font-medium"
               >
                 View History
               </button>
@@ -732,7 +732,7 @@ export default function AssessmentPage() {
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div 
-                className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-500 ease-out"
+                className="bg-teal-500 h-2 rounded-full transition-all duration-500 ease-out"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -745,7 +745,7 @@ export default function AssessmentPage() {
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-500 to-purple-500 px-8 py-6">
+          <div className="bg-teal-600 px-8 py-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-white/90 text-sm font-medium">
                 {currentQuestion.subsection || currentSection}
@@ -767,14 +767,14 @@ export default function AssessmentPage() {
                   onClick={() => handleAnswer(option.value, option.points)}
                   className={`w-full text-left p-5 rounded-xl border-2 transition-all duration-200 group ${
                     answers[currentQuestion.id]?.value === option.value
-                      ? 'border-blue-500 bg-gradient-to-r from-blue-50 to-purple-50 shadow-lg transform scale-[1.02]'
+                      ? 'border-teal-500 bg-teal-50 shadow-lg transform scale-[1.02]'
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
                   <div className="flex items-center">
                     <div className={`w-6 h-6 rounded-full border-2 mr-4 flex items-center justify-center transition-all ${
                       answers[currentQuestion.id]?.value === option.value
-                        ? 'border-blue-500 bg-blue-500'
+                        ? 'border-teal-500 bg-teal-500'
                         : 'border-gray-400 group-hover:border-gray-500'
                     }`}>
                       {answers[currentQuestion.id]?.value === option.value && (
@@ -833,7 +833,7 @@ export default function AssessmentPage() {
                     className={`flex items-center px-8 py-3 rounded-lg font-medium transition-all ${
                       !areAllQuestionsAnswered() || isSubmitting
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-lg transform hover:-translate-y-0.5'
+                        : 'bg-teal-600 text-white hover:bg-teal-700 hover:shadow-lg transform hover:-translate-y-0.5'
                     }`}
                   >
                     {isSubmitting ? (
@@ -856,7 +856,7 @@ export default function AssessmentPage() {
                   className={`flex items-center px-6 py-3 rounded-lg font-medium transition-all ${
                     !isCurrentQuestionAnswered()
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-lg transform hover:-translate-y-0.5'
+                      : 'bg-teal-600 text-white hover:bg-teal-700 hover:shadow-lg transform hover:-translate-y-0.5'
                   }`}
                 >
                   Next
@@ -897,7 +897,7 @@ export default function AssessmentPage() {
               </button>
               <button
                 onClick={confirmExit}
-                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                className="flex-1 px-4 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
               >
                 Save & Exit
               </button>

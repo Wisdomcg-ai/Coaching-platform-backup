@@ -76,6 +76,56 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
+  // Onboarding flow check - only for authenticated users
+  if (user) {
+    // Routes that don't require onboarding completion
+    const onboardingExemptRoutes = [
+      '/business-profile',
+      '/assessment',
+      '/auth/callback',
+      '/auth/logout'
+    ]
+    const isExemptRoute = onboardingExemptRoutes.some(route => pathname.startsWith(route))
+
+    // Only check onboarding if not on exempt routes
+    if (!isExemptRoute) {
+      try {
+        // STEP 1: Check if business profile is completed
+        const { data: businessProfile } = await supabase
+          .from('business_profiles')
+          .select('profile_completed')
+          .eq('user_id', user.id)
+          .single()
+
+        // If profile doesn't exist or is not completed, redirect to business profile
+        if (!businessProfile || !businessProfile.profile_completed) {
+          return NextResponse.redirect(new URL('/business-profile', request.url))
+        }
+
+        // STEP 2: Check if assessment is completed
+        const { data: completedAssessment } = await supabase
+          .from('assessments')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('status', 'completed')
+          .order('completed_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        // If no completed assessment, redirect to assessment page
+        if (!completedAssessment) {
+          return NextResponse.redirect(new URL('/assessment', request.url))
+        }
+
+        // Both profile and assessment complete - allow access to everything
+      } catch (error) {
+        // If there's an error, redirect to business profile to be safe
+        console.error('Error checking onboarding completion:', error)
+        return NextResponse.redirect(new URL('/business-profile', request.url))
+      }
+    }
+  }
+
   return response
 }
 

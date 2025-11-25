@@ -100,15 +100,15 @@ export default function AnnualPlanProgressWidget({
   }
 
   return (
-    <div className={`border-2 border-blue-200 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 ${className}`}>
+    <div className={`border-2 border-teal-200 rounded-lg bg-gradient-to-br from-teal-50 to-teal-50 ${className}`}>
       {/* Header */}
       <div
-        className="p-4 cursor-pointer hover:bg-blue-100/50 transition-colors"
+        className="p-4 cursor-pointer hover:bg-teal-100/50 transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
               <Target className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -125,7 +125,7 @@ export default function AnnualPlanProgressWidget({
             <a
               href="/annual-plan"
               onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+              className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium"
             >
               <span>View Plan</span>
               <ExternalLink className="w-3 h-3" />
@@ -136,7 +136,7 @@ export default function AnnualPlanProgressWidget({
 
       {/* Expanded Content */}
       {isExpanded && (
-        <div className="border-t border-blue-200 p-4 space-y-4">
+        <div className="border-t border-teal-200 p-4 space-y-4">
           {/* Revenue Progress */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -147,12 +147,12 @@ export default function AnnualPlanProgressWidget({
             </div>
             <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
               <div
-                className="h-full bg-blue-600 transition-all duration-500"
+                className="h-full bg-teal-600 transition-all duration-500"
                 style={{ width: `${Math.min(revenueProgress, 100)}%` }}
               />
             </div>
             <div className="flex items-center justify-between mt-1">
-              <span className="text-xs font-semibold text-blue-900">{revenueProgress}% Complete</span>
+              <span className="text-xs font-semibold text-teal-900">{revenueProgress}% Complete</span>
               <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${getStatusColor(revenueProgress, monthsElapsedPercent)}`}>
                 {getStatusText(revenueProgress, monthsElapsedPercent)}
               </span>
@@ -208,9 +208,9 @@ export default function AnnualPlanProgressWidget({
           )}
 
           {/* Note about actuals */}
-          <div className="flex items-start gap-2 p-3 bg-blue-100 border border-blue-200 rounded-lg">
-            <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-blue-800">
+          <div className="flex items-start gap-2 p-3 bg-teal-100 border border-teal-200 rounded-lg">
+            <AlertCircle className="w-4 h-4 text-teal-600 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-teal-800">
               <strong>Note:</strong> YTD actuals will be calculated from your P&L data once you add revenue and expense lines.
             </p>
           </div>

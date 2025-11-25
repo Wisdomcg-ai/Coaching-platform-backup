@@ -1,9 +1,8 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createRouteHandlerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
-  const supabase = createRouteHandlerClient({ cookies })
+  const supabase = await createRouteHandlerClient()
 
   try {
     // Get current user
@@ -82,9 +81,10 @@ export async function GET(request: Request) {
     const { data: logs, error: logsError } = await query.limit(100)
 
     if (logsError) {
-      console.error('Error fetching audit logs:', logsError)
+      console.error('[Audit Log API] Error fetching audit logs:', logsError)
+      console.error('[Audit Log API] Error details:', JSON.stringify(logsError, null, 2))
       return NextResponse.json(
-        { error: 'Failed to fetch audit logs' },
+        { error: 'Failed to fetch audit logs', details: logsError.message },
         { status: 500 }
       )
     }
@@ -101,9 +101,10 @@ export async function GET(request: Request) {
     })
 
   } catch (error) {
-    console.error('Unexpected error in audit-log API:', error)
+    console.error('[Audit Log API] Unexpected error in audit-log API:', error)
+    console.error('[Audit Log API] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

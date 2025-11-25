@@ -164,9 +164,9 @@ export default function ValuePropositionPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading your marketing strategy...</p>
         </div>
       </div>
@@ -174,7 +174,7 @@ export default function ValuePropositionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-slate-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -195,8 +195,8 @@ export default function ValuePropositionPage() {
           </div>
           
           <div className="flex items-start gap-4">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <Target className="w-6 h-6 text-blue-600" />
+            <div className="p-3 bg-teal-100 rounded-lg">
+              <Target className="w-6 h-6 text-teal-600" />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Value Proposition & USP</h1>
@@ -211,7 +211,7 @@ export default function ValuePropositionPage() {
           {/* Target Market */}
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="flex items-center gap-3 mb-4">
-              <Users className="w-5 h-5 text-blue-600" />
+              <Users className="w-5 h-5 text-teal-600" />
               <h2 className="text-xl font-semibold text-gray-800">Target Market</h2>
             </div>
             <p className="text-sm text-gray-600 mb-4">
@@ -237,7 +237,7 @@ export default function ValuePropositionPage() {
                 <textarea
                   value={formData.target_demographics}
                   onChange={(e) => handleChange('target_demographics', e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   rows={3}
                   placeholder="Example: SMB owners aged 35-55, $1-10M revenue, professional services, growth-focused, tech-savvy..."
                 />
@@ -280,7 +280,7 @@ export default function ValuePropositionPage() {
                 <textarea
                   value={formData.target_problems}
                   onChange={(e) => handleChange('target_problems', e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   rows={3}
                   placeholder="Example: Struggling with cash flow, can't scale operations, working 60+ hour weeks, unclear strategy..."
                 />
@@ -312,7 +312,7 @@ export default function ValuePropositionPage() {
                 <textarea
                   value={formData.target_location}
                   onChange={(e) => handleChange('target_location', e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   rows={2}
                   placeholder="Example: LinkedIn groups, industry conferences, local business networks, Facebook communities..."
                 />
@@ -323,7 +323,7 @@ export default function ValuePropositionPage() {
           {/* Value Proposition */}
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="flex items-center gap-3 mb-4">
-              <TrendingUp className="w-5 h-5 text-blue-600" />
+              <TrendingUp className="w-5 h-5 text-teal-600" />
               <h2 className="text-xl font-semibold text-gray-800">Unique Value Proposition</h2>
             </div>
             <p className="text-sm text-gray-600 mb-4">
@@ -341,7 +341,7 @@ export default function ValuePropositionPage() {
                     onClick={() => handleChange('uvp_framework_choice', 'option1')}
                     className={`p-4 border-2 rounded-lg text-left transition-all ${
                       formData.uvp_framework_choice === 'option1'
-                        ? 'border-blue-500 bg-blue-50'
+                        ? 'border-teal-500 bg-teal-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
@@ -356,7 +356,7 @@ export default function ValuePropositionPage() {
                     onClick={() => handleChange('uvp_framework_choice', 'option2')}
                     className={`p-4 border-2 rounded-lg text-left transition-all ${
                       formData.uvp_framework_choice === 'option2'
-                        ? 'border-blue-500 bg-blue-50'
+                        ? 'border-teal-500 bg-teal-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
@@ -386,7 +386,7 @@ export default function ValuePropositionPage() {
                 <textarea
                   value={formData.uvp_statement}
                   onChange={(e) => handleChange('uvp_statement', e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   rows={3}
                   placeholder={
                     formData.uvp_framework_choice === 'option2'
@@ -432,7 +432,7 @@ export default function ValuePropositionPage() {
                 <textarea
                   value={formData.competitive_advantage}
                   onChange={(e) => handleChange('competitive_advantage', e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   rows={3}
                   placeholder="Example: 20 years experience, proprietary process, fastest implementation, proven track record..."
                 />
@@ -449,14 +449,14 @@ export default function ValuePropositionPage() {
                       type="text"
                       value={formData.competitor_1_name}
                       onChange={(e) => handleChange('competitor_1_name', e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded mb-2 focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-2 border border-gray-300 rounded mb-2 focus:ring-2 focus:ring-teal-500"
                       placeholder="Competitor 1 name *"
                     />
                     <input
                       type="text"
                       value={formData.competitor_1_advantage}
                       onChange={(e) => handleChange('competitor_1_advantage', e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-teal-500"
                       placeholder="How are you different? (e.g., 'We're faster', 'More personal service') *"
                     />
                   </div>
@@ -467,14 +467,14 @@ export default function ValuePropositionPage() {
                       type="text"
                       value={formData.competitor_2_name}
                       onChange={(e) => handleChange('competitor_2_name', e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded mb-2 focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-2 border border-gray-300 rounded mb-2 focus:ring-2 focus:ring-teal-500"
                       placeholder="Competitor 2 name *"
                     />
                     <input
                       type="text"
                       value={formData.competitor_2_advantage}
                       onChange={(e) => handleChange('competitor_2_advantage', e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-teal-500"
                       placeholder="How are you different? *"
                     />
                   </div>
@@ -485,14 +485,14 @@ export default function ValuePropositionPage() {
                       type="text"
                       value={formData.competitor_3_name}
                       onChange={(e) => handleChange('competitor_3_name', e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded mb-2 focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-2 border border-gray-300 rounded mb-2 focus:ring-2 focus:ring-teal-500"
                       placeholder="Competitor 3 name (optional)"
                     />
                     <input
                       type="text"
                       value={formData.competitor_3_advantage}
                       onChange={(e) => handleChange('competitor_3_advantage', e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-teal-500"
                       placeholder="How are you different? (optional)"
                     />
                   </div>
@@ -506,7 +506,7 @@ export default function ValuePropositionPage() {
                 <textarea
                   value={formData.key_differentiators}
                   onChange={(e) => handleChange('key_differentiators', e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   rows={2}
                   placeholder="Example: Only provider with money-back guarantee, fastest turnaround time, most experienced team..."
                 />
@@ -523,7 +523,7 @@ export default function ValuePropositionPage() {
             <textarea
               value={formData.usp_list}
               onChange={(e) => handleChange('usp_list', e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               rows={5}
               placeholder="Example:
 - 20+ years proven track record in your industry
@@ -548,7 +548,7 @@ export default function ValuePropositionPage() {
                 autoSave();
                 alert('Value proposition saved successfully!');
               }}
-              className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              className="px-8 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium"
             >
               Save & Continue
             </button>

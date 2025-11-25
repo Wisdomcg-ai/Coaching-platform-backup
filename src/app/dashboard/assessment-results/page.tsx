@@ -327,9 +327,9 @@ export default function AssessmentResultsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-purple-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading your results...</p>
         </div>
       </div>
@@ -338,14 +338,14 @@ export default function AssessmentResultsPage() {
 
   if (error || !assessment) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-purple-50 flex items-center justify-center">
         <div className="text-center max-w-md">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Unable to Load Results</h2>
           <p className="text-gray-600 mb-6">{error || 'Assessment not found'}</p>
           <button
             onClick={() => router.push('/dashboard')}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
           >
             Return to Dashboard
           </button>
@@ -367,7 +367,7 @@ export default function AssessmentResultsPage() {
   }));
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-purple-50">
       {/* Header */}
       <div className="bg-white/90 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-4">
@@ -452,7 +452,7 @@ export default function AssessmentResultsPage() {
         {/* 8 Business Engines Breakdown */}
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-            <TrendingUp className="w-6 h-6 mr-3 text-blue-600" />
+            <TrendingUp className="w-6 h-6 mr-3 text-teal-600" />
             8 Business Engines
           </h2>
 
@@ -505,7 +505,7 @@ export default function AssessmentResultsPage() {
         </div>
 
         {/* Next Steps */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
+        <div className="bg-gradient-to-r from-teal-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
           <h2 className="text-2xl font-bold mb-4">Your Next Steps</h2>
           <div className="space-y-4">
             <div className="flex items-start gap-3">
@@ -514,7 +514,7 @@ export default function AssessmentResultsPage() {
               </div>
               <div>
                 <h3 className="font-semibold mb-1">Review & Discuss</h3>
-                <p className="text-blue-100">We'll review these results together in your next coaching session and identify quick wins.</p>
+                <p className="text-teal-100">We'll review these results together in your next coaching session and identify quick wins.</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -523,7 +523,7 @@ export default function AssessmentResultsPage() {
               </div>
               <div>
                 <h3 className="font-semibold mb-1">Prioritize Actions</h3>
-                <p className="text-blue-100">We'll create a focused 90-day action plan targeting your highest-impact opportunities.</p>
+                <p className="text-teal-100">We'll create a focused 90-day action plan targeting your highest-impact opportunities.</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -532,7 +532,7 @@ export default function AssessmentResultsPage() {
               </div>
               <div>
                 <h3 className="font-semibold mb-1">Track Progress</h3>
-                <p className="text-blue-100">Use the platform tools to implement changes and measure improvement over time.</p>
+                <p className="text-teal-100">Use the platform tools to implement changes and measure improvement over time.</p>
               </div>
             </div>
           </div>
@@ -540,7 +540,7 @@ export default function AssessmentResultsPage() {
           <div className="mt-6 pt-6 border-t border-white/20">
             <button
               onClick={() => router.push('/dashboard')}
-              className="w-full md:w-auto px-8 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
+              className="w-full md:w-auto px-8 py-3 bg-white text-teal-600 rounded-lg font-semibold hover:bg-teal-50 transition-colors"
             >
               Continue to Dashboard
             </button>

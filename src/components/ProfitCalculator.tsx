@@ -43,7 +43,7 @@ export default function ProfitCalculator({
 
   return (
     <div className="space-y-6">
-      <div className="bg-blue-50 rounded-lg p-4">
+      <div className="bg-teal-50 rounded-lg p-4">
         <h4 className="font-semibold mb-2">Industry Benchmarks</h4>
         <div className="grid grid-cols-3 gap-4 text-sm">
           <div>

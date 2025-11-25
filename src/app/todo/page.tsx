@@ -195,25 +195,25 @@ export default function TodoPage() {
             {/* Quick date options */}
             <button
               onClick={() => handleChangeDueDate(task.id, 'today')}
-              className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 border-b border-gray-200 transition-colors"
+              className="w-full px-4 py-2 text-left text-sm hover:bg-teal-50 border-b border-gray-200 transition-colors"
             >
               Today
             </button>
             <button
               onClick={() => handleChangeDueDate(task.id, 'tomorrow')}
-              className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 border-b border-gray-200 transition-colors"
+              className="w-full px-4 py-2 text-left text-sm hover:bg-teal-50 border-b border-gray-200 transition-colors"
             >
               Tomorrow
             </button>
             <button
               onClick={() => handleChangeDueDate(task.id, 'this-week')}
-              className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 border-b border-gray-200 transition-colors"
+              className="w-full px-4 py-2 text-left text-sm hover:bg-teal-50 border-b border-gray-200 transition-colors"
             >
               This Week
             </button>
             <button
               onClick={() => handleChangeDueDate(task.id, 'next-week')}
-              className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 border-b border-gray-200 transition-colors"
+              className="w-full px-4 py-2 text-left text-sm hover:bg-teal-50 border-b border-gray-200 transition-colors"
             >
               Next Week
             </button>
@@ -235,7 +235,7 @@ export default function TodoPage() {
                       setCustomDateInput({ ...customDateInput, [task.id]: '' })
                     }
                   }}
-                  className="px-2 py-1 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  className="px-2 py-1 text-xs font-medium bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors"
                 >
                   Set
                 </button>
@@ -311,7 +311,7 @@ export default function TodoPage() {
           {isCompleted && (
             <button
               onClick={() => handleStatusChange(task.id, 'to-do')}
-              className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+              className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded transition-colors"
               title="Undo - restore to active tasks"
             >
               <RotateCcw className="w-4 h-4" />
@@ -335,7 +335,7 @@ export default function TodoPage() {
   // ========================================================================
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* HEADER - Sticky at top */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-6 py-8">
@@ -347,7 +347,7 @@ export default function TodoPage() {
 
             <button
               onClick={() => setShowForm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
             >
               <Plus className="w-4 h-4" />
               Add Task
@@ -367,7 +367,7 @@ export default function TodoPage() {
               </div>
               <div>
                 <span className="text-gray-600">Progress: </span>
-                <span className="font-bold text-blue-700">{stats.completionRate}%</span>
+                <span className="font-bold text-teal-700">{stats.completionRate}%</span>
               </div>
               {stats.overdue > 0 && (
                 <div>
@@ -400,7 +400,7 @@ export default function TodoPage() {
             <p className="text-gray-600 mb-4">No tasks yet. You're free! 🎉</p>
             <button
               onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
             >
               <Plus className="w-4 h-4" />
               Add your first task
@@ -549,7 +549,7 @@ export default function TodoPage() {
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="e.g., Call CRM vendor"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-base"
                 />
               </div>
 
@@ -564,7 +564,7 @@ export default function TodoPage() {
                       onClick={() => setFormData({ ...formData, priority: p as TaskPriority })}
                       className={`px-3 py-2 rounded-lg border-2 font-medium text-sm transition-all ${
                         formData.priority === p
-                          ? 'border-blue-500 bg-blue-50'
+                          ? 'border-teal-500 bg-teal-50'
                           : 'border-gray-300 bg-white hover:border-gray-400'
                       }`}
                     >
@@ -592,7 +592,7 @@ export default function TodoPage() {
                       }
                       className={`px-3 py-2 rounded-lg border-2 font-medium text-sm transition-all ${
                         formData.due_date === d && !showDatePicker
-                          ? 'border-blue-500 bg-blue-50'
+                          ? 'border-teal-500 bg-teal-50'
                           : 'border-gray-300 bg-white hover:border-gray-400'
                       }`}
                     >
@@ -613,7 +613,7 @@ export default function TodoPage() {
                   onClick={() => setShowDatePicker(!showDatePicker)}
                   className={`w-full mt-2 px-3 py-2 rounded-lg border-2 font-medium text-sm transition-all flex items-center justify-center gap-2 ${
                     formData.due_date === 'custom'
-                      ? 'border-blue-500 bg-blue-50'
+                      ? 'border-teal-500 bg-teal-50'
                       : 'border-gray-300 bg-white hover:border-gray-400'
                   }`}
                 >
@@ -656,7 +656,7 @@ export default function TodoPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  className="flex-1 px-4 py-2 text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors font-medium"
                 >
                   Add Task
                 </button>

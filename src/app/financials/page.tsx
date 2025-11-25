@@ -92,7 +92,7 @@ export default function FinancialsPage() {
 
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center justify-between mb-2">
-                <TrendingUp className="h-8 w-8 text-blue-600" />
+                <TrendingUp className="h-8 w-8 text-teal-600" />
                 <span className="text-sm text-gray-500">Revenue</span>
               </div>
               <p className="text-2xl font-bold">{formatCurrency(metrics.revenue_month)}</p>

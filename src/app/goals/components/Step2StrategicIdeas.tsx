@@ -26,70 +26,70 @@ const ENGINE_TO_CATEGORY: Record<string, InitiativeCategory> = {
 
 const generateId = () => `idea-${Date.now()}-${Math.random()}`
 
-// Map roadmap engines to our category system - using company color palette
+// Map roadmap engines to our category system - professional slate/teal palette
 const ENGINES = [
   {
     id: 'marketing' as InitiativeCategory,
     name: 'Attract',
     subtitle: 'Marketing & Lead Generation',
     emoji: '📢',
-    color: 'border-[#4C5D75] bg-[#4C5D75]/5'
+    color: 'border-slate-200 bg-slate-50'
   },
   {
     id: 'operations' as InitiativeCategory,
     name: 'Convert',
     subtitle: 'Sales & Closing',
     emoji: '🛒',
-    color: 'border-[#8E9AAF] bg-[#8E9AAF]/5'
+    color: 'border-slate-200 bg-slate-50'
   },
   {
     id: 'customer_experience' as InitiativeCategory,
     name: 'Deliver',
     subtitle: 'Client Experience & Results',
     emoji: '❤️',
-    color: 'border-[#948687] bg-[#948687]/5'
+    color: 'border-slate-200 bg-slate-50'
   },
   {
     id: 'people' as InitiativeCategory,
     name: 'People',
     subtitle: 'Team, Culture, Hiring',
     emoji: '👥',
-    color: 'border-[#3E3F57] bg-[#3E3F57]/5'
+    color: 'border-slate-200 bg-slate-50'
   },
   {
     id: 'systems' as InitiativeCategory,
     name: 'Systems',
     subtitle: 'Operations, Process, Tech',
     emoji: '💻',
-    color: 'border-[#4C5D75] bg-[#4C5D75]/5'
+    color: 'border-slate-200 bg-slate-50'
   },
   {
     id: 'finance' as InitiativeCategory,
     name: 'Finance',
     subtitle: 'Money, Metrics, Wealth',
     emoji: '💰',
-    color: 'border-[#8E9AAF] bg-[#8E9AAF]/5'
+    color: 'border-slate-200 bg-slate-50'
   },
   {
     id: 'product' as InitiativeCategory,
     name: 'Leadership',
     subtitle: 'Vision, Strategy, You',
     emoji: '👑',
-    color: 'border-[#948687] bg-[#948687]/5'
+    color: 'border-slate-200 bg-slate-50'
   },
   {
     id: 'other' as InitiativeCategory,
     name: 'Time',
     subtitle: 'Freedom, Productivity, Leverage',
     emoji: '⏱️',
-    color: 'border-[#3E3F57] bg-[#3E3F57]/5'
+    color: 'border-slate-200 bg-slate-50'
   },
   {
     id: 'misc' as InitiativeCategory,
     name: 'Other',
     subtitle: 'Miscellaneous & Uncategorized',
     emoji: '📋',
-    color: 'border-gray-400 bg-gray-50'
+    color: 'border-slate-200 bg-slate-50'
   }
 ]
 
@@ -253,7 +253,7 @@ export default function Step2StrategicIdeas({
   return (
     <div className="space-y-6">
       {/* Add New Idea Form */}
-      <div className="bg-white border-2 border-blue-200 rounded-lg p-6">
+      <div className="bg-white border-2 border-teal-200 rounded-lg p-6">
         <h3 className="text-lg font-bold text-gray-900 mb-4">Add Strategic Idea</h3>
 
         <div className="space-y-4">
@@ -270,7 +270,7 @@ export default function Step2StrategicIdeas({
                 setValidationError('')
               }}
               placeholder="What strategic initiative do you want to implement?"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
               maxLength={200}
             />
             <p className="text-xs text-gray-500 mt-1">{newTitle.length}/200 characters</p>
@@ -286,7 +286,7 @@ export default function Step2StrategicIdeas({
               onChange={(e) => setNewNotes(e.target.value)}
               placeholder="Add context, rationale, or details..."
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm resize-none"
             />
           </div>
 
@@ -299,7 +299,7 @@ export default function Step2StrategicIdeas({
               <select
                 value={newEngine}
                 onChange={(e) => setNewEngine(e.target.value as InitiativeCategory)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
               >
                 {ENGINES.map(engine => (
                   <option key={engine.id} value={engine.id}>
@@ -311,7 +311,7 @@ export default function Step2StrategicIdeas({
 
             <button
               onClick={handleAddIdea}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors flex items-center gap-2"
+              className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium transition-colors flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
               Add Idea
@@ -328,11 +328,11 @@ export default function Step2StrategicIdeas({
       </div>
 
       {/* Summary */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-gradient-to-r from-teal-50 to-teal-50 border border-teal-200 rounded-lg p-4">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold text-gray-900">
-              Total Ideas: <span className="text-lg text-blue-600">{strategicIdeas.length}</span>
+              Total Ideas: <span className="text-lg text-teal-600">{strategicIdeas.length}</span>
             </p>
             <p className="text-xs text-gray-600 mt-1">
               Organize your strategic initiatives by business engine
@@ -375,25 +375,25 @@ export default function Step2StrategicIdeas({
                   </div>
                 ) : (
                   <>
-                    {/* User Ideas - Warm Dusk background + Cool Navy badge */}
+                    {/* User Ideas - Clean white card with slate border */}
                     {userIdeas.map(idea => (
                       <div
                         key={idea.id}
-                        className="p-4 bg-[#948687]/30 border-2 border-[#948687]/80 rounded-lg shadow-md hover:shadow-lg transition-all"
+                        className="p-4 bg-white border-2 border-slate-200 rounded-lg shadow-sm hover:shadow-md hover:border-teal-300 transition-all"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
-                            <p className="text-base font-bold text-gray-900 leading-snug">{idea.title}</p>
+                            <p className="text-base font-bold text-slate-900 leading-snug">{idea.title}</p>
                             {idea.description && (
-                              <p className="text-sm text-gray-700 mt-2 leading-relaxed">{idea.description}</p>
+                              <p className="text-sm text-slate-600 mt-2 leading-relaxed">{idea.description}</p>
                             )}
-                            <span className="inline-block mt-3 px-2.5 py-1 bg-[#3E3F57] text-white text-xs rounded-md font-semibold shadow-sm">
+                            <span className="inline-block mt-3 px-2.5 py-1 bg-slate-800 text-white text-xs rounded-md font-semibold shadow-sm">
                               YOUR IDEA
                             </span>
                           </div>
                           <button
                             onClick={() => handleRemoveIdea(idea.id)}
-                            className="text-gray-500 hover:text-red-600 transition-colors flex-shrink-0"
+                            className="text-slate-400 hover:text-red-600 transition-colors flex-shrink-0"
                             title="Remove idea"
                           >
                             <X className="w-5 h-5" />
@@ -402,7 +402,7 @@ export default function Step2StrategicIdeas({
                       </div>
                     ))}
 
-                    {/* Roadmap Suggestions - Bold Steel Blue background + White text */}
+                    {/* Roadmap Suggestions - Teal background with white text */}
                     {suggestions.map(suggestion => {
                       const isExpanded = expandedCards.has(suggestion.id)
                       const completed = isComplete(suggestion.title)
@@ -410,7 +410,7 @@ export default function Step2StrategicIdeas({
                       return (
                         <div
                           key={suggestion.id}
-                          className="border-2 border-[#4C5D75] rounded-lg overflow-hidden bg-[#4C5D75] shadow-lg"
+                          className="border-2 border-teal-600 rounded-lg overflow-hidden bg-teal-600 shadow-lg hover:bg-teal-700 transition-colors"
                         >
                           {/* Suggestion Header */}
                           <div className="p-4">
@@ -422,18 +422,18 @@ export default function Step2StrategicIdeas({
                                 title={completed ? "Mark as incomplete" : "Mark as complete"}
                               >
                                 {completed ? (
-                                  <CheckSquare className="w-5 h-5 text-green-400" />
+                                  <CheckSquare className="w-5 h-5 text-green-300" />
                                 ) : (
-                                  <Square className="w-5 h-5 text-white/60 hover:text-white" />
+                                  <Square className="w-5 h-5 text-teal-200 hover:text-white" />
                                 )}
                               </button>
 
                               <div className="flex-1 min-w-0">
                                 <p className="text-base font-bold text-white leading-snug">{suggestion.title}</p>
                                 {suggestion.description && (
-                                  <p className="text-sm text-white/90 mt-2 line-clamp-2 leading-relaxed">{suggestion.description}</p>
+                                  <p className="text-sm text-teal-100 mt-2 line-clamp-2 leading-relaxed">{suggestion.description}</p>
                                 )}
-                                <span className="inline-block mt-3 px-2.5 py-1 bg-[#948687] text-white text-xs rounded-md font-semibold shadow-sm">
+                                <span className="inline-block mt-3 px-2.5 py-1 bg-teal-800 text-white text-xs rounded-md font-semibold shadow-sm">
                                   ROADMAP
                                 </span>
                               </div>
@@ -462,7 +462,7 @@ export default function Step2StrategicIdeas({
 
                           {/* Expanded Details */}
                           {isExpanded && suggestion.notes && (
-                            <div className="px-3 pb-3 pt-0 border-t border-gray-200 bg-gray-50">
+                            <div className="px-3 pb-3 pt-0 border-t border-teal-500 bg-teal-50">
                               <div className="mt-3">
                                 <p className="text-xs font-semibold text-gray-700 mb-2">Implementation Steps:</p>
                                 <div className="text-xs text-gray-600 whitespace-pre-wrap">

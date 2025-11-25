@@ -105,22 +105,42 @@ export async function POST(request: NextRequest) {
         .eq('id', connection.id);
     }
 
-    // Fetch P&L data for FY2025 (Jul 2024 - Jun 2025)
-    // We need to fetch each month individually because Xero's periods parameter gives trailing totals
-    const startDateStr = '2024-07';
-    const endDateStr = '2025-06';
+    // Fetch P&L data for BOTH baseline and actual periods
+    // Baseline = prior FY for comparison/patterns (e.g., FY25: Jul 2024 - Jun 2025)
+    // Actual = current FY YTD for performance tracking (e.g., FY26 YTD: Jul-Oct 2025)
 
-    console.log(`[Sync] Fetching FY2025 monthly data: ${startDateStr} to ${endDateStr}`);
+    const periods = [];
+
+    // Always fetch baseline if available
+    if (forecast.baseline_start_month && forecast.baseline_end_month) {
+      periods.push({
+        name: 'baseline',
+        start: forecast.baseline_start_month,
+        end: forecast.baseline_end_month
+      });
+    }
+
+    // Fetch actual period (current FY YTD)
+    periods.push({
+      name: 'actual',
+      start: forecast.actual_start_month,
+      end: forecast.actual_end_month
+    });
+
+    console.log(`[Sync] Fetching data for periods:`, periods);
 
     // We'll aggregate all monthly data into a single structure
-    const monthlyData: { [accountName: string]: { [monthKey: string]: number, category: string } } = {}
+    const monthlyData: { [accountName: string]: { category: string, [monthKey: string]: number } } = {}
 
-    // Fetch each month individually
-    const startMonth = new Date(startDateStr + '-01');
-    const endMonth = new Date(endDateStr + '-01');
+    // Fetch each period
+    for (const period of periods) {
+      console.log(`[Sync] Fetching ${period.name} period: ${period.start} to ${period.end}`);
 
-    let currentMonth = new Date(startMonth);
-    while (currentMonth <= endMonth) {
+      const startMonth = new Date(period.start + '-01');
+      const endMonth = new Date(period.end + '-01');
+
+      let currentMonth = new Date(startMonth);
+      while (currentMonth <= endMonth) {
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth();  // 0-based month
       const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
@@ -202,11 +222,12 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Move to next month
-      currentMonth.setMonth(currentMonth.getMonth() + 1);
+        // Move to next month
+        currentMonth.setMonth(currentMonth.getMonth() + 1);
+      }
     }
 
-    console.log(`[Sync] Fetched all months. Processing ${Object.keys(monthlyData).length} accounts`);
+    console.log(`[Sync] Fetched all periods. Processing ${Object.keys(monthlyData).length} accounts`);
 
     // Convert aggregated data to P&L lines
     const plLines: Array<{
@@ -293,23 +314,21 @@ export async function POST(request: NextRequest) {
       console.log('[Sync] No lines to insert - plLines is empty');
     }
 
-    // Update last sync time AND update forecast dates to match the synced data
+    // Update last sync time
     await supabase
       .from('xero_connections')
       .update({ last_synced_at: new Date().toISOString() })
       .eq('id', connection.id);
 
-    // Update the forecast's actual period to match what we synced
+    // Update the forecast's last sync timestamp
     await supabase
       .from('financial_forecasts')
       .update({
-        last_xero_sync_at: new Date().toISOString(),
-        actual_start_month: startDateStr,
-        actual_end_month: endDateStr
+        last_xero_sync_at: new Date().toISOString()
       })
       .eq('id', forecast_id);
 
-    console.log(`[Sync] Updated forecast actual period to: ${startDateStr} - ${endDateStr}`);
+    console.log(`[Sync] Successfully synced ${plLines.length} lines from both baseline and actual periods`);
 
     return NextResponse.json({
       success: true,

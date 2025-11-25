@@ -6,10 +6,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY!
 );
 
-export async function POST(request: NextRequest) {
+async function syncXeroData(business_id: string) {
   try {
-    const { business_id } = await request.json();
-
     // Get the Xero connection
     const { data: connection, error: connError } = await supabase
       .from('xero_connections')
@@ -173,5 +171,30 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Sync error:', error);
     return NextResponse.json({ error: 'Sync failed' }, { status: 500 });
+  }
+}
+
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const business_id = searchParams.get('business_id');
+
+  if (!business_id) {
+    return NextResponse.json({ error: 'business_id is required' }, { status: 400 });
+  }
+
+  return syncXeroData(business_id);
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { business_id } = await request.json();
+
+    if (!business_id) {
+      return NextResponse.json({ error: 'business_id is required' }, { status: 400 });
+    }
+
+    return syncXeroData(business_id);
+  } catch (error) {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
 }

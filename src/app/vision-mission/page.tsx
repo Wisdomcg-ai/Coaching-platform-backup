@@ -216,9 +216,9 @@ export default function VisionMissionPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading vision and mission...</p>
         </div>
       </div>
@@ -230,7 +230,7 @@ export default function VisionMissionPage() {
   const filledValuesCount = formData.core_values.filter(v => v.trim().length > 0).length;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-slate-50 py-8">
       <Toaster position="top-right" />
 
       <div className="max-w-5xl mx-auto px-4">
@@ -238,8 +238,8 @@ export default function VisionMissionPage() {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-start gap-4">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <Lightbulb className="w-6 h-6 text-blue-600" />
+              <div className="p-3 bg-teal-100 rounded-lg">
+                <Lightbulb className="w-6 h-6 text-teal-600" />
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Vision, Mission & Values</h1>
@@ -313,7 +313,7 @@ export default function VisionMissionPage() {
                   handleFieldChange();
                 }
               }}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
               rows={4}
               placeholder="In 5-10 years, we will be..."
               maxLength={VALIDATION.VISION_MAX_CHARS}
@@ -379,7 +379,7 @@ export default function VisionMissionPage() {
                   handleFieldChange();
                 }
               }}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
               rows={4}
               placeholder="We believe [your belief]... We do this by [what you do] for [who], so they can [benefit]..."
               maxLength={VALIDATION.MISSION_MAX_CHARS}
@@ -436,7 +436,7 @@ export default function VisionMissionPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
               <button
                 onClick={() => setShowValuesLibrary(true)}
-                className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center justify-center gap-2 transition-colors"
+                className="px-4 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium flex items-center justify-center gap-2 transition-colors"
               >
                 <Sparkles className="w-4 h-4" />
                 Browse Values Library (35 values)
@@ -460,8 +460,8 @@ export default function VisionMissionPage() {
                       value={value}
                       onChange={(e) => handleCoreValueChange(index, e.target.value)}
                       placeholder={index < VALIDATION.MIN_VALUES ? 'Required' : 'Optional'}
-                      className={`w-full px-3 py-2 pr-8 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        index < VALIDATION.MIN_VALUES ? 'border-blue-300 bg-blue-50' : 'border-gray-300'
+                      className={`w-full px-3 py-2 pr-8 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent ${
+                        index < VALIDATION.MIN_VALUES ? 'border-teal-300 bg-teal-50' : 'border-gray-300'
                       }`}
                     />
                     {value.trim().length > 0 && (
@@ -527,7 +527,7 @@ export default function VisionMissionPage() {
               </button>
             </div>
 
-            <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="mb-6 p-4 bg-teal-50 rounded-lg border border-teal-200">
               <p className="text-base font-medium text-gray-800 mb-2">📝 How to write a great "We Statement":</p>
               <ol className="text-base text-gray-700 list-decimal list-inside space-y-1">
                 <li>Start with "We" to show it's about the whole team</li>
@@ -548,7 +548,7 @@ export default function VisionMissionPage() {
                   value={customValueName}
                   onChange={(e) => setCustomValueName(e.target.value)}
                   placeholder="e.g., Integrity, Innovation, Teamwork"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   maxLength={50}
                 />
               </div>
@@ -561,7 +561,7 @@ export default function VisionMissionPage() {
                   value={customValueStatement}
                   onChange={(e) => setCustomValueStatement(e.target.value)}
                   placeholder="We..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
                   rows={3}
                   maxLength={200}
                 />
@@ -580,7 +580,7 @@ export default function VisionMissionPage() {
               </button>
               <button
                 onClick={addCustomValue}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
               >
                 Add Value
               </button>
@@ -620,7 +620,7 @@ export default function VisionMissionPage() {
                     onClick={() => setSelectedCategory(cat)}
                     className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                       selectedCategory === cat
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-teal-600 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
@@ -641,18 +641,18 @@ export default function VisionMissionPage() {
                       disabled={isAdded}
                       className={`text-left p-4 border-2 rounded-lg transition-all group ${
                         isAdded
-                          ? 'border-green-300 bg-green-50 cursor-not-allowed'
-                          : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50'
+                          ? 'border-amber-300 bg-amber-50 cursor-not-allowed'
+                          : 'border-gray-200 hover:border-teal-400 hover:bg-teal-50'
                       }`}
                     >
                       <div className="flex items-start justify-between mb-2">
                         <h4 className={`font-semibold ${
-                          isAdded ? 'text-green-700' : 'text-gray-900 group-hover:text-blue-600'
+                          isAdded ? 'text-amber-700' : 'text-gray-900 group-hover:text-teal-600'
                         }`}>
                           {value.name}
                         </h4>
                         {isAdded && (
-                          <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                          <CheckCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
                         )}
                       </div>
                       <p className="text-sm text-gray-700 italic">

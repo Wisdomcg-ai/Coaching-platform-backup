@@ -96,7 +96,7 @@ export default function VerifyKPISystemPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
+      <div className="min-h-screen bg-slate-50 p-8">
         <div className="max-w-6xl mx-auto">
           <h1 className="text-3xl font-bold mb-8">KPI System Verification</h1>
           <p>Running tests...</p>
@@ -114,7 +114,7 @@ export default function VerifyKPISystemPage() {
     results.iconCheck.passed
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-slate-50 p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -142,9 +142,9 @@ export default function VerifyKPISystemPage() {
           <h2 className="text-xl font-bold mb-4">📊 KPI Statistics</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-blue-50 p-4 rounded-lg">
+            <div className="bg-teal-50 p-4 rounded-lg">
               <p className="text-sm text-gray-600 mb-1">Total KPIs</p>
-              <p className="text-3xl font-bold text-blue-600">{results.totalKPIs}</p>
+              <p className="text-3xl font-bold text-teal-600">{results.totalKPIs}</p>
             </div>
             <div className="bg-green-50 p-4 rounded-lg">
               <p className="text-sm text-gray-600 mb-1">Essential Tier</p>
@@ -269,7 +269,7 @@ export default function VerifyKPISystemPage() {
 
         {/* Next Steps */}
         {allTestsPassed && (
-          <div className="bg-blue-50 border-2 border-blue-400 rounded-lg p-6 mt-6">
+          <div className="bg-teal-50 border-2 border-teal-400 rounded-lg p-6 mt-6">
             <h3 className="text-lg font-bold mb-3">🎉 Ready for Next Steps!</h3>
             <p className="mb-3">Your KPI system is properly configured. You can now:</p>
             <ul className="space-y-2">

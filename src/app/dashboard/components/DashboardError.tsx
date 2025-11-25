@@ -39,7 +39,7 @@ export default function DashboardErrorComponent({ error, onRetry }: DashboardErr
           {isAuthError ? (
             <Link
               href="/auth/login"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
             >
               <LogIn className="h-5 w-5" />
               Sign In
@@ -50,7 +50,7 @@ export default function DashboardErrorComponent({ error, onRetry }: DashboardErr
                 <button
                   type="button"
                   onClick={onRetry}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
                 >
                   <RefreshCw className="h-5 w-5" />
                   Try Again

@@ -240,7 +240,7 @@ export default function TodoList({
               </span>
             )}
             {stats.inProgress > 0 && (
-              <span className="text-blue-600">
+              <span className="text-teal-600">
                 {stats.inProgress} in progress
               </span>
             )}
@@ -261,7 +261,7 @@ export default function TodoList({
             <Filter className="w-4 h-4" />
             Filters
             {selectedCategories.size > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
+              <span className="ml-1 px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded-full text-xs">
                 {selectedCategories.size}
               </span>
             )}

@@ -121,9 +121,9 @@ export default function WhatIfAnalysisModal({
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-teal-50 to-teal-50">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-teal-600 rounded-lg flex items-center justify-center">
                 <TrendingUp className="w-6 h-6 text-white" />
               </div>
               <div>
@@ -144,19 +144,19 @@ export default function WhatIfAnalysisModal({
             <div className="grid grid-cols-2 gap-6">
               {/* Left: Controls */}
               <div className="space-y-6">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="text-sm font-bold text-blue-900 mb-2 flex items-center gap-2">
+                <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
+                  <h3 className="text-sm font-bold text-teal-900 mb-2 flex items-center gap-2">
                     <AlertCircle className="w-4 h-4" />
                     How to Use
                   </h3>
-                  <div className="text-xs text-blue-800 space-y-2">
+                  <div className="text-xs text-teal-800 space-y-2">
                     <p>1. Adjust the sliders below to model different scenarios</p>
                     <p>2. See the real-time impact on your profitability</p>
                     <p className="font-semibold mt-3">3. Then choose an action:</p>
                     <div className="ml-3 space-y-1">
                       <p>• <span className="font-semibold text-green-700">Apply to Forecast</span> - Update current forecast</p>
                       <p>• <span className="font-semibold text-purple-700">Save as New Version</span> - Create new version</p>
-                      <p>• <span className="font-semibold text-blue-700">Save as Scenario</span> - Compare later</p>
+                      <p>• <span className="font-semibold text-teal-700">Save as Scenario</span> - Compare later</p>
                     </div>
                   </div>
                 </div>
@@ -265,7 +265,7 @@ export default function WhatIfAnalysisModal({
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Impact Analysis</h3>
 
                 {/* Revenue Impact */}
-                <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
+                <div className="border-2 border-teal-200 rounded-lg p-4 bg-teal-50">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-700">Revenue</span>
                     {revenueChange !== 0 && (
@@ -281,7 +281,7 @@ export default function WhatIfAnalysisModal({
                       </div>
                     )}
                   </div>
-                  <div className="text-2xl font-bold text-blue-900">
+                  <div className="text-2xl font-bold text-teal-900">
                     {formatCurrency(adjustedRevenue, forecast.currency || 'AUD')}
                   </div>
                   <div className="text-xs text-gray-600 mt-1">
@@ -414,7 +414,7 @@ export default function WhatIfAnalysisModal({
               <button
                 onClick={() => setShowSaveDialog(true)}
                 disabled={!hasChanges}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 <Save className="w-4 h-4" />
                 Save as Scenario
@@ -432,7 +432,7 @@ export default function WhatIfAnalysisModal({
                   value={scenarioName}
                   onChange={(e) => setScenarioName(e.target.value)}
                   placeholder="e.g., Optimistic, Conservative, Best Case"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   autoFocus
                 />
                 <div className="flex items-center justify-end gap-3">
@@ -447,7 +447,7 @@ export default function WhatIfAnalysisModal({
                   </button>
                   <button
                     onClick={handleSaveScenario}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                    className="px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors"
                   >
                     Save Scenario
                   </button>
@@ -470,7 +470,7 @@ export default function WhatIfAnalysisModal({
                   value={versionName}
                   onChange={(e) => setVersionName(e.target.value)}
                   placeholder="e.g., Q2 Forecast Update, Mid-Year Revision"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-teal-500 focus:border-purple-500"
                   autoFocus
                 />
                 <div className="flex items-center justify-end gap-3">

@@ -27,7 +27,7 @@ export function SwotStatisticsCard({
 }: SwotStatisticsCardProps) {
   const colorClasses = {
     gray: 'bg-gray-50 text-gray-700 border-gray-200',
-    blue: 'bg-blue-50 text-blue-700 border-blue-200',
+    blue: 'bg-teal-50 text-teal-700 border-teal-200',
     green: 'bg-green-50 text-green-700 border-green-200',
     red: 'bg-red-50 text-red-700 border-red-200',
     orange: 'bg-orange-50 text-orange-700 border-orange-200',
@@ -36,7 +36,7 @@ export function SwotStatisticsCard({
   
   const iconBgClasses = {
     gray: 'bg-gray-100',
-    blue: 'bg-blue-100',
+    blue: 'bg-teal-100',
     green: 'bg-green-100',
     red: 'bg-red-100',
     orange: 'bg-orange-100',

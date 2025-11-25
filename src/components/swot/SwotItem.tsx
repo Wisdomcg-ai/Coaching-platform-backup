@@ -135,7 +135,7 @@ export function SwotItem({
   // Render edit mode
   if (isEditing) {
     return (
-      <div className={`p-4 rounded-lg border-2 border-blue-400 ${bgColor}`}>
+      <div className={`p-4 rounded-lg border-2 border-teal-400 ${bgColor}`}>
         {/* Title */}
         <input
           ref={titleInputRef}
@@ -143,7 +143,7 @@ export function SwotItem({
           value={editTitle}
           onChange={(e) => setEditTitle(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && handleSave()}
-          className="w-full px-2 py-1 text-sm font-medium border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+          className="w-full px-2 py-1 text-sm font-medium border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500 mb-2"
           placeholder="Title"
         />
         
@@ -151,7 +151,7 @@ export function SwotItem({
         <textarea
           value={editDescription}
           onChange={(e) => setEditDescription(e.target.value)}
-          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2 resize-none"
+          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500 mb-2 resize-none"
           placeholder="Description (optional)"
           rows={2}
         />
@@ -167,7 +167,7 @@ export function SwotItem({
                 className={`
                   flex-1 py-1 text-xs rounded transition-colors
                   ${editImpact === level 
-                    ? 'bg-blue-600 text-white' 
+                    ? 'bg-teal-600 text-white' 
                     : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
                   }
                 `}
@@ -190,7 +190,7 @@ export function SwotItem({
                   className={`
                     flex-1 py-1 text-xs rounded transition-colors
                     ${editLikelihood === level
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-teal-600 text-white'
                       : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
                     }
                   `}
@@ -207,7 +207,7 @@ export function SwotItem({
           type="text"
           value={editTags}
           onChange={(e) => setEditTags(e.target.value)}
-          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500 mb-2"
           placeholder="Tags (comma-separated)"
         />
         
@@ -300,7 +300,7 @@ export function SwotItem({
                 
                 {/* Status */}
                 {item.status === 'carried-forward' && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
                     Carried Forward
                   </span>
                 )}
@@ -332,7 +332,7 @@ export function SwotItem({
                 e.stopPropagation();
                 setIsEditing(true);
               }}
-              className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+              className="p-1 text-gray-400 hover:text-teal-600 transition-colors"
               title="Edit"
             >
               <Edit2 className="h-3.5 w-3.5" />

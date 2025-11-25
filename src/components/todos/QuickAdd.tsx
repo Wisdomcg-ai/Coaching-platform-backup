@@ -219,7 +219,7 @@ export default function QuickAdd({
             className={`
               w-full pl-10 pr-32 py-3 text-base
               border rounded-lg
-              focus:outline-none focus:ring-2 focus:ring-blue-500
+              focus:outline-none focus:ring-2 focus:ring-teal-500
               ${errors.length > 0 ? 'border-red-300' : 'border-gray-300'}
               ${isLoading ? 'bg-gray-50' : 'bg-white'}
             `}
@@ -243,7 +243,7 @@ export default function QuickAdd({
               className={`
                 px-4 py-1.5 rounded-md font-medium transition-colors
                 ${preview && errors.length === 0 && !isLoading
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  ? 'bg-teal-600 text-white hover:bg-teal-700'
                   : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 }
               `}
@@ -277,10 +277,10 @@ export default function QuickAdd({
         
         {/* Preview */}
         {preview && errors.length === 0 && (
-          <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <div className="text-sm text-blue-900">
+          <div className="mt-2 p-3 bg-teal-50 border border-teal-200 rounded-md">
+            <div className="text-sm text-teal-900">
               <div className="font-medium mb-1">Task Preview:</div>
-              <div className="space-y-1 text-blue-700">
+              <div className="space-y-1 text-teal-700">
                 <div className="flex items-center gap-2">
                   <span className="font-medium">Title:</span>
                   <span>{preview.title}</span>

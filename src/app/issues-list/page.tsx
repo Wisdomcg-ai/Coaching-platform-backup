@@ -174,13 +174,13 @@ export default function IssuesListPage() {
   const typeColors = {
     problem: 'bg-red-50 text-red-700',
     opportunity: 'bg-green-50 text-green-700',
-    idea: 'bg-blue-50 text-blue-700',
+    idea: 'bg-teal-50 text-teal-700',
     challenge: 'bg-yellow-50 text-yellow-700'
   };
 
   const statusColors = {
     new: 'bg-gray-50 text-gray-700',
-    identified: 'bg-blue-50 text-blue-700',
+    identified: 'bg-teal-50 text-teal-700',
     'in-discussion': 'bg-purple-50 text-purple-700',
     solving: 'bg-yellow-50 text-yellow-700',
     solved: 'bg-green-50 text-green-700'
@@ -202,7 +202,7 @@ export default function IssuesListPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-6">
         <div className="flex items-center justify-between mb-6">
@@ -225,7 +225,7 @@ export default function IssuesListPage() {
               });
               setShowForm(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
           >
             <Plus className="h-4 w-4" />
             Add New Issue
@@ -233,24 +233,24 @@ export default function IssuesListPage() {
         </div>
 
         {/* Info Box - Collapsible */}
-        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg overflow-hidden">
+        <div className="mb-6 bg-teal-50 border border-teal-200 rounded-lg overflow-hidden">
           <button
             onClick={toggleInfo}
-            className="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-100 transition-colors"
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-teal-100 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <Info className="h-5 w-5 text-blue-600 flex-shrink-0" />
-              <span className="font-medium text-blue-900">How to Use the Issues List</span>
+              <Info className="h-5 w-5 text-teal-600 flex-shrink-0" />
+              <span className="font-medium text-teal-900">How to Use the Issues List</span>
             </div>
             {expandedInfo ? (
-              <ChevronUp className="h-5 w-5 text-blue-600" />
+              <ChevronUp className="h-5 w-5 text-teal-600" />
             ) : (
-              <ChevronDown className="h-5 w-5 text-blue-600" />
+              <ChevronDown className="h-5 w-5 text-teal-600" />
             )}
           </button>
 
           {expandedInfo && (
-            <div className="px-4 py-4 border-t border-blue-200 bg-white text-sm text-gray-700 space-y-3">
+            <div className="px-4 py-4 border-t border-teal-200 bg-white text-sm text-gray-700 space-y-3">
               <p>
                 <strong>What is an Issue?</strong> An Issue is any problem, opportunity, idea, or challenge worth your team's attention. The magic is in solving issues <em>once and for all</em> by finding the root cause.
               </p>
@@ -319,7 +319,7 @@ export default function IssuesListPage() {
             onClick={() => setActiveTab('active')}
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'active'
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-teal-600 text-teal-600'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -329,7 +329,7 @@ export default function IssuesListPage() {
             onClick={() => setActiveTab('solved')}
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'solved'
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-teal-600 text-teal-600'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -365,7 +365,7 @@ export default function IssuesListPage() {
                   });
                   setShowForm(true);
                 }}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
               >
                 <Plus className="h-4 w-4" />
                 Add your first issue
@@ -415,7 +415,7 @@ export default function IssuesListPage() {
                               <p className="text-xs text-gray-500 mt-1">Stated: {issue.stated_problem}</p>
                             )}
                             {issue.root_cause && (
-                              <p className="text-xs text-blue-600 mt-1">Root: {issue.root_cause}</p>
+                              <p className="text-xs text-teal-600 mt-1">Root: {issue.root_cause}</p>
                             )}
                           </div>
                         </td>
@@ -467,7 +467,7 @@ export default function IssuesListPage() {
                             <button
                               onClick={() => handleEdit(issue)}
                               title="Edit"
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                              className="p-2 text-teal-600 hover:bg-teal-50 rounded transition-colors"
                             >
                               <ChevronDown className="h-4 w-4" />
                             </button>
@@ -517,7 +517,7 @@ export default function IssuesListPage() {
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="e.g., High staff turnover"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   autoFocus
                 />
               </div>
@@ -528,7 +528,7 @@ export default function IssuesListPage() {
                 <select
                   value={formData.issue_type}
                   onChange={(e) => setFormData({ ...formData, issue_type: e.target.value as any })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 >
                   <option value="problem">Problem</option>
                   <option value="opportunity">Opportunity</option>
@@ -544,7 +544,7 @@ export default function IssuesListPage() {
                 <select
                   value={formData.priority || ''}
                   onChange={(e) => setFormData({ ...formData, priority: e.target.value ? parseInt(e.target.value) : null })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 >
                   <option value="">No priority</option>
                   <option value="1">1 (Top)</option>
@@ -561,7 +561,7 @@ export default function IssuesListPage() {
                   value={formData.owner}
                   onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
                   placeholder="Me, Sarah, Mike, etc."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
 
@@ -574,7 +574,7 @@ export default function IssuesListPage() {
                   onChange={(e) => setFormData({ ...formData, stated_problem: e.target.value || null })}
                   placeholder="E.g., We're losing customers"
                   rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
 
@@ -587,7 +587,7 @@ export default function IssuesListPage() {
                   onChange={(e) => setFormData({ ...formData, root_cause: e.target.value || null })}
                   placeholder="E.g., No structured onboarding process"
                   rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
 
@@ -600,7 +600,7 @@ export default function IssuesListPage() {
                   onChange={(e) => setFormData({ ...formData, solution: e.target.value || null })}
                   placeholder="E.g., Create and implement a 30-day onboarding plan"
                   rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
 
@@ -618,7 +618,7 @@ export default function IssuesListPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  className="flex-1 px-4 py-2 text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors font-medium"
                 >
                   {editingId ? 'Update' : 'Add Issue'}
                 </button>

@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const XERO_CLIENT_ID = process.env.XERO_CLIENT_ID!;
 const REDIRECT_URI = process.env.NODE_ENV === 'production'
   ? 'https://your-domain.com/api/Xero/callback'  // Update this with your real domain
-  : 'http://localhost:3002/api/Xero/callback';
+  : 'http://localhost:3001/api/Xero/callback';
 
 // Xero OAuth URL
 const XERO_AUTH_URL = 'https://login.xero.com/identity/connect/authorize';
@@ -32,9 +32,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get business_id from query params
+    // Get business_id and return_to from query params
     const searchParams = request.nextUrl.searchParams;
     const businessId = searchParams.get('business_id');
+    const returnTo = searchParams.get('return_to');
 
     if (!businessId) {
       return NextResponse.json(
@@ -43,9 +44,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Create state parameter with business_id
+    // Create state parameter with business_id and optional return_to
     const state = Buffer.from(
-      JSON.stringify({ business_id: businessId })
+      JSON.stringify({
+        business_id: businessId,
+        return_to: returnTo || '/integrations'
+      })
     ).toString('base64');
 
     // Build Xero authorization URL

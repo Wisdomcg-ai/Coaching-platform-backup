@@ -246,9 +246,9 @@ export default function VisionMissionPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading vision and mission...</p>
         </div>
       </div>
@@ -258,7 +258,7 @@ export default function VisionMissionPage() {
   const completionPercent = getCompletionPercentage();
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-slate-50 py-8">
       <div className="max-w-5xl mx-auto px-4">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -305,7 +305,7 @@ export default function VisionMissionPage() {
               <div
                 className={`h-3 rounded-full transition-all duration-500 ${
                   completionPercent === 100 ? 'bg-green-500' :
-                  completionPercent >= 75 ? 'bg-blue-500' :
+                  completionPercent >= 75 ? 'bg-teal-500' :
                   completionPercent >= 50 ? 'bg-yellow-500' :
                   'bg-gray-400'
                 }`}
@@ -339,7 +339,7 @@ export default function VisionMissionPage() {
                 setFormData(prev => ({ ...prev, purpose_statement: e.target.value }));
                 handleFieldChange();
               }}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               rows={3}
               placeholder="e.g., help small businesses achieve sustainable growth through innovative solutions and strategic guidance..."
             />
@@ -357,7 +357,7 @@ export default function VisionMissionPage() {
                 setFormData(prev => ({ ...prev, mission_statement: e.target.value }));
                 handleFieldChange();
               }}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               rows={3}
               placeholder="e.g., We deliver world-class coaching and strategic planning tools to ambitious business owners, empowering them to build profitable, sustainable companies..."
             />
@@ -375,7 +375,7 @@ export default function VisionMissionPage() {
                 setFormData(prev => ({ ...prev, vision_statement: e.target.value }));
                 handleFieldChange();
               }}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               rows={3}
               placeholder="e.g., the leading provider of business coaching in our region, serving 500+ clients with a team of 20, generating $5M in annual revenue..."
             />
@@ -397,13 +397,13 @@ export default function VisionMissionPage() {
                     value={value}
                     onChange={(e) => handleCoreValueChange(index, e.target.value)}
                     placeholder={index < 3 ? 'Recommended' : 'Optional'}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   />
                 </div>
               ))}
             </div>
 
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+            <div className="mt-4 p-3 bg-teal-50 rounded-lg">
               <p className="text-sm text-gray-700">
                 <span className="font-medium">💡 Tip:</span> Great core values are memorable, actionable, and guide decision-making. 
                 Examples: "Customer obsession", "Radical transparency", "Move fast, learn faster"
@@ -426,7 +426,7 @@ export default function VisionMissionPage() {
                 saveData();
                 alert('Vision, Mission & Values saved successfully!');
               }}
-              className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              className="px-8 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium"
             >
               Save & Continue
             </button>

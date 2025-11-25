@@ -3,6 +3,10 @@
 import React, { useState, useEffect } from 'react'
 import { Target, TrendingUp, DollarSign, CheckCircle2, ArrowRight, ArrowLeft, Calendar, Percent, RefreshCw, AlertCircle, Sparkles } from 'lucide-react'
 import type { FinancialForecast, DistributionMethod, PLLine } from '../types'
+import { GoalValidator } from '../utils/goal-validator'
+import type { GoalValidationResult } from '../utils/goal-validator'
+import GoalValidationModal from './GoalValidationModal'
+import ForecastService from '../services/forecast-service'
 
 interface ForecastWizardProps {
   forecast: FinancialForecast
@@ -61,20 +65,45 @@ export default function ForecastWizard({
   const [showOpExWarning, setShowOpExWarning] = useState(false)
   const [opExMode, setOpExMode] = useState<'auto' | 'fy25' | 'custom'>('auto')
 
+  // Goal Validation State
+  const [showValidationModal, setShowValidationModal] = useState(false)
+  const [validationResult, setValidationResult] = useState<GoalValidationResult | null>(null)
+  const [pendingGenerate, setPendingGenerate] = useState(false)
+
   // Calculate fiscal years
   const forecastFY = forecast.fiscal_year || new Date().getFullYear() + 1
   const actualsFY = forecastFY - 1 // Previous year is actuals
 
   // Calculate Prior Year Actual OpEx from plLines (e.g., FY25 actuals for FY26 forecast)
+  // IMPORTANT: Only sum BASELINE months (FY25), not current year actuals (FY26 YTD)
   const fy25ActualOpEx = React.useMemo(() => {
     const opexLines = plLines.filter(l =>
       l.category === 'Operating Expenses' &&
       l.account_name !== 'Total Operating Expenses'
     )
+
+    // Get baseline month keys from forecast
+    const baselineMonths: string[] = []
+    if (forecast.baseline_start_month && forecast.baseline_end_month) {
+      let currentDate = new Date(forecast.baseline_start_month + '-01')
+      const endDate = new Date(forecast.baseline_end_month + '-01')
+
+      while (currentDate <= endDate) {
+        const year = currentDate.getFullYear()
+        const month = currentDate.getMonth() + 1
+        baselineMonths.push(`${year}-${month.toString().padStart(2, '0')}`)
+        currentDate.setMonth(currentDate.getMonth() + 1)
+      }
+    }
+
+    // Sum only baseline months
     return opexLines.reduce((sum, line) => {
-      return sum + Object.values(line.actual_months || {}).reduce((s, v) => s + v, 0)
+      const baselineTotal = baselineMonths.reduce((monthSum, monthKey) => {
+        return monthSum + (line.actual_months?.[monthKey] || 0)
+      }, 0)
+      return sum + baselineTotal
     }, 0)
-  }, [plLines])
+  }, [plLines, forecast.baseline_start_month, forecast.baseline_end_month])
 
   // Calculate implied OpEx from goals
   const impliedOpExBudget = grossProfitGoal > 0 && netProfitGoal > 0
@@ -144,7 +173,7 @@ export default function ForecastWizard({
       grossProfitGoal !== (forecast.gross_profit_goal || 0) ||
       netProfitGoal !== (forecast.net_profit_goal || 0) ||
       cogsPercentage !== ((forecast.cogs_percentage || 0) * 100) ||
-      distributionMethod !== (forecast.revenue_distribution_method || 'even')
+      distributionMethod !== (forecast.revenue_distribution_method || 'seasonal_pattern')
 
     if (!hasChanges || revenueGoal === 0) return
 
@@ -154,7 +183,8 @@ export default function ForecastWizard({
         gross_profit_goal: grossProfitGoal,
         net_profit_goal: netProfitGoal,
         revenue_distribution_method: distributionMethod,
-        cogs_percentage: cogsPercentage / 100
+        cogs_percentage: cogsPercentage / 100,
+        opex_budget: effectiveOpExBudget
       }, { isAutoSave: true })
     }, 2000)
 
@@ -236,6 +266,39 @@ export default function ForecastWizard({
       opex_mode: opExMode
     })
 
+    // Get month keys for validation
+    const currentYearMonthKeys = ForecastService.getCurrentYearMonthKeys(
+      forecast.baseline_end_month,
+      forecast.forecast_start_month
+    )
+    const forecastMonthKeys = ForecastService.getForecastMonthKeys(
+      forecast.forecast_start_month,
+      forecast.forecast_end_month
+    )
+
+    // Validate goals before generating
+    const validation = GoalValidator.validateGoals({
+      revenueGoal,
+      grossProfitGoal,
+      netProfitGoal,
+      plLines,
+      currentYearMonthKeys,
+      forecastMonthKeys
+    })
+
+    // If there are errors, show the validation modal
+    if (!validation.isValid) {
+      setValidationResult(validation)
+      setShowValidationModal(true)
+      setPendingGenerate(true)
+      return
+    }
+
+    // If valid, proceed with generation
+    proceedWithGeneration()
+  }
+
+  const proceedWithGeneration = () => {
     onSave({
       revenue_goal: revenueGoal,
       gross_profit_goal: grossProfitGoal,
@@ -244,6 +307,26 @@ export default function ForecastWizard({
       cogs_percentage: cogsPercentage / 100,
       opex_budget: effectiveOpExBudget
     }, { isAutoSave: false })
+
+    setPendingGenerate(false)
+    setShowValidationModal(false)
+  }
+
+  const handleAutoAdjust = (adjustments: any) => {
+    // Apply the suggested adjustments
+    if (adjustments.revenueGoal !== undefined) {
+      setRevenueGoal(adjustments.revenueGoal)
+    }
+    if (adjustments.grossProfitGoal !== undefined) {
+      setGrossProfitGoal(adjustments.grossProfitGoal)
+    }
+    if (adjustments.netProfitGoal !== undefined) {
+      setNetProfitGoal(adjustments.netProfitGoal)
+    }
+
+    // Close modal
+    setShowValidationModal(false)
+    setPendingGenerate(false)
   }
 
   const handleApplyOpEx = () => {
@@ -275,45 +358,45 @@ export default function ForecastWizard({
               onClick={() => setCurrentStep(1)}
               className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all ${
                 currentStep >= 1
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  ? 'bg-teal-600 text-white hover:bg-teal-700'
                   : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
               } cursor-pointer`}
             >
               {currentStep > 1 ? <CheckCircle2 className="w-5 h-5" /> : '1'}
             </button>
-            <div className={`h-1 w-20 ${currentStep > 1 ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
+            <div className={`h-1 w-20 ${currentStep > 1 ? 'bg-teal-600' : 'bg-gray-200'}`}></div>
           </div>
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setCurrentStep(2)}
               className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all ${
                 currentStep >= 2
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  ? 'bg-teal-600 text-white hover:bg-teal-700'
                   : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
               } cursor-pointer`}
             >
               {currentStep > 2 ? <CheckCircle2 className="w-5 h-5" /> : '2'}
             </button>
-            <div className={`h-1 w-20 ${currentStep > 2 ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
+            <div className={`h-1 w-20 ${currentStep > 2 ? 'bg-teal-600' : 'bg-gray-200'}`}></div>
           </div>
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setCurrentStep(3)}
               className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all ${
                 currentStep >= 3
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  ? 'bg-teal-600 text-white hover:bg-teal-700'
                   : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
               } cursor-pointer`}
             >
               {currentStep > 3 ? <CheckCircle2 className="w-5 h-5" /> : '3'}
             </button>
-            <div className={`h-1 w-20 ${currentStep > 3 ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
+            <div className={`h-1 w-20 ${currentStep > 3 ? 'bg-teal-600' : 'bg-gray-200'}`}></div>
           </div>
           <button
             onClick={() => setCurrentStep(4)}
             className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all ${
               currentStep >= 4
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                ? 'bg-teal-600 text-white hover:bg-teal-700'
                 : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
             } cursor-pointer`}
           >
@@ -321,10 +404,10 @@ export default function ForecastWizard({
           </button>
         </div>
         <div className="flex items-center justify-between text-xs text-gray-600">
-          <button onClick={() => setCurrentStep(1)} className="hover:text-blue-600 transition-colors cursor-pointer">Goals</button>
-          <button onClick={() => setCurrentStep(2)} className="hover:text-blue-600 transition-colors cursor-pointer">Distribution</button>
-          <button onClick={() => setCurrentStep(3)} className="hover:text-blue-600 transition-colors cursor-pointer">Costs</button>
-          <button onClick={() => setCurrentStep(4)} className="hover:text-blue-600 transition-colors cursor-pointer">Review</button>
+          <button onClick={() => setCurrentStep(1)} className="hover:text-teal-600 transition-colors cursor-pointer">Goals</button>
+          <button onClick={() => setCurrentStep(2)} className="hover:text-teal-600 transition-colors cursor-pointer">Distribution</button>
+          <button onClick={() => setCurrentStep(3)} className="hover:text-teal-600 transition-colors cursor-pointer">Costs</button>
+          <button onClick={() => setCurrentStep(4)} className="hover:text-teal-600 transition-colors cursor-pointer">Review</button>
         </div>
       </div>
 
@@ -334,8 +417,8 @@ export default function ForecastWizard({
         {currentStep === 1 && (
           <div className="space-y-6">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Target className="w-6 h-6 text-blue-600" />
+              <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center">
+                <Target className="w-6 h-6 text-teal-600" />
               </div>
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Step 1: Set Your Goals</h2>
@@ -345,10 +428,10 @@ export default function ForecastWizard({
 
             {/* Import Indicator */}
             {forecast.goal_source === 'goals_wizard' && forecast.annual_plan_id && (
-              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="mb-6 p-4 bg-teal-50 border border-teal-200 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-900">
+                  <Sparkles className="w-5 h-5 text-teal-600" />
+                  <span className="text-sm font-medium text-teal-900">
                     Goals imported from your Goals & Targets wizard
                   </span>
                 </div>
@@ -370,7 +453,7 @@ export default function ForecastWizard({
                     type="number"
                     value={revenueGoal || ''}
                     onChange={(e) => setRevenueGoal(parseFloat(e.target.value) || 0)}
-                    className="w-full pl-8 pr-4 py-3 text-xl font-semibold border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full pl-8 pr-4 py-3 text-xl font-semibold border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     placeholder="0"
                   />
                 </div>
@@ -395,7 +478,7 @@ export default function ForecastWizard({
                     type="number"
                     value={grossProfitGoal || ''}
                     onChange={(e) => setGrossProfitGoal(parseFloat(e.target.value) || 0)}
-                    className="w-full pl-8 pr-4 py-3 text-xl font-semibold border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full pl-8 pr-4 py-3 text-xl font-semibold border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     placeholder="0"
                   />
                 </div>
@@ -420,7 +503,7 @@ export default function ForecastWizard({
                     type="number"
                     value={netProfitGoal || ''}
                     onChange={(e) => setNetProfitGoal(parseFloat(e.target.value) || 0)}
-                    className="w-full pl-8 pr-4 py-3 text-xl font-semibold border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full pl-8 pr-4 py-3 text-xl font-semibold border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     placeholder="0"
                   />
                 </div>
@@ -467,7 +550,7 @@ export default function ForecastWizard({
                       </p>
                       <button
                         onClick={onImportFromAnnualPlan}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                        className="text-sm font-medium text-teal-600 hover:text-teal-700"
                       >
                         Update from Annual Plan →
                       </button>
@@ -507,7 +590,7 @@ export default function ForecastWizard({
                     <div className="flex items-center gap-2 mb-2">
                       <TrendingUp className="w-5 h-5 text-gray-600" />
                       <h3 className="font-semibold text-gray-900">Follow seasonal pattern</h3>
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">RECOMMENDED</span>
+                      <span className="text-xs bg-teal-100 text-teal-700 px-2 py-1 rounded">RECOMMENDED</span>
                     </div>
                     <p className="text-sm text-gray-600">
                       Use your historical monthly pattern from FY{forecast.fiscal_year - 1}, scaled to your new target
@@ -642,13 +725,13 @@ export default function ForecastWizard({
 
                   {getCogsWarning() && (
                     <div className={`mt-4 p-3 rounded-lg flex items-start gap-2 ${
-                      getCogsWarning()!.type === 'warning' ? 'bg-yellow-50 border border-yellow-200' : 'bg-blue-50 border border-blue-200'
+                      getCogsWarning()!.type === 'warning' ? 'bg-yellow-50 border border-yellow-200' : 'bg-teal-50 border border-teal-200'
                     }`}>
                       <AlertCircle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
-                        getCogsWarning()!.type === 'warning' ? 'text-yellow-600' : 'text-blue-600'
+                        getCogsWarning()!.type === 'warning' ? 'text-yellow-600' : 'text-teal-600'
                       }`} />
                       <p className={`text-xs ${
-                        getCogsWarning()!.type === 'warning' ? 'text-yellow-800' : 'text-blue-800'
+                        getCogsWarning()!.type === 'warning' ? 'text-yellow-800' : 'text-teal-800'
                       }`}>
                         {getCogsWarning()!.message}
                       </p>
@@ -675,7 +758,7 @@ export default function ForecastWizard({
                     </div>
                     <div className="text-center">
                       <div className="text-xs text-gray-600 mb-1">Implied by Goals</div>
-                      <div className="text-lg font-bold text-blue-600">{formatCurrency(impliedOpExBudget)}</div>
+                      <div className="text-lg font-bold text-teal-600">{formatCurrency(impliedOpExBudget)}</div>
                     </div>
                     <div className="text-center">
                       <div className="text-xs text-gray-600 mb-1">Change</div>
@@ -708,7 +791,7 @@ export default function ForecastWizard({
                               onClick={() => setOpExMode('auto')}
                               className={`w-full text-left px-3 py-2 rounded-lg border-2 transition-all ${
                                 opExMode === 'auto'
-                                  ? 'border-blue-500 bg-blue-50 text-blue-900'
+                                  ? 'border-teal-500 bg-teal-50 text-teal-900'
                                   : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
                               }`}
                             >
@@ -717,7 +800,7 @@ export default function ForecastWizard({
                                   <div className="text-sm font-semibold">Use Goal-Based OpEx ({formatCurrency(impliedOpExBudget)})</div>
                                   <div className="text-xs opacity-75">Hit your net profit target of {formatCurrency(netProfitGoal)}</div>
                                 </div>
-                                {opExMode === 'auto' && <CheckCircle2 className="w-5 h-5 text-blue-600" />}
+                                {opExMode === 'auto' && <CheckCircle2 className="w-5 h-5 text-teal-600" />}
                               </div>
                             </button>
 
@@ -725,7 +808,7 @@ export default function ForecastWizard({
                               onClick={() => setOpExMode('fy25')}
                               className={`w-full text-left px-3 py-2 rounded-lg border-2 transition-all ${
                                 opExMode === 'fy25'
-                                  ? 'border-blue-500 bg-blue-50 text-blue-900'
+                                  ? 'border-teal-500 bg-teal-50 text-teal-900'
                                   : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
                               }`}
                             >
@@ -734,7 +817,7 @@ export default function ForecastWizard({
                                   <div className="text-sm font-semibold">Use FY{actualsFY} Baseline ({formatCurrency(fy25ActualOpEx)})</div>
                                   <div className="text-xs opacity-75">Keep spending at historical levels, adjust profit goal</div>
                                 </div>
-                                {opExMode === 'fy25' && <CheckCircle2 className="w-5 h-5 text-blue-600" />}
+                                {opExMode === 'fy25' && <CheckCircle2 className="w-5 h-5 text-teal-600" />}
                               </div>
                             </button>
 
@@ -742,7 +825,7 @@ export default function ForecastWizard({
                               onClick={() => setOpExMode('custom')}
                               className={`w-full text-left px-3 py-2 rounded-lg border-2 transition-all ${
                                 opExMode === 'custom'
-                                  ? 'border-blue-500 bg-blue-50 text-blue-900'
+                                  ? 'border-teal-500 bg-teal-50 text-teal-900'
                                   : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
                               }`}
                             >
@@ -760,7 +843,7 @@ export default function ForecastWizard({
                                     />
                                   )}
                                 </div>
-                                {opExMode === 'custom' && <CheckCircle2 className="w-5 h-5 text-blue-600" />}
+                                {opExMode === 'custom' && <CheckCircle2 className="w-5 h-5 text-teal-600" />}
                               </div>
                             </button>
                           </div>
@@ -789,8 +872,8 @@ export default function ForecastWizard({
         {currentStep === 4 && (
           <div className="space-y-6">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <CheckCircle2 className="w-6 h-6 text-blue-600" />
+              <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-teal-600" />
               </div>
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Step 4: Review Your Forecast</h2>
@@ -800,7 +883,7 @@ export default function ForecastWizard({
 
             <div className="space-y-4">
               {/* Summary Card */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-200">
+              <div className="bg-gradient-to-br from-teal-50 to-teal-50 rounded-lg p-6 border border-teal-200">
                 <h3 className="font-semibold text-gray-900 mb-4">Your Forecast Summary</h3>
 
                 <div className="space-y-3">
@@ -814,7 +897,7 @@ export default function ForecastWizard({
                     <span className="text-sm font-semibold text-gray-700">{formatCurrency(monthlyRevenue)}</span>
                   </div>
 
-                  <div className="flex justify-between items-center pt-3 border-t border-blue-200">
+                  <div className="flex justify-between items-center pt-3 border-t border-teal-200">
                     <span className="text-sm text-gray-700">Cost of Sales ({calculatedCogsPercent.toFixed(0)}%):</span>
                     <span className="text-lg font-semibold text-gray-900">{formatCurrency(cogsAmount)}</span>
                   </div>
@@ -824,12 +907,12 @@ export default function ForecastWizard({
                     <span className="text-lg font-bold text-green-600">{formatCurrency(grossProfitGoal)}</span>
                   </div>
 
-                  <div className="flex justify-between items-center pt-3 border-t border-blue-200">
+                  <div className="flex justify-between items-center pt-3 border-t border-teal-200">
                     <span className="text-sm text-gray-700">Target Net Profit:</span>
-                    <span className="text-lg font-bold text-blue-600">{formatCurrency(netProfitGoal)}</span>
+                    <span className="text-lg font-bold text-teal-600">{formatCurrency(netProfitGoal)}</span>
                   </div>
 
-                  <div className="pt-3 border-t border-blue-200 space-y-2">
+                  <div className="pt-3 border-t border-teal-200 space-y-2">
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-gray-600">Revenue Distribution:</span>
                       <span className="font-medium text-gray-900">
@@ -851,21 +934,21 @@ export default function ForecastWizard({
                 <h3 className="font-semibold text-gray-900 mb-3">What happens next?</h3>
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold flex-shrink-0">1</div>
+                    <div className="w-6 h-6 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center text-xs font-bold flex-shrink-0">1</div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">We'll create your Revenue and COGS forecast</p>
                       <p className="text-xs text-gray-600">Based on your distribution method and cost percentage</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold flex-shrink-0">2</div>
+                    <div className="w-6 h-6 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center text-xs font-bold flex-shrink-0">2</div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">Apply your OpEx pattern</p>
                       <p className="text-xs text-gray-600">We'll set up Operating Expenses with your {opexIncrease}% increase</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold flex-shrink-0">3</div>
+                    <div className="w-6 h-6 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center text-xs font-bold flex-shrink-0">3</div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">Review and customize</p>
                       <p className="text-xs text-gray-600">Fine-tune individual lines in the P&L Forecast tab</p>
@@ -879,7 +962,7 @@ export default function ForecastWizard({
                 <button
                   onClick={handleGenerate}
                   disabled={isSaving || !isStep1Valid || !isStep3Valid}
-                  className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-lg font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-gradient-to-r from-teal-600 to-teal-700 text-white text-lg font-semibold rounded-lg hover:from-teal-700 hover:to-teal-800 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isSaving ? (
                     <>
@@ -930,7 +1013,7 @@ export default function ForecastWizard({
           <button
             onClick={handleNext}
             disabled={!canProceed()}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Continue
             <ArrowRight className="w-4 h-4" />
@@ -947,6 +1030,20 @@ export default function ForecastWizard({
         <div className="text-center mt-4">
           <p className="text-xs text-gray-500">✓ Draft saved automatically</p>
         </div>
+      )}
+
+      {/* Goal Validation Modal */}
+      {validationResult && (
+        <GoalValidationModal
+          isOpen={showValidationModal}
+          onClose={() => {
+            setShowValidationModal(false)
+            setPendingGenerate(false)
+          }}
+          validationResult={validationResult}
+          onAutoAdjust={handleAutoAdjust}
+          onGenerateAnyway={proceedWithGeneration}
+        />
       )}
     </div>
   )

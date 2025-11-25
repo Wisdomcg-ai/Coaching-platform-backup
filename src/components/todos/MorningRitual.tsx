@@ -102,7 +102,7 @@ export function MorningRitual({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6 text-white rounded-t-xl">
+        <div className="bg-gradient-to-r from-purple-600 to-teal-600 p-6 text-white rounded-t-xl">
           <div className="flex justify-between items-start">
             <div>
               <h2 className="text-2xl font-bold mb-2">Morning Ritual</h2>
@@ -161,7 +161,7 @@ export function MorningRitual({
               <textarea
                 value={gratitude}
                 onChange={(e) => setGratitude(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
                 rows={3}
                 placeholder="I'm grateful for..."
               />
@@ -171,7 +171,7 @@ export function MorningRitual({
               <textarea
                 value={intention}
                 onChange={(e) => setIntention(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
                 rows={3}
                 placeholder="Today I intend to..."
               />
@@ -190,12 +190,12 @@ export function MorningRitual({
                 <input
                   type="text"
                   placeholder="TOP PRIORITY 1"
-                  className="w-full p-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-500"
                 />
                 <input
                   type="text"
                   placeholder="TOP PRIORITY 2"
-                  className="w-full p-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-500"
                 />
               </div>
             )}
@@ -204,7 +204,7 @@ export function MorningRitual({
               <textarea
                 value={biggestWin}
                 onChange={(e) => setBiggestWin(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
                 rows={3}
                 placeholder="When I complete my MUSTs today, I will feel..."
               />
@@ -220,7 +220,7 @@ export function MorningRitual({
                 <textarea
                   value={reflection}
                   onChange={(e) => setReflection(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
                   rows={2}
                   placeholder="Any additional thoughts or commitments..."
                 />
