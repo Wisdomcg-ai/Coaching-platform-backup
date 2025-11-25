@@ -31,22 +31,22 @@ function getPriorityStyle(priority: SuggestedAction['priority']) {
       return {
         bg: 'bg-amber-50 hover:bg-amber-100',
         border: 'border-amber-200',
-        iconBg: 'bg-amber-100',
-        iconColor: 'text-amber-600'
+        iconBg: 'bg-amber-500',
+        iconColor: 'text-white'
       }
     case 'medium':
       return {
         bg: 'bg-slate-50 hover:bg-slate-100',
         border: 'border-slate-200',
-        iconBg: 'bg-slate-100',
-        iconColor: 'text-slate-600'
+        iconBg: 'bg-slate-600',
+        iconColor: 'text-white'
       }
     case 'low':
       return {
         bg: 'bg-white hover:bg-slate-50',
         border: 'border-slate-200',
-        iconBg: 'bg-teal-50',
-        iconColor: 'text-teal-600'
+        iconBg: 'bg-teal-500',
+        iconColor: 'text-white'
       }
   }
 }
@@ -82,11 +82,11 @@ export default function SuggestedActions({ actions }: SuggestedActionsProps) {
   const displayActions = actions && actions.length > 0 ? actions : defaultActions
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <div className="px-5 py-4 border-b border-slate-100">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-teal-50 rounded-lg flex items-center justify-center">
-            <Zap className="h-4 w-4 text-teal-600" />
+          <div className="w-9 h-9 bg-slate-700 rounded-lg flex items-center justify-center shadow-sm">
+            <Zap className="h-4 w-4 text-white" />
           </div>
           <div>
             <h3 className="font-semibold text-slate-800">Suggested Actions</h3>
@@ -105,16 +105,16 @@ export default function SuggestedActions({ actions }: SuggestedActionsProps) {
               <Link
                 key={action.id}
                 href={action.href}
-                className={`flex items-center gap-4 p-3 rounded-lg border ${style.border} ${style.bg} transition-colors group`}
+                className={`flex items-center gap-4 p-3 rounded-lg border ${style.border} ${style.bg} transition-all group`}
               >
-                <div className={`w-10 h-10 ${style.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                <div className={`w-10 h-10 ${style.iconBg} rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm`}>
                   <Icon className={`h-5 w-5 ${style.iconColor}`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-800">{action.label}</p>
                   <p className="text-xs text-slate-500">{action.description}</p>
                 </div>
-                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-teal-600 transition-colors flex-shrink-0" />
+                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-teal-600 group-hover:translate-x-1 transition-all flex-shrink-0" />
               </Link>
             )
           })}

@@ -7,7 +7,6 @@ interface AskCoachCardProps {
   lastQuestionDate?: string
 }
 
-// Rotating coaching tips
 const coachingTips = [
   "Focus on leading indicators, not just lagging results.",
   "The constraint isn't usually what you think it is.",
@@ -18,7 +17,6 @@ const coachingTips = [
 ]
 
 function getRandomTip(): string {
-  // Use day of year to rotate tips predictably
   const now = new Date()
   const start = new Date(now.getFullYear(), 0, 0)
   const diff = now.getTime() - start.getTime()
@@ -31,11 +29,11 @@ export default function AskCoachCard({ onOpenModal, lastQuestionDate }: AskCoach
   const tip = getRandomTip()
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div className="bg-white rounded-xl border-l-4 border-l-teal-500 border-t border-r border-b border-slate-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-slate-100">
+      <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-teal-500 rounded-lg flex items-center justify-center">
+          <div className="w-9 h-9 bg-teal-500 rounded-lg flex items-center justify-center shadow-sm">
             <MessageCircle className="h-4 w-4 text-white" />
           </div>
           <div>
@@ -50,14 +48,14 @@ export default function AskCoachCard({ onOpenModal, lastQuestionDate }: AskCoach
       {/* Content */}
       <div className="p-5">
         {/* Coaching Insight */}
-        <div className="bg-teal-50 border border-teal-100 rounded-lg p-4 mb-4">
+        <div className="bg-slate-800 rounded-lg p-4 mb-4">
           <div className="flex items-start gap-3">
-            <Lightbulb className="h-5 w-5 text-teal-600 flex-shrink-0 mt-0.5" />
+            <Lightbulb className="h-5 w-5 text-teal-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-xs font-medium text-teal-700 uppercase tracking-wide mb-1">
+              <p className="text-xs font-medium text-teal-400 uppercase tracking-wide mb-1">
                 Today's Insight
               </p>
-              <p className="text-sm text-teal-800 italic">
+              <p className="text-sm text-slate-200 italic">
                 "{tip}"
               </p>
             </div>
@@ -68,13 +66,12 @@ export default function AskCoachCard({ onOpenModal, lastQuestionDate }: AskCoach
         <button
           type="button"
           onClick={onOpenModal}
-          className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors font-medium"
+          className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors font-medium shadow-sm"
         >
           <MessageCircle className="h-5 w-5" />
           Ask Your Coach
         </button>
 
-        {/* Help text */}
         <p className="text-xs text-slate-400 text-center mt-3">
           Strategy, challenges, growth plans - ask anything
         </p>

@@ -37,13 +37,13 @@ export default function RocksCard({
   const attentionRock = rocksNeedingAttention[0]
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div className="bg-white rounded-xl border-l-4 border-l-slate-700 border-t border-r border-b border-slate-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-slate-100">
+      <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-teal-50 rounded-lg flex items-center justify-center">
-              <Rocket className="h-4 w-4 text-teal-600" />
+            <div className="w-9 h-9 bg-slate-700 rounded-lg flex items-center justify-center shadow-sm">
+              <Rocket className="h-4 w-4 text-white" />
             </div>
             <div>
               <h3 className="font-semibold text-slate-800">Quarterly Rocks</h3>
@@ -51,7 +51,7 @@ export default function RocksCard({
             </div>
           </div>
           {quarterDaysRemaining !== undefined && (
-            <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded">
+            <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full">
               {quarterDaysRemaining}d left
             </span>
           )}
@@ -103,7 +103,6 @@ export default function RocksCard({
             {/* Rock List (condensed) */}
             <div className="space-y-2">
               {rocks.slice(0, hasAttention ? 3 : 4).map((rock) => {
-                // Skip the attention rock since it's highlighted above
                 if (hasAttention && rock.id === attentionRock?.id) return null
 
                 const status = getStatusStyle(rock.status, rock.progressPercentage)
@@ -138,7 +137,7 @@ export default function RocksCard({
             <p className="text-sm text-slate-400 mb-4">Define your key priorities</p>
             <Link
               href="/one-page-plan"
-              className="inline-flex items-center px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600 transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600 transition-colors shadow-sm"
             >
               Set Your Rocks
             </Link>
