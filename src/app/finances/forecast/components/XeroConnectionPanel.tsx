@@ -40,6 +40,7 @@ export default function XeroConnectionPanel({
         </div>
         <div className="flex items-center space-x-2">
           <button
+            type="button"
             onClick={onDisconnect}
             disabled={isSaving}
             className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
@@ -48,6 +49,7 @@ export default function XeroConnectionPanel({
             <span>Manage Connection</span>
           </button>
           <button
+            type="button"
             onClick={onClearAndResync}
             disabled={isSaving}
             className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
@@ -56,6 +58,7 @@ export default function XeroConnectionPanel({
             <span>Clear & Resync</span>
           </button>
           <button
+            type="button"
             onClick={onSync}
             disabled={isSaving}
             className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
@@ -76,6 +79,7 @@ export default function XeroConnectionPanel({
       </div>
       <div className="flex items-center space-x-3">
         <button
+          type="button"
           onClick={onOpenCSVImport}
           className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
         >
@@ -83,6 +87,7 @@ export default function XeroConnectionPanel({
           <span>Import CSV</span>
         </button>
         <button
+          type="button"
           onClick={onConnect}
           className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
         >

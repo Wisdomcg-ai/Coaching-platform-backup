@@ -17,7 +17,6 @@ import ExportControls from './components/ExportControls'
 import { LoadingState } from './components/LoadingState'
 import ErrorState from './components/ErrorState'
 import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp'
-import VersionManager from './components/VersionManager'
 import CSVImportWizard from './components/CSVImportWizard'
 import SaveVersionModal from './components/SaveVersionModal'
 import VersionsTab from './components/VersionsTab'
@@ -563,17 +562,6 @@ export default function FinancialForecastPage() {
               title="Error"
             />
           </div>
-        )}
-
-        {/* Version Manager */}
-        {forecast && (
-          <VersionManager
-            forecast={forecast}
-            onVersionChange={(versionId) => {
-              window.location.href = `/finances/forecast?id=${versionId}`
-            }}
-            className="mb-6"
-          />
         )}
 
         {/* Header */}
