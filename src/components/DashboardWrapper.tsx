@@ -140,8 +140,7 @@ export default function DashboardWrapper({ children }: { children: React.ReactNo
         { name: 'SWOT Analysis', href: '/swot-launch', icon: Grid3x3 },
         { name: 'Goals & Targets', href: '/goals', icon: Target },
         { name: '90-Day Planning', href: '/90-day-planning', icon: CalendarDays },
-        { name: 'One-Page Plan', href: '/one-page-plan', icon: FileText },
-        { name: 'Success Disciplines', href: '/success-disciplines', icon: Target }
+        { name: 'One-Page Plan', href: '/one-page-plan', icon: FileText }
       ]
     },
     FINANCES: {

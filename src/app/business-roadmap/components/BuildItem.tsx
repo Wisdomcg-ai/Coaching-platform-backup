@@ -4,11 +4,18 @@ import { RoadmapBuild } from '../data/types'
 interface BuildItemProps {
   build: RoadmapBuild
   isComplete: boolean
+  completionPercentage?: number // New: from completion checks
   onClick: () => void
   onToggleComplete: (e: React.MouseEvent) => void
 }
 
-export function BuildItem({ build, isComplete, onClick, onToggleComplete }: BuildItemProps) {
+export function BuildItem({
+  build,
+  isComplete,
+  completionPercentage,
+  onClick,
+  onToggleComplete
+}: BuildItemProps) {
   return (
     <div className="flex items-start gap-2 p-2 hover:bg-gray-50 rounded transition-colors group">
       <input
@@ -22,7 +29,28 @@ export function BuildItem({ build, isComplete, onClick, onToggleComplete }: Buil
         onClick={onClick}
         className="text-left flex-1 text-sm text-gray-700 hover:text-teal-600 transition-colors"
       >
-        <span className={isComplete ? 'line-through text-gray-500' : ''}>{build.name}</span>
+        <div className="flex items-center gap-2">
+          <span className={isComplete ? 'line-through text-gray-500' : ''}>{build.name}</span>
+
+          {/* Completion indicator */}
+          {!isComplete && completionPercentage !== undefined && completionPercentage > 0 && (
+            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+              completionPercentage < 33 ? 'bg-red-100 text-red-700' :
+              completionPercentage < 66 ? 'bg-orange-100 text-orange-700' :
+              completionPercentage < 100 ? 'bg-amber-100 text-amber-700' :
+              'bg-green-100 text-green-700'
+            }`}>
+              {completionPercentage}%
+            </span>
+          )}
+
+          {/* Click to assess hint for items not started */}
+          {!isComplete && (completionPercentage === undefined || completionPercentage === 0) && (
+            <span className="opacity-0 group-hover:opacity-100 text-xs text-teal-500 transition-opacity">
+              Click to assess →
+            </span>
+          )}
+        </div>
       </button>
     </div>
   )

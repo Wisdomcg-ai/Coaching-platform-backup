@@ -3,13 +3,12 @@
 import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard,
   ClipboardCheck,
   Target,
   FileText,
-  Brain,
-  Mountain,
   TrendingUp,
   BarChart3,
   Banknote,
@@ -17,7 +16,6 @@ import {
   CalendarDays,
   CalendarCheck,
   CheckSquare,
-  ListTodo,
   XCircle,
   AlertCircle,
   Layers,
@@ -37,7 +35,6 @@ import {
   Compass,
   Award,
   Network,
-  BookOpen,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
@@ -89,11 +86,9 @@ const getNavigation = (userRole: 'coach' | 'client'): NavSection[] => {
       defaultOpen: true,
       items: [
         { label: 'Vision, Mission & Values', href: '/vision-mission', icon: Target },
-        { label: 'Business Roadmap', href: '/business-roadmap', icon: Compass },
         { label: 'SWOT Analysis', href: '/swot', icon: FileText },
         { label: 'Goals & Targets', href: '/goals', icon: Award },
         { label: 'One-Page Plan', href: '/one-page-plan', icon: FileText },
-        { label: 'Success Disciplines', href: '/success-disciplines', icon: Brain },
       ],
     },
     {
@@ -109,9 +104,8 @@ const getNavigation = (userRole: 'coach' | 'client'): NavSection[] => {
       title: 'EXECUTE & GROW',
       defaultOpen: true,
       items: [
-        { label: 'Daily Disciplines', href: '/daily-disciplines', icon: CheckSquare },
+        { label: 'Business Roadmap', href: '/business-roadmap', icon: Compass },
         { label: 'Business Dashboard', href: '/business-dashboard', icon: BarChart3 },
-        { label: 'Accountability Chart', href: '/accountability-chart', icon: Network },
       ],
     },
     {
@@ -184,6 +178,7 @@ const getNavigation = (userRole: 'coach' | 'client'): NavSection[] => {
 export default function SidebarLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
+  const supabase = createClient()
 
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [expandedSections, setExpandedSections] = useState<string[]>([
@@ -203,30 +198,47 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
     profitTarget: 0,
   })
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [userName, setUserName] = useState<string>('User Account')
+  const [userEmail, setUserEmail] = useState<string>('user@example.com')
 
   useEffect(() => {
-    try {
-      const storedBusinessName = localStorage.getItem('businessName')
-      const storedAssessmentScore = localStorage.getItem('assessmentScore')
-      const storedStage = localStorage.getItem('businessStage')
-      const storedRevenueTarget = localStorage.getItem('revenueTarget')
-      const storedProfitTarget = localStorage.getItem('profitTarget')
+    const loadUserData = async () => {
+      try {
+        // Load user data from Supabase
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const name = user.user_metadata?.first_name
+            ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ''}`
+            : user.email?.split('@')[0] || 'User Account'
+          setUserName(name)
+          setUserEmail(user.email || 'user@example.com')
+        }
 
-      if (storedBusinessName || storedAssessmentScore) {
-        setBusinessData({
-          name: storedBusinessName || 'My Business',
-          assessmentScore: storedAssessmentScore || '--',
-          stage: storedStage || 'BUILDING',
-          revenueTarget: storedRevenueTarget ? parseFloat(storedRevenueTarget) : 0,
-          profitTarget: storedProfitTarget ? parseFloat(storedProfitTarget) : 0,
-        })
+        // Load business data from localStorage
+        const storedBusinessName = localStorage.getItem('businessName')
+        const storedAssessmentScore = localStorage.getItem('assessmentScore')
+        const storedStage = localStorage.getItem('businessStage')
+        const storedRevenueTarget = localStorage.getItem('revenueTarget')
+        const storedProfitTarget = localStorage.getItem('profitTarget')
+
+        if (storedBusinessName || storedAssessmentScore) {
+          setBusinessData({
+            name: storedBusinessName || 'My Business',
+            assessmentScore: storedAssessmentScore || '--',
+            stage: storedStage || 'BUILDING',
+            revenueTarget: storedRevenueTarget ? parseFloat(storedRevenueTarget) : 0,
+            profitTarget: storedProfitTarget ? parseFloat(storedProfitTarget) : 0,
+          })
+        }
+
+        setNavigation(getNavigation('client'))
+      } catch (error) {
+        console.error('Error loading user/business data:', error)
+        setNavigation(getNavigation('client'))
       }
-
-      setNavigation(getNavigation('client'))
-    } catch (error) {
-      console.error('Error loading business data:', error)
-      setNavigation(getNavigation('client'))
     }
+
+    loadUserData()
   }, [])
 
   const toggleSection = (section: string) => {
@@ -235,15 +247,15 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
     )
   }
 
-  const formatCurrency = (amount: number) => {
-    if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`
-    if (amount >= 1000) return `$${(amount / 1000).toFixed(0)}K`
-    return `$${amount}`
-  }
-
   const handleSignOut = async () => {
-    localStorage.clear()
-    router.push('/auth/login')
+    try {
+      await supabase.auth.signOut()
+      localStorage.clear()
+      router.push('/auth/login')
+      router.refresh()
+    } catch (error) {
+      console.error('Error signing out:', error)
+    }
   }
 
   return (
@@ -303,13 +315,13 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
                           <Link
                             key={item.href}
                             href={item.disabled ? '#' : item.href}
-                            className={`flex items-center px-4 py-2 text-sm ${isActive ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700' : 'text-gray-700 hover:bg-gray-50'} ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`flex items-center px-4 py-2 text-sm ${isActive ? 'bg-teal-50 text-teal-700 border-r-2 border-teal-600' : 'text-gray-700 hover:bg-gray-50'} ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                             onClick={(e) => item.disabled && e.preventDefault()}
                           >
                             <Icon className="h-4 w-4 mr-3 flex-shrink-0" />
                             <span className="flex-1">{item.label}</span>
                             {item.badge && (
-                              <span className={`text-xs px-2 py-0.5 rounded ${item.badge === 'Private' ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-700'}`}>
+                              <span className={`text-xs px-2 py-0.5 rounded ${item.badge === 'Private' ? 'bg-gray-100 text-gray-600' : 'bg-teal-100 text-teal-700'}`}>
                                 {item.badge}
                               </span>
                             )}
@@ -329,7 +341,7 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
                       <Link
                         key={item.href}
                         href={item.disabled ? '#' : item.href}
-                        className={`flex items-center justify-center py-2 px-1 ${isActive ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700' : 'text-gray-700 hover:bg-gray-50'} ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`flex items-center justify-center py-2 px-1 ${isActive ? 'bg-teal-50 text-teal-700 border-r-2 border-teal-600' : 'text-gray-700 hover:bg-gray-50'} ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                         title={item.label}
                         onClick={(e) => item.disabled && e.preventDefault()}
                       >
@@ -355,48 +367,31 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
       </div>
 
       <div className="flex-1 flex flex-col" style={{ marginLeft: sidebarOpen ? '16rem' : '5rem' }}>
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4">
-          <div className="flex items-center justify-between gap-6">
-            <div className="grid grid-cols-4 gap-6 flex-1">
-              <div className="text-center">
-                <p className="text-xs uppercase text-blue-200 mb-1">Assessment</p>
-                <p className="text-2xl font-bold">{businessData.assessmentScore}%</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs uppercase text-blue-200 mb-1">Stage</p>
-                <p className="text-2xl font-bold">{businessData.stage}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs uppercase text-blue-200 mb-1">Rev Target</p>
-                <p className="text-2xl font-bold">{formatCurrency(businessData.revenueTarget)}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs uppercase text-blue-200 mb-1">Net Profit Target</p>
-                <p className="text-2xl font-bold">{formatCurrency(businessData.profitTarget)}</p>
-              </div>
-            </div>
-
+        {/* Minimal Header - User Menu Only */}
+        <div className="bg-white border-b border-gray-200 px-6 py-3">
+          <div className="flex items-center justify-end">
             <div className="relative">
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="flex items-center gap-2 px-3 py-2 rounded hover:bg-blue-500 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
               >
-                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                  <User className="h-4 w-4" />
+                <div className="w-8 h-8 bg-teal-600 rounded-full flex items-center justify-center">
+                  <User className="h-4 w-4 text-white" />
                 </div>
-                <ChevronDown className="h-4 w-4" />
+                <span className="text-sm font-medium text-gray-700">{userName}</span>
+                <ChevronDown className="h-4 w-4 text-gray-500" />
               </button>
 
               {userMenuOpen && (
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
                   <div className="px-4 py-3 border-b border-gray-100">
-                    <p className="text-sm font-semibold text-gray-900">User Account</p>
-                    <p className="text-xs text-gray-500">user@example.com</p>
+                    <p className="text-sm font-semibold text-gray-900">{userName}</p>
+                    <p className="text-xs text-gray-500">{userEmail}</p>
                   </div>
 
                   <div className="py-1">
                     <Link
-                      href="/account"
+                      href="/settings/account"
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       onClick={() => setUserMenuOpen(false)}
                     >

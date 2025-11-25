@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Loader2, Megaphone, ShoppingCart, Heart, Users, Settings, Calculator, Crown, Target, Star, ChevronRight, X, Sparkles, Trophy, PartyPopper, RefreshCw } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Loader2, Megaphone, ShoppingCart, Heart, Users, Settings, Calculator, Crown, Target, Star, ChevronRight, X, Sparkles, Trophy, PartyPopper, RefreshCw, HelpCircle, Info } from 'lucide-react'
 import { STAGES, ENGINES, getBuildsByEngine } from './data'
 import { BuildModal } from './components/BuildModal'
 import { BuildItem } from './components/BuildItem'
 import { useRoadmapProgress } from './hooks/useRoadmapProgress'
+import { getCompletionChecks, calculateCompletionPercentage } from './data/completion-checks'
 import type { RoadmapBuild } from './data/types'
 
 // Icon mapping
@@ -41,6 +42,48 @@ export default function WisdomRoadmapTable() {
     stageName: string
     engineName: string
   } | null>(null)
+
+  // Completion check answers - stored in localStorage for now
+  const [checkAnswers, setCheckAnswers] = useState<Record<string, Record<string, boolean>>>({})
+  const [showInstructions, setShowInstructions] = useState(true)
+
+  // Load completion check answers from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('roadmap_completion_checks')
+    if (stored) {
+      try {
+        setCheckAnswers(JSON.parse(stored))
+      } catch (e) {
+        console.error('Error loading completion checks:', e)
+      }
+    }
+    // Check if user has dismissed instructions
+    const dismissed = localStorage.getItem('roadmap_instructions_dismissed')
+    if (dismissed === 'true') {
+      setShowInstructions(false)
+    }
+  }, [])
+
+  // Save completion check answers to localStorage
+  const saveCheckAnswers = (buildName: string, answers: Record<string, boolean>) => {
+    const newAnswers = { ...checkAnswers, [buildName]: answers }
+    setCheckAnswers(newAnswers)
+    localStorage.setItem('roadmap_completion_checks', JSON.stringify(newAnswers))
+  }
+
+  // Dismiss instructions
+  const dismissInstructions = () => {
+    setShowInstructions(false)
+    localStorage.setItem('roadmap_instructions_dismissed', 'true')
+  }
+
+  // Get completion percentage for a build
+  const getBuildCompletionPercentage = (buildName: string): number | undefined => {
+    const checks = getCompletionChecks(buildName)
+    const answers = checkAnswers[buildName]
+    if (!checks || !answers) return undefined
+    return calculateCompletionPercentage(answers, checks)
+  }
 
   const totalBuilds = STAGES.reduce((sum, stage) => sum + stage.builds.length, 0)
   const { completed: completedCount, percentage: completionPercentage } = getStats(totalBuilds)
@@ -95,6 +138,34 @@ export default function WisdomRoadmapTable() {
         </div>
       )}
 
+      {/* Instructions Banner */}
+      {showInstructions && !isRoadmapComplete && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200">
+          <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-amber-100 rounded-lg flex-shrink-0">
+                  <Info className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <div className="font-bold text-gray-900 mb-1">How to Use the Roadmap</div>
+                  <div className="text-sm text-gray-700 space-y-1">
+                    <p><strong>Click any build</strong> to assess your progress. Answer quick Yes/No questions to see how complete each build really is.</p>
+                    <p>Your completion percentage will show next to each build name. Focus on builds with low completion in your current stage.</p>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={dismissInstructions}
+                className="text-amber-600 hover:text-amber-800 p-1 flex-shrink-0"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-30">
         <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -115,12 +186,27 @@ export default function WisdomRoadmapTable() {
                   : 'Your stage-by-stage guide to business freedom'}
               </p>
             </div>
-            {isSaving && (
-              <span className="flex items-center gap-2 text-sm text-gray-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Saving...
-              </span>
-            )}
+            <div className="flex items-center gap-3">
+              {isSaving && (
+                <span className="flex items-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Saving...
+                </span>
+              )}
+              {!showInstructions && !isRoadmapComplete && (
+                <button
+                  onClick={() => {
+                    setShowInstructions(true)
+                    localStorage.removeItem('roadmap_instructions_dismissed')
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                  title="Show instructions"
+                >
+                  <HelpCircle className="h-4 w-4" />
+                  <span>Help</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Progress Bar */}
@@ -381,6 +467,7 @@ export default function WisdomRoadmapTable() {
                                     key={build.name}
                                     build={build}
                                     isComplete={isComplete(build.name)}
+                                    completionPercentage={getBuildCompletionPercentage(build.name)}
                                     onClick={() => handleBuildClick(build, stage.name, engine.name)}
                                     onToggleComplete={(e) => {
                                       e.stopPropagation()
@@ -478,6 +565,12 @@ export default function WisdomRoadmapTable() {
         engineName={selectedBuild?.engineName || ''}
         isComplete={selectedBuild ? isComplete(selectedBuild.build.name) : false}
         onToggleComplete={handleToggleSelectedBuild}
+        checkAnswers={selectedBuild ? checkAnswers[selectedBuild.build.name] || {} : {}}
+        onCheckAnswersChange={(answers) => {
+          if (selectedBuild) {
+            saveCheckAnswers(selectedBuild.build.name, answers)
+          }
+        }}
       />
     </div>
   )

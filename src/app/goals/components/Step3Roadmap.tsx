@@ -14,7 +14,7 @@ interface Step3Props {
 }
 
 // Stage definitions
-type Stage = 'foundation' | 'traction'
+type Stage = 'foundation' | 'traction' | 'growth' | 'scale' | 'mastery'
 
 interface StageInfo {
   key: Stage
@@ -24,19 +24,29 @@ interface StageInfo {
 }
 
 const STAGES: StageInfo[] = [
-  { key: 'foundation', label: 'Foundation', range: '$0-250K', color: 'blue' },
-  { key: 'traction', label: 'Traction', range: '$250K-1M', color: 'green' }
+  { key: 'foundation', label: 'Foundation', range: '$0-500K', color: 'blue' },
+  { key: 'traction', label: 'Traction', range: '$500K-1M', color: 'green' },
+  { key: 'growth', label: 'Growth', range: '$1M-5M', color: 'purple' },
+  { key: 'scale', label: 'Scale', range: '$5M-10M', color: 'orange' },
+  { key: 'mastery', label: 'Mastery', range: '$10M+', color: 'amber' }
 ]
 
 // Map revenue to stage
 function getBusinessStage(revenue: number): Stage {
-  if (revenue < 250000) return 'foundation'
-  return 'traction'
+  if (revenue < 500000) return 'foundation'
+  if (revenue < 1000000) return 'traction'
+  if (revenue < 5000000) return 'growth'
+  if (revenue < 10000000) return 'scale'
+  return 'mastery'
 }
 
 function getNextStage(currentStage: Stage): Stage | null {
-  if (currentStage === 'foundation') return 'traction'
-  return null // No next stage after traction in current data
+  const stageOrder: Stage[] = ['foundation', 'traction', 'growth', 'scale', 'mastery']
+  const currentIndex = stageOrder.indexOf(currentStage)
+  if (currentIndex < stageOrder.length - 1) {
+    return stageOrder[currentIndex + 1]
+  }
+  return null
 }
 
 // Map engine to category
@@ -44,6 +54,12 @@ const ENGINE_TO_CATEGORY: Record<string, InitiativeCategory> = {
   'attract': 'marketing',
   'convert': 'marketing',
   'deliver': 'operations',
+  'people': 'people',
+  'systems': 'systems',
+  'finance': 'finance',
+  'leadership': 'other',
+  'time': 'operations',
+  // Legacy mappings for backward compatibility
   'team': 'people',
   'money': 'finance',
   'process': 'systems',
