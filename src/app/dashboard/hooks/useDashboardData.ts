@@ -13,6 +13,8 @@ interface UseDashboardDataReturn {
   refresh: () => Promise<void>
 }
 
+type TeamMembersMap = Record<string, string>
+
 /**
  * Calculate the current fiscal quarter based on Australian financial year (Jul-Jun)
  */
@@ -56,6 +58,40 @@ export function useDashboardData(): UseDashboardDataReturn {
     weeklyGoals: []
   })
 
+  /**
+   * Build a lookup map from assigned_to IDs to actual names
+   * IDs are stored as "owner-{businessId}" or "role-{businessId}-{index}"
+   */
+  const buildTeamMembersMap = useCallback(async (bId: string): Promise<TeamMembersMap> => {
+    const map: TeamMembersMap = {}
+
+    const { data: profile } = await supabase
+      .from('business_profiles')
+      .select('owner_info, key_roles')
+      .eq('id', bId)
+      .single()
+
+    if (!profile) return map
+
+    // Add owner from owner_info
+    const ownerInfo = profile.owner_info as { owner_name?: string } | null
+    if (ownerInfo?.owner_name) {
+      map[`owner-${bId}`] = ownerInfo.owner_name
+    }
+
+    // Add team members from key_roles
+    const keyRoles = profile.key_roles as Array<{ name?: string }> | null
+    if (keyRoles && Array.isArray(keyRoles)) {
+      keyRoles.forEach((role, index) => {
+        if (role.name?.trim()) {
+          map[`role-${bId}-${index}`] = role.name
+        }
+      })
+    }
+
+    return map
+  }, [supabase])
+
   const loadAnnualGoals = useCallback(async (bId: string): Promise<FinancialGoals | null> => {
     const { data, error } = await supabase
       .from('business_financial_goals')
@@ -93,7 +129,7 @@ export function useDashboardData(): UseDashboardDataReturn {
     return calculateGoals(revenueQ, grossProfitQ, netProfitQ)
   }, [supabase])
 
-  const loadRocks = useCallback(async (bId: string, quarter: string): Promise<Rock[]> => {
+  const loadRocks = useCallback(async (bId: string, quarter: string, teamMap: TeamMembersMap): Promise<Rock[]> => {
     const { data, error } = await supabase
       .from('strategic_initiatives')
       .select('id, title, assigned_to, status, progress_percentage')
@@ -107,7 +143,10 @@ export function useDashboardData(): UseDashboardDataReturn {
     return data.map(rock => ({
       id: rock.id,
       title: rock.title,
-      owner: rock.assigned_to || 'Unassigned',
+      // Convert assigned_to ID to actual name using team map
+      owner: rock.assigned_to
+        ? (teamMap[rock.assigned_to] || rock.assigned_to)
+        : 'Unassigned',
       // Use actual status if available, otherwise default to not_started
       status: (rock.status as Rock['status']) || 'not_started',
       // Use actual progress if available
@@ -163,11 +202,14 @@ export function useDashboardData(): UseDashboardDataReturn {
       // Determine current quarter
       const currentQuarter = getCurrentQuarter()
 
+      // Build team members map first (needed for rock owner names)
+      const teamMap = await buildTeamMembersMap(bId)
+
       // Load all data in parallel
       const [annualGoals, quarterlyGoals, rocks, weeklyGoals] = await Promise.all([
         loadAnnualGoals(bId),
         loadQuarterlyGoals(bId, currentQuarter),
-        loadRocks(bId, currentQuarter),
+        loadRocks(bId, currentQuarter, teamMap),
         loadWeeklyGoals(bId, user.id)
       ])
 
@@ -188,7 +230,7 @@ export function useDashboardData(): UseDashboardDataReturn {
       })
       setIsLoading(false)
     }
-  }, [supabase, loadAnnualGoals, loadQuarterlyGoals, loadRocks, loadWeeklyGoals])
+  }, [supabase, buildTeamMembersMap, loadAnnualGoals, loadQuarterlyGoals, loadRocks, loadWeeklyGoals])
 
   useEffect(() => {
     loadDashboardData()
