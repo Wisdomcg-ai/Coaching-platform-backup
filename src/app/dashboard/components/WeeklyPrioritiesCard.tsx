@@ -1,13 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import { CheckCircle2, Circle, Calendar } from 'lucide-react'
+import { CheckCircle2, Circle, Calendar, ArrowRight } from 'lucide-react'
 
 interface WeeklyPrioritiesCardProps {
   weeklyGoals: string[]
 }
 
 export default function WeeklyPrioritiesCard({ weeklyGoals }: WeeklyPrioritiesCardProps) {
+  const completedCount = 0 // Would come from data in real implementation
+  const totalCount = weeklyGoals.length
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
       {/* Header */}
@@ -22,9 +25,9 @@ export default function WeeklyPrioritiesCard({ weeklyGoals }: WeeklyPrioritiesCa
               <p className="text-xs text-slate-500">Your top priorities</p>
             </div>
           </div>
-          {weeklyGoals.length > 0 && (
+          {totalCount > 0 && (
             <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded">
-              {weeklyGoals.length} priorities
+              {completedCount}/{totalCount} done
             </span>
           )}
         </div>
@@ -33,11 +36,11 @@ export default function WeeklyPrioritiesCard({ weeklyGoals }: WeeklyPrioritiesCa
       {/* Content */}
       <div className="p-5">
         {weeklyGoals.length > 0 ? (
-          <div className="space-y-2">
+          <div className="space-y-1">
             {weeklyGoals.map((goal, index) => (
               <div
                 key={index}
-                className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 hover:bg-teal-50 transition-colors group cursor-pointer"
+                className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors group cursor-pointer"
               >
                 <div className="mt-0.5 flex-shrink-0">
                   <Circle className="h-5 w-5 text-slate-300 group-hover:hidden" />
@@ -48,9 +51,17 @@ export default function WeeklyPrioritiesCard({ weeklyGoals }: WeeklyPrioritiesCa
                 </span>
               </div>
             ))}
+
+            {/* Link to full review */}
+            <Link
+              href="/reviews/weekly"
+              className="flex items-center justify-center gap-1 text-sm font-medium text-teal-600 hover:text-teal-700 pt-3 mt-2 border-t border-slate-100"
+            >
+              Weekly review <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         ) : (
-          <div className="text-center py-8">
+          <div className="text-center py-6">
             <div className="w-12 h-12 mx-auto mb-3 bg-slate-100 rounded-lg flex items-center justify-center">
               <Calendar className="h-6 w-6 text-slate-400" />
             </div>
@@ -60,7 +71,7 @@ export default function WeeklyPrioritiesCard({ weeklyGoals }: WeeklyPrioritiesCa
               href="/reviews/weekly"
               className="inline-flex items-center px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600 transition-colors"
             >
-              Weekly Review
+              Start Weekly Review
             </Link>
           </div>
         )}

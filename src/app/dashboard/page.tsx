@@ -5,11 +5,11 @@ import { Target, TrendingUp } from 'lucide-react'
 import AskCoachModal from '@/components/dashboard/AskCoachModal'
 import { useDashboardData } from './hooks/useDashboardData'
 import {
-  DashboardHeader,
+  InsightHeader,
   GoalsCard,
   RocksCard,
   WeeklyPrioritiesCard,
-  QuickActionsGrid,
+  SuggestedActions,
   AskCoachCard,
   DashboardSkeleton,
   DashboardError
@@ -37,10 +37,6 @@ export default function DashboardPage() {
     }
   }
 
-  // Calculate rock status for header
-  const rocksOnTrack = data.rocks.filter(r => r.status === 'on_track' || r.status === 'completed').length
-  const rocksAtRisk = data.rocks.filter(r => r.status === 'at_risk' || (r.status === 'not_started' && r.progressPercentage === 0)).length
-
   // Show skeleton while loading
   if (isLoading) {
     return (
@@ -62,11 +58,10 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-7xl mx-auto p-6 space-y-6">
-        {/* Enhanced Header */}
-        <DashboardHeader
+        {/* Smart Insight Header */}
+        <InsightHeader
+          insight={data.insight}
           onRefresh={refresh}
-          rocksOnTrack={rocksOnTrack}
-          rocksAtRisk={rocksAtRisk}
         />
 
         {/* Top Row: Annual Goals, 90-Day Goals, Quarterly Rocks */}
@@ -78,6 +73,8 @@ export default function DashboardPage() {
             emptyStateText="No annual goals set"
             emptyStateCta="Set Your Goals"
             emptyStateHref="/goals?step=1"
+            daysRemaining={data.yearDaysRemaining}
+            timeProgress={data.annualProgress}
           />
 
           <GoalsCard
@@ -88,11 +85,16 @@ export default function DashboardPage() {
             emptyStateText="No quarterly targets set"
             emptyStateCta="Create 90-Day Sprint"
             emptyStateHref="/goals?step=4"
+            daysRemaining={data.quarterDaysRemaining}
+            timeProgress={data.quarterlyProgress}
           />
 
           <RocksCard
             rocks={data.rocks}
             currentQuarter={data.currentQuarter}
+            rocksNeedingAttention={data.rocksNeedingAttention}
+            rocksOnTrack={data.rocksOnTrack}
+            quarterDaysRemaining={data.quarterDaysRemaining}
           />
         </div>
 
@@ -102,8 +104,8 @@ export default function DashboardPage() {
           <AskCoachCard onOpenModal={() => setIsAskCoachOpen(true)} />
         </div>
 
-        {/* Quick Actions */}
-        <QuickActionsGrid />
+        {/* Suggested Actions */}
+        <SuggestedActions actions={data.suggestedActions} />
 
         {/* Ask Coach Modal */}
         <AskCoachModal

@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { type LucideIcon } from 'lucide-react'
 import type { FinancialGoals } from '../types'
-import { formatCurrency, formatPercent } from '../utils/formatters'
+import { formatCurrency } from '../utils/formatters'
+import ProgressRing from './ProgressRing'
 
 interface GoalsCardProps {
   title: string
@@ -13,6 +14,8 @@ interface GoalsCardProps {
   emptyStateCta: string
   emptyStateHref: string
   subtitle?: string
+  daysRemaining?: number
+  timeProgress?: number // % of time elapsed in period
 }
 
 export default function GoalsCard({
@@ -22,46 +25,65 @@ export default function GoalsCard({
   emptyStateText,
   emptyStateCta,
   emptyStateHref,
-  subtitle
+  subtitle,
+  daysRemaining,
+  timeProgress = 0
 }: GoalsCardProps) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
       {/* Header */}
       <div className="px-5 py-4 border-b border-slate-100">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-teal-50 rounded-lg flex items-center justify-center">
-            <Icon className="h-4 w-4 text-teal-600" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-teal-50 rounded-lg flex items-center justify-center">
+              <Icon className="h-4 w-4 text-teal-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-800">{title}</h3>
+              {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
+            </div>
           </div>
-          <div>
-            <h3 className="font-semibold text-slate-800">{title}</h3>
-            {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
-          </div>
+          {daysRemaining !== undefined && (
+            <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded">
+              {daysRemaining}d left
+            </span>
+          )}
         </div>
       </div>
 
       {/* Content */}
       <div className="p-5">
         {goals ? (
-          <div className="space-y-4">
-            <div>
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Revenue</p>
-              <p className="text-2xl font-bold text-slate-800">{formatCurrency(goals.revenue)}</p>
+          <div className="flex items-start gap-5">
+            {/* Progress Ring */}
+            <div className="flex-shrink-0">
+              <ProgressRing progress={timeProgress} size={72} strokeWidth={5} />
+              <p className="text-xs text-slate-500 text-center mt-1">Time elapsed</p>
             </div>
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Gross Profit</p>
-                <p className="text-lg font-semibold text-slate-800">{formatCurrency(goals.grossProfit)}</p>
-                <p className="text-sm text-teal-600 font-medium">{formatPercent(goals.grossMargin)} margin</p>
+
+            {/* Goals Data */}
+            <div className="flex-1 min-w-0">
+              <div className="mb-3">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Revenue Target</p>
+                <p className="text-xl font-bold text-slate-800">{formatCurrency(goals.revenue)}</p>
               </div>
-              <div className="flex-1">
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Net Profit</p>
-                <p className="text-lg font-semibold text-slate-800">{formatCurrency(goals.netProfit)}</p>
-                <p className="text-sm text-teal-600 font-medium">{formatPercent(goals.netMargin)} margin</p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-slate-500">Gross Profit</p>
+                  <p className="text-sm font-semibold text-slate-800">{formatCurrency(goals.grossProfit)}</p>
+                  <p className="text-xs text-teal-600 font-medium">{goals.grossMargin.toFixed(0)}% margin</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Net Profit</p>
+                  <p className="text-sm font-semibold text-slate-800">{formatCurrency(goals.netProfit)}</p>
+                  <p className="text-xs text-teal-600 font-medium">{goals.netMargin.toFixed(0)}% margin</p>
+                </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="text-center py-8">
+          <div className="text-center py-6">
             <div className="w-12 h-12 mx-auto mb-3 bg-slate-100 rounded-lg flex items-center justify-center">
               <Icon className="h-6 w-6 text-slate-400" />
             </div>
