@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Target, TrendingUp, RefreshCw } from 'lucide-react'
+import { Target, TrendingUp } from 'lucide-react'
 import AskCoachModal from '@/components/dashboard/AskCoachModal'
 import { useDashboardData } from './hooks/useDashboardData'
 import {
+  DashboardHeader,
   GoalsCard,
   RocksCard,
   WeeklyPrioritiesCard,
@@ -36,82 +37,81 @@ export default function DashboardPage() {
     }
   }
 
+  // Calculate rock status for header
+  const rocksOnTrack = data.rocks.filter(r => r.status === 'on_track' || r.status === 'completed').length
+  const rocksAtRisk = data.rocks.filter(r => r.status === 'at_risk' || (r.status === 'not_started' && r.progressPercentage === 0)).length
+
   // Show skeleton while loading
   if (isLoading) {
-    return <DashboardSkeleton />
+    return (
+      <div className="min-h-screen bg-slate-50 p-6">
+        <DashboardSkeleton />
+      </div>
+    )
   }
 
   // Show error state
   if (error) {
-    return <DashboardError error={error} onRetry={refresh} />
+    return (
+      <div className="min-h-screen bg-slate-50 p-6">
+        <DashboardError error={error} onRetry={refresh} />
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with date and refresh */}
-      <div className="bg-white rounded-lg shadow-sm p-4 mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-gray-900">Command Centre</h2>
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={refresh}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-            title="Refresh dashboard"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </button>
-          <div className="text-sm text-gray-500">
-            {new Date().toLocaleDateString('en-AU', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            })}
-          </div>
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
+        {/* Enhanced Header */}
+        <DashboardHeader
+          onRefresh={refresh}
+          rocksOnTrack={rocksOnTrack}
+          rocksAtRisk={rocksAtRisk}
+        />
+
+        {/* Top Row: Annual Goals, 90-Day Goals, Quarterly Rocks */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <GoalsCard
+            title="Annual Goals"
+            goals={data.annualGoals}
+            icon={Target}
+            emptyStateText="No annual goals set"
+            emptyStateCta="Set Your Goals"
+            emptyStateHref="/goals?step=1"
+          />
+
+          <GoalsCard
+            title="90-Day Goals"
+            subtitle={getQuarterDisplayName(data.currentQuarter)}
+            goals={data.quarterlyGoals}
+            icon={TrendingUp}
+            emptyStateText="No quarterly targets set"
+            emptyStateCta="Create 90-Day Sprint"
+            emptyStateHref="/goals?step=4"
+          />
+
+          <RocksCard
+            rocks={data.rocks}
+            currentQuarter={data.currentQuarter}
+          />
         </div>
-      </div>
 
-      {/* Top Row: Annual Goals, 90-Day Goals, Quarterly Rocks */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-        <GoalsCard
-          title="Annual Goals"
-          goals={data.annualGoals}
-          icon={Target}
-          emptyStateText="No annual goals set"
-          emptyStateCta="Set Your Goals"
-          emptyStateHref="/goals?step=1"
-        />
+        {/* Second Row: Weekly Priorities, Ask Your Coach */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <WeeklyPrioritiesCard weeklyGoals={data.weeklyGoals} />
+          <AskCoachCard onOpenModal={() => setIsAskCoachOpen(true)} />
+        </div>
 
-        <GoalsCard
-          title={`90-Day Goals (${getQuarterDisplayName(data.currentQuarter)})`}
-          goals={data.quarterlyGoals}
-          icon={TrendingUp}
-          emptyStateText="No quarterly targets set"
-          emptyStateCta="Create 90-Day Sprint"
-          emptyStateHref="/goals?step=4"
-        />
+        {/* Quick Actions */}
+        <QuickActionsGrid />
 
-        <RocksCard
-          rocks={data.rocks}
-          currentQuarter={data.currentQuarter}
+        {/* Ask Coach Modal */}
+        <AskCoachModal
+          isOpen={isAskCoachOpen}
+          onClose={() => setIsAskCoachOpen(false)}
+          onSubmit={handleAskCoach}
         />
       </div>
-
-      {/* Second Row: Weekly Priorities, Ask Your Coach */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <WeeklyPrioritiesCard weeklyGoals={data.weeklyGoals} />
-        <AskCoachCard onOpenModal={() => setIsAskCoachOpen(true)} />
-      </div>
-
-      {/* Quick Actions */}
-      <QuickActionsGrid />
-
-      {/* Ask Coach Modal */}
-      <AskCoachModal
-        isOpen={isAskCoachOpen}
-        onClose={() => setIsAskCoachOpen(false)}
-        onSubmit={handleAskCoach}
-      />
     </div>
   )
 }

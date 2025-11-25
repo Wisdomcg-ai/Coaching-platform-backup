@@ -1,3 +1,4 @@
+export { default as DashboardHeader } from './DashboardHeader'
 export { default as GoalsCard } from './GoalsCard'
 export { default as RocksCard } from './RocksCard'
 export { default as WeeklyPrioritiesCard } from './WeeklyPrioritiesCard'
