@@ -30,11 +30,11 @@ export default function RocksCard({ rocks, currentQuarter }: RocksCardProps) {
       <div className="px-5 py-4 border-b border-slate-100">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-slate-900 rounded-lg flex items-center justify-center">
-              <Rocket className="h-4 w-4 text-white" />
+            <div className="w-9 h-9 bg-teal-50 rounded-lg flex items-center justify-center">
+              <Rocket className="h-4 w-4 text-teal-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-slate-900">Quarterly Rocks</h3>
+              <h3 className="font-semibold text-slate-800">Quarterly Rocks</h3>
               <p className="text-xs text-slate-500">{getQuarterDisplayName(currentQuarter)}</p>
             </div>
           </div>
@@ -56,7 +56,7 @@ export default function RocksCard({ rocks, currentQuarter }: RocksCardProps) {
                 <div key={rock.id} className="p-3 bg-slate-50 rounded-lg">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">{rock.title}</p>
+                      <p className="text-sm font-medium text-slate-800 truncate">{rock.title}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs text-slate-500">{rock.owner}</span>
                         <span className={`text-xs font-medium ${status.text}`}>{status.label}</span>
@@ -85,7 +85,7 @@ export default function RocksCard({ rocks, currentQuarter }: RocksCardProps) {
             <p className="text-sm text-slate-400 mb-4">Define your key priorities</p>
             <Link
               href="/one-page-plan"
-              className="inline-flex items-center px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600 transition-colors"
             >
               Set Your Rocks
             </Link>

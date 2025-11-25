@@ -19,14 +19,14 @@ export default function DashboardHeader({ onRefresh, rocksOnTrack = 0, rocksAtRi
   const totalRocks = rocksOnTrack + rocksAtRisk
 
   return (
-    <div className="bg-slate-900 rounded-xl p-6 mb-6">
+    <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-slate-400 text-sm font-medium mb-1">Command Centre</p>
-          <h1 className="text-2xl font-bold text-white">
+          <p className="text-teal-600 text-sm font-medium mb-1">Command Centre</p>
+          <h1 className="text-2xl font-bold text-slate-800">
             {getGreeting()}
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-slate-500 text-sm mt-1">
             {new Date().toLocaleDateString('en-AU', {
               weekday: 'long',
               day: 'numeric',
@@ -42,14 +42,14 @@ export default function DashboardHeader({ onRefresh, rocksOnTrack = 0, rocksAtRi
             <div className="hidden md:flex items-center gap-3">
               {rocksOnTrack > 0 && (
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-teal-400"></div>
-                  <span className="text-sm text-slate-300">{rocksOnTrack} on track</span>
+                  <div className="w-2 h-2 rounded-full bg-teal-500"></div>
+                  <span className="text-sm text-slate-600">{rocksOnTrack} on track</span>
                 </div>
               )}
               {rocksAtRisk > 0 && (
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-amber-400"></div>
-                  <span className="text-sm text-slate-300">{rocksAtRisk} need attention</span>
+                  <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                  <span className="text-sm text-slate-600">{rocksAtRisk} need attention</span>
                 </div>
               )}
             </div>
@@ -58,7 +58,7 @@ export default function DashboardHeader({ onRefresh, rocksOnTrack = 0, rocksAtRi
           <button
             type="button"
             onClick={onRefresh}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors"
             title="Refresh"
           >
             <RefreshCw className="h-5 w-5" />

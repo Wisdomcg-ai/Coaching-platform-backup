@@ -46,7 +46,7 @@ export default function QuickActionsGrid() {
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
       <div className="px-5 py-4 border-b border-slate-100">
-        <h3 className="font-semibold text-slate-900">Quick Actions</h3>
+        <h3 className="font-semibold text-slate-800">Quick Actions</h3>
         <p className="text-xs text-slate-500">Jump to key areas of your business</p>
       </div>
 
@@ -58,12 +58,12 @@ export default function QuickActionsGrid() {
               <Link
                 key={action.href}
                 href={action.href}
-                className="group flex flex-col items-center p-4 rounded-lg border border-slate-200 hover:border-teal-300 hover:bg-teal-50/50 transition-all"
+                className="group flex flex-col items-center p-4 rounded-lg border border-slate-200 hover:border-teal-300 hover:bg-teal-50 transition-all"
               >
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-2 bg-slate-100 group-hover:bg-teal-500 transition-colors">
-                  <Icon className="h-5 w-5 text-slate-600 group-hover:text-white transition-colors" />
+                  <Icon className="h-5 w-5 text-slate-500 group-hover:text-white transition-colors" />
                 </div>
-                <span className="text-sm font-medium text-slate-900 text-center">{action.title}</span>
+                <span className="text-sm font-medium text-slate-800 text-center">{action.title}</span>
                 <span className="text-xs text-slate-500 text-center">{action.subtitle}</span>
               </Link>
             )

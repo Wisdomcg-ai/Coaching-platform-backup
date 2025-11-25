@@ -14,11 +14,11 @@ export default function WeeklyPrioritiesCard({ weeklyGoals }: WeeklyPrioritiesCa
       <div className="px-5 py-4 border-b border-slate-100">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-slate-900 rounded-lg flex items-center justify-center">
-              <Calendar className="h-4 w-4 text-white" />
+            <div className="w-9 h-9 bg-teal-50 rounded-lg flex items-center justify-center">
+              <Calendar className="h-4 w-4 text-teal-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-slate-900">This Week's Focus</h3>
+              <h3 className="font-semibold text-slate-800">This Week's Focus</h3>
               <p className="text-xs text-slate-500">Your top priorities</p>
             </div>
           </div>
@@ -37,13 +37,13 @@ export default function WeeklyPrioritiesCard({ weeklyGoals }: WeeklyPrioritiesCa
             {weeklyGoals.map((goal, index) => (
               <div
                 key={index}
-                className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors group cursor-pointer"
+                className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 hover:bg-teal-50 transition-colors group cursor-pointer"
               >
                 <div className="mt-0.5 flex-shrink-0">
                   <Circle className="h-5 w-5 text-slate-300 group-hover:hidden" />
                   <CheckCircle2 className="h-5 w-5 text-teal-500 hidden group-hover:block" />
                 </div>
-                <span className="text-sm text-slate-700 group-hover:text-slate-900 transition-colors flex-1">
+                <span className="text-sm text-slate-700 group-hover:text-slate-800 transition-colors flex-1">
                   {goal}
                 </span>
               </div>
@@ -58,7 +58,7 @@ export default function WeeklyPrioritiesCard({ weeklyGoals }: WeeklyPrioritiesCa
             <p className="text-sm text-slate-400 mb-4">Complete a weekly review to set your focus</p>
             <Link
               href="/reviews/weekly"
-              className="inline-flex items-center px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600 transition-colors"
             >
               Weekly Review
             </Link>
