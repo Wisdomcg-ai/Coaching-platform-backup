@@ -1,7 +1,7 @@
 'use client'
 
 interface ProgressRingProps {
-  progress: number // 0-100
+  progress: number
   size?: number
   strokeWidth?: number
   className?: string
@@ -17,18 +17,16 @@ export default function ProgressRing({
   const circumference = radius * 2 * Math.PI
   const offset = circumference - (Math.min(progress, 100) / 100) * circumference
 
-  // Color based on progress
   const getColor = () => {
     if (progress >= 100) return 'text-teal-500'
     if (progress >= 70) return 'text-teal-500'
     if (progress >= 40) return 'text-amber-500'
-    return 'text-slate-300'
+    return 'text-gray-300'
   }
 
   return (
     <div className={`relative inline-flex items-center justify-center ${className}`}>
       <svg width={size} height={size} className="transform -rotate-90">
-        {/* Background circle */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -36,9 +34,8 @@ export default function ProgressRing({
           fill="none"
           stroke="currentColor"
           strokeWidth={strokeWidth}
-          className="text-slate-100"
+          className="text-gray-100"
         />
-        {/* Progress circle */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -52,9 +49,8 @@ export default function ProgressRing({
           className={`${getColor()} transition-all duration-500 ease-out`}
         />
       </svg>
-      {/* Center text */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-lg font-bold text-slate-800">
+        <span className="text-lg font-bold text-gray-900">
           {Math.round(progress)}%
         </span>
       </div>

@@ -28,21 +28,24 @@ function getInsightStyle(priority: DashboardInsight['priority']) {
   switch (priority) {
     case 'high':
       return {
-        iconBg: 'bg-amber-500',
-        iconColor: 'text-white',
-        badge: 'bg-amber-500/20 text-amber-300'
+        bg: 'bg-amber-50',
+        border: 'border-amber-200',
+        iconBg: 'bg-amber-100',
+        iconColor: 'text-amber-600'
       }
     case 'medium':
       return {
-        iconBg: 'bg-slate-600',
-        iconColor: 'text-white',
-        badge: 'bg-slate-600 text-slate-300'
+        bg: 'bg-gray-50',
+        border: 'border-gray-200',
+        iconBg: 'bg-gray-100',
+        iconColor: 'text-gray-600'
       }
     case 'low':
       return {
-        iconBg: 'bg-teal-500',
-        iconColor: 'text-white',
-        badge: 'bg-teal-500/20 text-teal-300'
+        bg: 'bg-teal-50',
+        border: 'border-teal-200',
+        iconBg: 'bg-teal-100',
+        iconColor: 'text-teal-600'
       }
   }
 }
@@ -60,32 +63,25 @@ export default function InsightHeader({ insight, onRefresh }: InsightHeaderProps
   const style = getInsightStyle(activeInsight.priority)
 
   return (
-    <div className="bg-slate-800 rounded-xl p-6 shadow-lg">
+    <div className={`${style.bg} rounded-lg border ${style.border} p-5`}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4 flex-1">
-          <div className={`w-11 h-11 ${style.iconBg} rounded-xl flex items-center justify-center flex-shrink-0 shadow-md`}>
+          <div className={`w-10 h-10 ${style.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
             <Icon className={`h-5 w-5 ${style.iconColor}`} />
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h2 className="font-semibold text-white">
-                {activeInsight.title}
-              </h2>
-              {activeInsight.priority === 'high' && (
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${style.badge}`}>
-                  Action needed
-                </span>
-              )}
-            </div>
-            <p className="text-sm text-slate-300 leading-relaxed">
+            <h2 className="font-semibold text-gray-900 mb-1">
+              {activeInsight.title}
+            </h2>
+            <p className="text-sm text-gray-600">
               {activeInsight.message}
             </p>
 
             {activeInsight.actionLabel && activeInsight.actionHref && (
               <Link
                 href={activeInsight.actionHref}
-                className="inline-flex items-center mt-4 px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-400 transition-colors shadow-md"
+                className="inline-flex items-center mt-3 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
               >
                 {activeInsight.actionLabel}
               </Link>
@@ -96,7 +92,7 @@ export default function InsightHeader({ insight, onRefresh }: InsightHeaderProps
         <button
           type="button"
           onClick={onRefresh}
-          className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex-shrink-0"
+          className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-white transition-colors flex-shrink-0"
           title="Refresh"
         >
           <RefreshCw className="h-5 w-5" />

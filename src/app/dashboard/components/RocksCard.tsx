@@ -23,7 +23,7 @@ function getStatusStyle(status: string, progress: number) {
   if (status === 'on_track' || progress >= 30) {
     return { dot: 'bg-teal-500', text: 'text-teal-600', label: 'On Track' }
   }
-  return { dot: 'bg-slate-300', text: 'text-slate-500', label: 'Not Started' }
+  return { dot: 'bg-gray-300', text: 'text-gray-500', label: 'Not Started' }
 }
 
 export default function RocksCard({
@@ -37,21 +37,21 @@ export default function RocksCard({
   const attentionRock = rocksNeedingAttention[0]
 
   return (
-    <div className="bg-white rounded-xl border-l-4 border-l-slate-700 border-t border-r border-b border-slate-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
+      <div className="px-5 py-4 border-b border-gray-100">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-slate-700 rounded-lg flex items-center justify-center shadow-sm">
-              <Rocket className="h-4 w-4 text-white" />
+            <div className="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center">
+              <Rocket className="h-4 w-4 text-gray-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-slate-800">Quarterly Rocks</h3>
-              <p className="text-xs text-slate-500">{getQuarterDisplayName(currentQuarter)}</p>
+              <h3 className="font-semibold text-gray-900">Quarterly Rocks</h3>
+              <p className="text-xs text-gray-500">{getQuarterDisplayName(currentQuarter)}</p>
             </div>
           </div>
           {quarterDaysRemaining !== undefined && (
-            <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full">
+            <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded">
               {quarterDaysRemaining}d left
             </span>
           )}
@@ -94,7 +94,7 @@ export default function RocksCard({
             {rocksOnTrack.length > 0 && (
               <div className="flex items-center gap-2 text-sm">
                 <CheckCircle2 className="h-4 w-4 text-teal-500" />
-                <span className="text-slate-600">
+                <span className="text-gray-600">
                   {rocksOnTrack.length} rock{rocksOnTrack.length > 1 ? 's' : ''} on track
                 </span>
               </div>
@@ -107,12 +107,12 @@ export default function RocksCard({
 
                 const status = getStatusStyle(rock.status, rock.progressPercentage)
                 return (
-                  <div key={rock.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+                  <div key={rock.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <div className={`w-2 h-2 rounded-full ${status.dot} flex-shrink-0`} />
-                      <span className="text-sm text-slate-700 truncate">{rock.title}</span>
+                      <span className="text-sm text-gray-700 truncate">{rock.title}</span>
                     </div>
-                    <span className="text-sm font-medium text-slate-600 ml-2">
+                    <span className="text-sm font-medium text-gray-600 ml-2">
                       {rock.progressPercentage}%
                     </span>
                   </div>
@@ -130,14 +130,14 @@ export default function RocksCard({
           </div>
         ) : (
           <div className="text-center py-6">
-            <div className="w-12 h-12 mx-auto mb-3 bg-slate-100 rounded-lg flex items-center justify-center">
-              <Rocket className="h-6 w-6 text-slate-400" />
+            <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-lg flex items-center justify-center">
+              <Rocket className="h-6 w-6 text-gray-400" />
             </div>
-            <p className="text-slate-600 font-medium mb-1">No rocks for {getQuarterDisplayName(currentQuarter)}</p>
-            <p className="text-sm text-slate-400 mb-4">Define your key priorities</p>
+            <p className="text-gray-600 font-medium mb-1">No rocks for {getQuarterDisplayName(currentQuarter)}</p>
+            <p className="text-sm text-gray-400 mb-4">Define your key priorities</p>
             <Link
               href="/one-page-plan"
-              className="inline-flex items-center px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600 transition-colors shadow-sm"
+              className="inline-flex items-center px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
             >
               Set Your Rocks
             </Link>
