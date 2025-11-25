@@ -55,9 +55,9 @@ export function BuildModal({
           {/* Content */}
           <div className="px-6 py-6 space-y-6">
             {/* Outcome */}
-            <div className="bg-blue-50 border-l-4 border-blue-500 rounded-r-lg p-4">
-              <div className="text-sm font-semibold text-blue-900 mb-2">Outcome</div>
-              <div className="text-blue-800">{build.outcome}</div>
+            <div className="bg-teal-50 border-l-4 border-teal-500 rounded-r-lg p-4">
+              <div className="text-sm font-semibold text-teal-900 mb-2">Outcome</div>
+              <div className="text-teal-800">{build.outcome}</div>
             </div>
 
             {/* To-Do List */}
@@ -66,7 +66,7 @@ export function BuildModal({
               <ul className="space-y-3">
                 {build.toDo.map((item, index) => (
                   <li key={index} className="flex items-start gap-3">
-                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-semibold flex-shrink-0 mt-0.5">
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-teal-100 text-teal-600 text-xs font-semibold flex-shrink-0 mt-0.5">
                       {index + 1}
                     </span>
                     <span className="text-gray-700 flex-1">{item}</span>
@@ -82,8 +82,8 @@ export function BuildModal({
               onClick={onToggleComplete}
               className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
                 isComplete
-                  ? 'bg-green-600 hover:bg-green-700 text-white'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                  : 'bg-teal-600 hover:bg-teal-700 text-white'
               }`}
             >
               <CheckCircle className="h-5 w-5" />

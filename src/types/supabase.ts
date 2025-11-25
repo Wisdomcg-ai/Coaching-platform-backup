@@ -1,3 +1,2 @@
-Need to install the following packages:
-supabase@2.39.2
-Ok to proceed? (y) 
+// Re-export database types from the canonical location
+export * from '@/lib/supabase/types'

@@ -1,13 +1,37 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { StageService, StageId, StageInfo, STAGE_DEFINITIONS } from '../services/stage-service'
+import { STAGES } from '../data'
+
+export interface StageChangeInfo {
+  changed: boolean
+  previousStage: StageId | null
+  currentStage: StageId
+  isNewUser: boolean
+}
+
+export interface PriorityBuild {
+  name: string
+  stageName: string
+  stageId: StageId
+  engine: string
+}
 
 export function useRoadmapProgress() {
   const [completedBuilds, setCompletedBuilds] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [businessId, setBusinessId] = useState<string | null>(null)
+
+  // Stage state
+  const [currentStageId, setCurrentStageId] = useState<StageId>('foundation')
+  const [currentStageInfo, setCurrentStageInfo] = useState<StageInfo>(STAGE_DEFINITIONS[0])
+  const [stageChange, setStageChange] = useState<StageChangeInfo | null>(null)
+  const [revenue, setRevenue] = useState<number | null>(null)
+
   const supabase = createClient()
 
-  // Load completed builds from database
+  // Load completed builds and stage from database
   useEffect(() => {
     loadProgress()
   }, [])
@@ -22,6 +46,29 @@ export function useRoadmapProgress() {
         return
       }
 
+      // Get business profile
+      const { data: profile } = await supabase
+        .from('business_profiles')
+        .select('id, annual_revenue')
+        .eq('user_id', user.id)
+        .single()
+
+      if (profile) {
+        setBusinessId(profile.id)
+        setRevenue(profile.annual_revenue)
+
+        // Check for stage changes
+        const stageResult = await StageService.checkAndRecordStageChange(profile.id)
+        setCurrentStageId(stageResult.currentStage)
+        setCurrentStageInfo(StageService.getStageInfo(stageResult.currentStage)!)
+        setStageChange(stageResult)
+
+        if (stageResult.changed) {
+          console.log(`🎉 Stage changed from ${stageResult.previousStage} to ${stageResult.currentStage}`)
+        }
+      }
+
+      // Load roadmap progress
       const { data, error } = await supabase
         .from('roadmap_progress')
         .select('completed_builds')
@@ -89,7 +136,7 @@ export function useRoadmapProgress() {
         newSet.add(buildName)
       }
 
-      // Save to database (debounced via separate effect)
+      // Save to database
       saveProgress(newSet)
 
       return newSet
@@ -113,12 +160,73 @@ export function useRoadmapProgress() {
     }
   }, [completedBuilds])
 
+  // Get priority builds (incomplete builds in current stage and below)
+  const getPriorityBuilds = useCallback((): PriorityBuild[] => {
+    const priorityBuilds: PriorityBuild[] = []
+    const currentStageIndex = StageService.getStageIndex(currentStageId)
+
+    // Go through stages from foundation up to current
+    STAGES.forEach((stage) => {
+      const stageIndex = STAGE_DEFINITIONS.findIndex(s => s.id === stage.id)
+
+      // Only include stages at or below current level
+      if (stageIndex <= currentStageIndex) {
+        stage.builds.forEach(build => {
+          if (!completedBuilds.has(build.name)) {
+            priorityBuilds.push({
+              name: build.name,
+              stageName: stage.name,
+              stageId: stage.id as StageId,
+              engine: build.engine
+            })
+          }
+        })
+      }
+    })
+
+    return priorityBuilds
+  }, [completedBuilds, currentStageId])
+
+  // Get stage completion stats
+  const getStageStats = useCallback((stageId: string) => {
+    const stage = STAGES.find(s => s.id === stageId)
+    if (!stage) return { completed: 0, total: 0, percentage: 0 }
+
+    const total = stage.builds.length
+    const completed = stage.builds.filter(b => completedBuilds.has(b.name)).length
+    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0
+
+    return { completed, total, percentage }
+  }, [completedBuilds])
+
+  // Check if a stage is at or below current
+  const isStageRelevant = useCallback((stageId: string): boolean => {
+    return StageService.isStageAtOrBelow(stageId as StageId, currentStageId)
+  }, [currentStageId])
+
+  // Dismiss stage change notification
+  const dismissStageChange = useCallback(() => {
+    setStageChange(prev => prev ? { ...prev, changed: false } : null)
+  }, [])
+
   return {
+    // Existing
     completedBuilds,
     isLoading,
     isSaving,
     toggleBuild,
     isComplete,
-    getStats
+    getStats,
+
+    // New stage-related
+    businessId,
+    currentStageId,
+    currentStageInfo,
+    stageChange,
+    revenue,
+    getPriorityBuilds,
+    getStageStats,
+    isStageRelevant,
+    dismissStageChange,
   }
 }

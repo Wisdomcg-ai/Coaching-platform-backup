@@ -2,7 +2,7 @@ import { EngineData } from './types'
 
 /**
  * The 8 Business Engines
- * Professional blue/slate color scheme matching app design
+ * Teal color scheme matching platform design
  */
 export const ENGINES: EngineData[] = [
   {
@@ -10,63 +10,63 @@ export const ENGINES: EngineData[] = [
     name: 'Attract',
     subtitle: 'Marketing & Lead Generation',
     icon: 'Megaphone',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-600'
+    color: 'text-teal-600',
+    bgColor: 'bg-teal-600'
   },
   {
     id: 'convert',
     name: 'Convert',
     subtitle: 'Sales & Closing',
     icon: 'ShoppingCart',
-    color: 'text-blue-700',
-    bgColor: 'bg-blue-700'
+    color: 'text-teal-700',
+    bgColor: 'bg-teal-700'
   },
   {
     id: 'deliver',
     name: 'Deliver',
     subtitle: 'Client Experience & Results',
     icon: 'Heart',
-    color: 'text-slate-600',
-    bgColor: 'bg-slate-600'
+    color: 'text-teal-600',
+    bgColor: 'bg-teal-600'
   },
   {
     id: 'people',
     name: 'People',
     subtitle: 'Team, Culture, Hiring',
     icon: 'Users',
-    color: 'text-slate-700',
-    bgColor: 'bg-slate-700'
+    color: 'text-teal-700',
+    bgColor: 'bg-teal-700'
   },
   {
     id: 'systems',
     name: 'Systems',
     subtitle: 'Operations, Process, Tech',
     icon: 'Settings',
-    color: 'text-slate-800',
-    bgColor: 'bg-slate-800'
+    color: 'text-gray-600',
+    bgColor: 'bg-gray-600'
   },
   {
     id: 'finance',
     name: 'Finance',
     subtitle: 'Money, Metrics, Wealth',
     icon: 'Calculator',
-    color: 'text-blue-800',
-    bgColor: 'bg-blue-800'
+    color: 'text-teal-800',
+    bgColor: 'bg-teal-800'
   },
   {
     id: 'leadership',
     name: 'Leadership',
     subtitle: 'Vision, Strategy, You',
     icon: 'Crown',
-    color: 'text-indigo-700',
-    bgColor: 'bg-indigo-700'
+    color: 'text-teal-700',
+    bgColor: 'bg-teal-700'
   },
   {
     id: 'time',
     name: 'Time',
     subtitle: 'Freedom, Productivity, Leverage',
     icon: 'Target',
-    color: 'text-indigo-800',
-    bgColor: 'bg-indigo-800'
+    color: 'text-teal-600',
+    bgColor: 'bg-teal-600'
   }
 ]
