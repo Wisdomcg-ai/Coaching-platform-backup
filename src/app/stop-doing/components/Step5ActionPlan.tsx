@@ -80,7 +80,7 @@ export default function Step5ActionPlan({
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Your Action Plan</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Your Stop Doing List</h2>
         <p className="text-gray-600 mt-1">
           Track your progress as you eliminate, automate, or delegate low-value activities.
         </p>

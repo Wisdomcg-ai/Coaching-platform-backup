@@ -248,6 +248,13 @@ export function useStopDoingList() {
     }
   }, [businessId, userId, currentTimeLog, currentWeekStart])
 
+  // Change week and load appropriate time log
+  const changeWeek = useCallback((weekStart: string) => {
+    setCurrentWeekStart(weekStart)
+    const existingLog = timeLogs.find(log => log.week_start_date === weekStart)
+    setCurrentTimeLog(existingLog || null)
+  }, [timeLogs])
+
   // ============================================
   // Hourly Rate Operations
   // ============================================
@@ -315,6 +322,104 @@ export function useStopDoingList() {
   const selectActivityForStopDoing = useCallback(async (id: string, selected: boolean) => {
     await updateActivity(id, { is_selected_for_stop_doing: selected })
   }, [updateActivity])
+
+  // ============================================
+  // Import Activities from Time Log
+  // ============================================
+  const getTimeLogSummary = useCallback(() => {
+    // Aggregate all time logs to get hours per activity
+    const activityHours: Record<string, number> = {}
+
+    timeLogs.forEach(log => {
+      if (log.entries) {
+        Object.values(log.entries).forEach(dayEntries => {
+          if (dayEntries) {
+            Object.values(dayEntries).forEach(activityId => {
+              if (activityId) {
+                // Each slot is 15 minutes = 0.25 hours
+                activityHours[activityId] = (activityHours[activityId] || 0) + 0.25
+              }
+            })
+          }
+        })
+      }
+    })
+
+    // Convert to weekly average (assuming time logs cover different weeks)
+    const weekCount = timeLogs.length || 1
+    const weeklyHours: Record<string, number> = {}
+    Object.entries(activityHours).forEach(([id, hours]) => {
+      weeklyHours[id] = Math.round((hours / weekCount) * 10) / 10
+    })
+
+    return weeklyHours
+  }, [timeLogs])
+
+  const importActivitiesFromTimeLog = useCallback(async () => {
+    if (!businessId || !userId) return []
+
+    const weeklyHours = getTimeLogSummary()
+    const importedActivities: Activity[] = []
+
+    // Activity labels map
+    const activityLabels: Record<string, string> = {
+      'email': 'Email',
+      'meetings': 'Meetings',
+      'admin': 'Admin',
+      'client': 'Client Work',
+      'sales': 'Sales',
+      'marketing': 'Marketing',
+      'team': 'Team',
+      'finance': 'Finance',
+      'planning': 'Planning',
+      'break': 'Break'
+    }
+
+    for (const [activityId, hoursPerWeek] of Object.entries(weeklyHours)) {
+      // Skip breaks - not really a work activity
+      if (activityId === 'break') continue
+
+      // Skip numeric-only IDs (timestamps, auto-generated IDs)
+      if (/^\d+$/.test(activityId)) continue
+
+      // Get proper activity name with capitalization
+      let activityName = activityLabels[activityId]
+      if (!activityName) {
+        // For custom activities, parse and capitalize
+        const cleanId = activityId.replace('custom-', '')
+        // Skip if it's just numbers
+        if (/^\d+$/.test(cleanId)) continue
+        activityName = cleanId.split(/[-_]/).map(
+          word => word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' ')
+      }
+
+      // Skip if activity already exists
+      const existingActivity = activities.find(
+        a => a.activity_name.toLowerCase() === activityName.toLowerCase()
+      )
+      if (existingActivity) continue
+
+      // Calculate duration and frequency
+      // Assume they do this activity every day they logged it
+      const durationMinutes = Math.round((hoursPerWeek / 5) * 60) // Assume 5 days/week
+
+      const result = await ActivityService.createActivity(businessId, userId, {
+        activity_name: activityName,
+        frequency: 'daily',
+        duration_minutes: Math.max(15, durationMinutes), // Minimum 15 min
+        zone: 'competence', // Default zone, user can adjust
+        focus_funnel_outcome: null
+      })
+
+      if (result.success && result.data) {
+        importedActivities.push(result.data)
+        setActivities(prev => [...prev, result.data!])
+      }
+    }
+
+    return importedActivities
+  }, [businessId, userId, activities, getTimeLogSummary])
 
   // ============================================
   // Stop Doing Item Operations
@@ -455,7 +560,7 @@ export function useStopDoingList() {
     timeLogs,
     currentTimeLog,
     currentWeekStart,
-    setCurrentWeekStart,
+    changeWeek,
     updateTimeLogEntry,
     markTimeLogComplete,
     getMondayOfWeek,
@@ -477,6 +582,9 @@ export function useStopDoingList() {
     updateActivity,
     deleteActivity,
     selectActivityForStopDoing,
+    getTimeLogSummary,
+    importActivitiesFromTimeLog,
+    hasTimeLogData: timeLogs.length > 0 && timeLogs.some(log => log.entries && Object.keys(log.entries).length > 0),
 
     // Step 4 & 5: Stop Doing Items
     stopDoingItems,

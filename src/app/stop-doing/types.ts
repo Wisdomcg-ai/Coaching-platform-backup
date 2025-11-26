@@ -72,7 +72,7 @@ export interface Activity {
 // ============================================
 // Stop Doing Item Types
 // ============================================
-export type StopDoingStatus = 'identified' | 'planned' | 'in_progress' | 'completed'
+export type StopDoingStatus = 'identified' | 'planned' | 'in_progress' | 'delegated' | 'automated' | 'eliminated' | 'completed'
 
 export interface StopDoingItem {
   id: string
@@ -114,7 +114,7 @@ export const ZONE_OPTIONS: ZoneOption[] = [
   {
     label: 'Love it & great at it',
     zone: 'genius',
-    description: 'High value, high energy - KEEP doing',
+    description: 'Zone of Genius: High value, high energy - KEEP doing',
     color: 'text-green-700',
     bgColor: 'bg-green-50',
     borderColor: 'border-green-200'
@@ -122,7 +122,7 @@ export const ZONE_OPTIONS: ZoneOption[] = [
   {
     label: 'Good at it, don\'t love it',
     zone: 'excellence',
-    description: 'High value, low energy - Consider delegating',
+    description: 'Zone of Excellence: High value, low energy - Consider delegating',
     color: 'text-teal-700',
     bgColor: 'bg-teal-50',
     borderColor: 'border-teal-200'
@@ -130,7 +130,7 @@ export const ZONE_OPTIONS: ZoneOption[] = [
   {
     label: 'Can do it, drains energy',
     zone: 'competence',
-    description: 'Low value, drains you - STOP doing',
+    description: 'Zone of Competence: Low value, drains you - STOP doing',
     color: 'text-amber-700',
     bgColor: 'bg-amber-50',
     borderColor: 'border-amber-200'
@@ -138,7 +138,7 @@ export const ZONE_OPTIONS: ZoneOption[] = [
   {
     label: 'Struggle with it',
     zone: 'incompetence',
-    description: 'Low value, not your strength - STOP immediately',
+    description: 'Zone of Incompetence: Low value, not your strength - STOP immediately',
     color: 'text-red-700',
     bgColor: 'bg-red-50',
     borderColor: 'border-red-200'

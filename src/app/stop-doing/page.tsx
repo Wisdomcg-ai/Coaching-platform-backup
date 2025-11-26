@@ -2,15 +2,14 @@
 
 import { useState } from 'react'
 import {
-  Clock, DollarSign, ListChecks, BarChart3, Target,
-  ChevronRight, ChevronLeft, Check, Loader2, Save
+  Clock, DollarSign, ListChecks, Target,
+  ChevronRight, ChevronLeft, Check, Loader2
 } from 'lucide-react'
 import { useStopDoingList } from './hooks/useStopDoingList'
 import Step1TimeLog from './components/Step1TimeLog'
 import Step2HourlyRate from './components/Step2HourlyRate'
-import Step3ActivityInventory from './components/Step3ActivityInventory'
-import Step4AnalyzeSelect from './components/Step4AnalyzeSelect'
-import Step5ActionPlan from './components/Step5ActionPlan'
+import Step3Wizard from './components/Step3Wizard'
+import Step4ActionPlan from './components/Step5ActionPlan'
 
 const STEPS = [
   {
@@ -31,25 +30,17 @@ const STEPS = [
   },
   {
     id: 3,
-    title: 'Activities',
+    title: 'Activities & Analysis',
     shortTitle: 'Activities',
-    description: 'List all your business activities',
+    description: 'List activities and identify what to stop',
     icon: ListChecks,
     optional: false
   },
   {
     id: 4,
-    title: 'Analyze',
-    shortTitle: 'Analyze',
-    description: 'Identify what to stop doing',
-    icon: BarChart3,
-    optional: false
-  },
-  {
-    id: 5,
-    title: 'Action Plan',
-    shortTitle: 'Action',
-    description: 'Create your action plan',
+    title: 'Stop Doing List',
+    shortTitle: 'Stop List',
+    description: 'Your commitment to stop',
     icon: Target,
     optional: false
   }
@@ -66,6 +57,15 @@ export default function StopDoingPage() {
     // Auto-save
     saveStatus,
 
+    // Step 1: Time Logs
+    timeLogs,
+    currentTimeLog,
+    currentWeekStart,
+    changeWeek,
+    updateTimeLogEntry,
+    markTimeLogComplete,
+    getMondayOfWeek,
+
     // Step 2: Hourly Rate
     targetAnnualIncome,
     setTargetAnnualIncome,
@@ -81,6 +81,9 @@ export default function StopDoingPage() {
     addActivity,
     updateActivity,
     deleteActivity,
+    hasTimeLogData,
+    getTimeLogSummary,
+    importActivitiesFromTimeLog,
 
     // Step 4 & 5: Stop Doing Items
     stopDoingItems,
@@ -101,13 +104,13 @@ export default function StopDoingPage() {
 
   // Navigation
   const goToStep = (step: number) => {
-    if (step >= 1 && step <= 5) {
+    if (step >= 1 && step <= 4) {
       setCurrentStep(step)
     }
   }
 
   const goToNextStep = () => {
-    if (currentStep < 5) {
+    if (currentStep < 4) {
       setCurrentStep(currentStep + 1)
     }
   }
@@ -133,8 +136,6 @@ export default function StopDoingPage() {
       case 3:
         return activities.length >= 1
       case 4:
-        return true // Can proceed even without selections
-      case 5:
         return true
       default:
         return true
@@ -201,8 +202,7 @@ export default function StopDoingPage() {
               const isCompleted = currentStep > step.id || (
                 step.id === 1 ? stepCompletion.step1Complete :
                 step.id === 2 ? stepCompletion.step2Complete :
-                step.id === 3 ? stepCompletion.step3Complete :
-                step.id === 4 ? stepCompletion.step4Complete :
+                step.id === 3 ? (stepCompletion.step3Complete && stepCompletion.step4Complete) :
                 stepCompletion.step5Complete
               )
 
@@ -251,6 +251,14 @@ export default function StopDoingPage() {
           {currentStep === 1 && (
             <Step1TimeLog
               onSkipStep={skipTimeLog}
+              currentTimeLog={currentTimeLog}
+              currentWeekStart={currentWeekStart}
+              timeLogs={timeLogs}
+              onWeekChange={changeWeek}
+              onUpdateEntry={updateTimeLogEntry}
+              onMarkComplete={markTimeLogComplete}
+              getMondayOfWeek={getMondayOfWeek}
+              saveStatus={saveStatus}
             />
           )}
 
@@ -269,26 +277,22 @@ export default function StopDoingPage() {
           )}
 
           {currentStep === 3 && (
-            <Step3ActivityInventory
+            <Step3Wizard
               activities={activities}
               onAddActivity={addActivity}
               onUpdateActivity={updateActivity}
               onDeleteActivity={deleteActivity}
+              hasTimeLogData={hasTimeLogData}
+              getTimeLogSummary={getTimeLogSummary}
+              onImportFromTimeLog={importActivitiesFromTimeLog}
+              stopDoingItems={stopDoingItems}
+              calculatedHourlyRate={calculatedHourlyRate}
+              onSelectActivity={createStopDoingItemFromActivity}
             />
           )}
 
           {currentStep === 4 && (
-            <Step4AnalyzeSelect
-              activities={activities}
-              stopDoingItems={stopDoingItems}
-              calculatedHourlyRate={calculatedHourlyRate}
-              onSelectActivity={createStopDoingItemFromActivity}
-              onUpdateActivity={updateActivity}
-            />
-          )}
-
-          {currentStep === 5 && (
-            <Step5ActionPlan
+            <Step4ActionPlan
               stopDoingItems={stopDoingItems}
               calculatedHourlyRate={calculatedHourlyRate}
               onUpdateItem={updateStopDoingItem}
@@ -319,11 +323,11 @@ export default function StopDoingPage() {
 
           <button
             onClick={goToNextStep}
-            disabled={currentStep === 5 || !canProceed()}
+            disabled={currentStep === 4 || !canProceed()}
             className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {currentStep === 5 ? 'Complete' : 'Next'}
-            {currentStep < 5 && <ChevronRight className="w-4 h-4" />}
+            {currentStep === 4 ? 'Complete' : 'Next'}
+            {currentStep < 4 && <ChevronRight className="w-4 h-4" />}
           </button>
         </div>
 

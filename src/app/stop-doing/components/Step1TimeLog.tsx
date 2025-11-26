@@ -1,10 +1,23 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Clock, SkipForward, Lightbulb, RotateCcw, Plus, X } from 'lucide-react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import {
+  Clock, SkipForward, Lightbulb, RotateCcw, Plus, X,
+  ChevronLeft, ChevronRight, Calendar, Check, Loader2
+} from 'lucide-react'
+import type { TimeLog, TimeLogDay } from '../types'
 
 interface Step1TimeLogProps {
   onSkipStep: () => void
+  // From hook - persisted data
+  currentTimeLog: TimeLog | null
+  currentWeekStart: string
+  timeLogs: TimeLog[]
+  onWeekChange: (weekStart: string) => void
+  onUpdateEntry: (day: string, slot: string, activity: string) => void
+  onMarkComplete: () => void
+  getMondayOfWeek: (date?: Date) => string
+  saveStatus?: 'idle' | 'saving' | 'saved' | 'error'
 }
 
 interface Activity {
@@ -42,7 +55,8 @@ const CUSTOM_COLORS = [
   { color: 'bg-rose-500', lightColor: 'bg-rose-100' },
 ]
 
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 // Generate 15-min slots from 6am to 8pm
 const TIME_SLOTS: string[] = []
@@ -53,22 +67,66 @@ for (let hour = 6; hour <= 20; hour++) {
   }
 }
 
-type TimeGrid = Record<string, Record<string, string>> // day -> slot -> activityId
-
-export default function Step1TimeLog({ onSkipStep }: Step1TimeLogProps) {
+export default function Step1TimeLog({
+  onSkipStep,
+  currentTimeLog,
+  currentWeekStart,
+  timeLogs,
+  onWeekChange,
+  onUpdateEntry,
+  onMarkComplete,
+  getMondayOfWeek,
+  saveStatus = 'idle'
+}: Step1TimeLogProps) {
   const [activities, setActivities] = useState<Activity[]>(DEFAULT_ACTIVITIES)
-  const [selectedActivity, setSelectedActivity] = useState<string>('email')
-  const [timeGrid, setTimeGrid] = useState<TimeGrid>({})
-  const [isDragging, setIsDragging] = useState(false)
+  const [draggedActivity, setDraggedActivity] = useState<string | null>(null)
+  const [isDraggingOver, setIsDraggingOver] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
   const [newActivityName, setNewActivityName] = useState('')
   const [newActivityColor, setNewActivityColor] = useState(CUSTOM_COLORS[0])
+
+  // Debounce ref for saving
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Local state for grid during editing (synced from currentTimeLog)
+  const [localGrid, setLocalGrid] = useState<TimeLogDay>({})
+  const [pendingChanges, setPendingChanges] = useState<{day: string, slot: string, value: string}[]>([])
+  const lastWeekRef = useRef<string>(currentWeekStart)
+
+  // Only sync local grid when WEEK changes (not on every currentTimeLog update)
+  useEffect(() => {
+    if (currentWeekStart !== lastWeekRef.current) {
+      setLocalGrid(currentTimeLog?.entries || {})
+      lastWeekRef.current = currentWeekStart
+      setPendingChanges([])
+    }
+  }, [currentWeekStart, currentTimeLog])
+
+  // Initialize on first load
+  useEffect(() => {
+    if (currentTimeLog?.entries && Object.keys(localGrid).length === 0) {
+      setLocalGrid(currentTimeLog.entries)
+    }
+  }, [currentTimeLog, localGrid])
+
+  // Use local grid for display
+  const timeGrid: TimeLogDay = localGrid
 
   // Add custom activity
   const addCustomActivity = () => {
     if (!newActivityName.trim()) return
 
-    const id = `custom-${Date.now()}`
+    // Use the activity name as the ID (lowercase, hyphenated) so it can be recovered later
+    const nameId = newActivityName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+    const id = `custom-${nameId}`
+
+    // Check if this activity already exists
+    if (activities.some(a => a.id === id)) {
+      setNewActivityName('')
+      setShowAddForm(false)
+      return
+    }
+
     const newActivity: Activity = {
       id,
       label: newActivityName.trim(),
@@ -78,7 +136,6 @@ export default function Step1TimeLog({ onSkipStep }: Step1TimeLogProps) {
     }
 
     setActivities(prev => [...prev, newActivity])
-    setSelectedActivity(id)
     setNewActivityName('')
     setShowAddForm(false)
   }
@@ -86,47 +143,146 @@ export default function Step1TimeLog({ onSkipStep }: Step1TimeLogProps) {
   // Remove custom activity
   const removeCustomActivity = (id: string) => {
     setActivities(prev => prev.filter(a => a.id !== id))
-    if (selectedActivity === id) {
-      setSelectedActivity('email')
+  }
+
+  // Handle drag start from activity button
+  const handleDragStart = useCallback((e: React.DragEvent, activityId: string) => {
+    setDraggedActivity(activityId)
+    e.dataTransfer.effectAllowed = 'copy'
+    e.dataTransfer.setData('text/plain', activityId)
+
+    // Create custom drag image
+    const activity = activities.find(a => a.id === activityId)
+    if (activity) {
+      const dragEl = document.createElement('div')
+      dragEl.className = `${activity.color} text-white px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg`
+      dragEl.textContent = activity.label
+      dragEl.style.position = 'absolute'
+      dragEl.style.top = '-1000px'
+      document.body.appendChild(dragEl)
+      e.dataTransfer.setDragImage(dragEl, 40, 15)
+      setTimeout(() => document.body.removeChild(dragEl), 0)
     }
-    // Also remove from grid
-    setTimeGrid(prev => {
-      const newGrid: TimeGrid = {}
-      Object.entries(prev).forEach(([day, slots]) => {
-        newGrid[day] = {}
-        Object.entries(slots).forEach(([slot, actId]) => {
-          if (actId !== id) {
-            newGrid[day][slot] = actId
-          }
-        })
+  }, [activities])
+
+  // Handle drag end
+  const handleDragEnd = useCallback(() => {
+    setDraggedActivity(null)
+    setIsDraggingOver(false)
+    setHoverCell(null)
+
+    // Save all pending changes
+    if (pendingChanges.length > 0) {
+      const uniqueChanges = new Map<string, {day: string, slot: string, value: string}>()
+      pendingChanges.forEach(change => {
+        uniqueChanges.set(`${change.day}-${change.slot}`, change)
       })
-      return newGrid
-    })
-  }
+      uniqueChanges.forEach(change => {
+        onUpdateEntry(change.day, change.slot, change.value)
+      })
+      setPendingChanges([])
+    }
+  }, [pendingChanges, onUpdateEntry])
 
-  // Handle cell click
-  const handleCellClick = (day: string, slot: string) => {
-    setTimeGrid(prev => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        [slot]: prev[day]?.[slot] === selectedActivity ? '' : selectedActivity
-      }
-    }))
-  }
+  // Handle drag over cell (allows drop)
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+  }, [])
 
-  // Handle drag fill
-  const handleCellEnter = (day: string, slot: string) => {
-    if (isDragging && selectedActivity) {
-      setTimeGrid(prev => ({
+  // Track which cell is being hovered during drag (for preview only)
+  const [hoverCell, setHoverCell] = useState<{day: string, slot: string} | null>(null)
+
+  // Handle drag enter cell (just show preview, don't fill)
+  const handleCellDragEnter = useCallback((day: string, slot: string) => {
+    if (draggedActivity) {
+      setIsDraggingOver(true)
+      setHoverCell({ day, slot })
+    }
+  }, [draggedActivity])
+
+  // Handle drop on cell - fills just this cell
+  const handleDrop = useCallback((e: React.DragEvent, day: string, slot: string) => {
+    e.preventDefault()
+    const activityId = e.dataTransfer.getData('text/plain') || draggedActivity
+    setHoverCell(null)
+
+    if (activityId) {
+      // Update local grid
+      setLocalGrid(prev => ({
         ...prev,
         [day]: {
           ...prev[day],
-          [slot]: selectedActivity
+          [slot]: activityId
         }
       }))
+      // Save immediately
+      onUpdateEntry(day, slot, activityId)
     }
-  }
+  }, [draggedActivity, onUpdateEntry])
+
+  // State for extending from a filled cell
+  const [isExtending, setIsExtending] = useState(false)
+  const [extendActivity, setExtendActivity] = useState<string | null>(null)
+
+  // Handle mouse down on filled cell to start extending
+  const handleCellMouseDown = useCallback((day: string, slot: string, activityId: string) => {
+    if (activityId) {
+      // Start extending from this cell
+      setIsExtending(true)
+      setExtendActivity(activityId)
+    }
+  }, [])
+
+  // Handle mouse enter while extending
+  const handleCellMouseEnter = useCallback((day: string, slot: string) => {
+    if (isExtending && extendActivity) {
+      // Fill this cell with the extending activity
+      setLocalGrid(prev => ({
+        ...prev,
+        [day]: {
+          ...prev[day],
+          [slot]: extendActivity
+        }
+      }))
+      setPendingChanges(prev => [...prev, { day, slot, value: extendActivity }])
+    }
+  }, [isExtending, extendActivity])
+
+  // Handle mouse up to finish extending
+  const handleMouseUp = useCallback(() => {
+    if (isExtending) {
+      setIsExtending(false)
+      setExtendActivity(null)
+
+      // Save all pending changes
+      if (pendingChanges.length > 0) {
+        const uniqueChanges = new Map<string, {day: string, slot: string, value: string}>()
+        pendingChanges.forEach(change => {
+          uniqueChanges.set(`${change.day}-${change.slot}`, change)
+        })
+        uniqueChanges.forEach(change => {
+          onUpdateEntry(change.day, change.slot, change.value)
+        })
+        setPendingChanges([])
+      }
+    }
+  }, [isExtending, pendingChanges, onUpdateEntry])
+
+  // Handle click on cell (clear if filled)
+  const handleCellClick = useCallback((day: string, slot: string, activityId: string) => {
+    // If cell has activity and we're not extending, clear it
+    if (activityId && !isExtending) {
+      setLocalGrid(prev => ({
+        ...prev,
+        [day]: {
+          ...prev[day],
+          [slot]: ''
+        }
+      }))
+      onUpdateEntry(day, slot, '')
+    }
+  }, [onUpdateEntry, isExtending])
 
   // Get activity for a cell
   const getCellActivity = (day: string, slot: string) => {
@@ -143,11 +299,13 @@ export default function Step1TimeLog({ onSkipStep }: Step1TimeLogProps) {
   const hoursByActivity = useMemo(() => {
     const counts: Record<string, number> = {}
     Object.values(timeGrid).forEach(dayData => {
-      Object.values(dayData).forEach(activityId => {
-        if (activityId) {
-          counts[activityId] = (counts[activityId] || 0) + 0.25
-        }
-      })
+      if (dayData) {
+        Object.values(dayData).forEach(activityId => {
+          if (activityId) {
+            counts[activityId] = (counts[activityId] || 0) + 0.25
+          }
+        })
+      }
     })
     return activities.map(a => ({
       ...a,
@@ -158,10 +316,18 @@ export default function Step1TimeLog({ onSkipStep }: Step1TimeLogProps) {
   // Total hours logged
   const totalHours = Math.round(hoursByActivity.reduce((sum, a) => sum + a.hours, 0) * 10) / 10
 
-  // Clear all
-  const clearAll = () => {
-    setTimeGrid({})
-  }
+  // Clear all entries for current week
+  const clearAll = useCallback(() => {
+    if (confirm('Clear all entries for this week?')) {
+      DAYS.forEach(day => {
+        TIME_SLOTS.forEach(slot => {
+          if (timeGrid[day]?.[slot]) {
+            onUpdateEntry(day, slot, '')
+          }
+        })
+      })
+    }
+  }, [timeGrid, onUpdateEntry])
 
   // Format slot for display (only show on hour marks)
   const formatSlot = (slot: string) => {
@@ -179,6 +345,58 @@ export default function Step1TimeLog({ onSkipStep }: Step1TimeLogProps) {
 
   // Check if slot is on the hour (for border styling)
   const isHourMark = (slot: string) => slot.endsWith(':00')
+
+  // Week navigation
+  const goToPreviousWeek = () => {
+    const currentDate = new Date(currentWeekStart)
+    currentDate.setDate(currentDate.getDate() - 7)
+    onWeekChange(getMondayOfWeek(currentDate))
+  }
+
+  const goToNextWeek = () => {
+    const currentDate = new Date(currentWeekStart)
+    currentDate.setDate(currentDate.getDate() + 7)
+    const nextMonday = getMondayOfWeek(currentDate)
+    const todayMonday = getMondayOfWeek(new Date())
+
+    // Don't go past current week
+    if (nextMonday <= todayMonday) {
+      onWeekChange(nextMonday)
+    }
+  }
+
+  const goToCurrentWeek = () => {
+    onWeekChange(getMondayOfWeek(new Date()))
+  }
+
+  // Format week display
+  const formatWeekDisplay = (weekStart: string) => {
+    const start = new Date(weekStart)
+    const end = new Date(start)
+    end.setDate(end.getDate() + 6)
+
+    const formatDate = (d: Date) => d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric'
+    })
+
+    return `${formatDate(start)} - ${formatDate(end)}`
+  }
+
+  // Check if viewing current week
+  const isCurrentWeek = currentWeekStart === getMondayOfWeek(new Date())
+
+  // Check if there are older logs
+  const hasOlderLogs = timeLogs.some(log => log.week_start_date < currentWeekStart)
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -199,6 +417,103 @@ export default function Step1TimeLog({ onSkipStep }: Step1TimeLogProps) {
         </button>
       </div>
 
+      {/* Week Navigation */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={goToPreviousWeek}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Previous week"
+            >
+              <ChevronLeft className="w-5 h-5 text-gray-600" />
+            </button>
+
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-teal-600" />
+              <span className="font-medium text-gray-900">
+                Week of {formatWeekDisplay(currentWeekStart)}
+              </span>
+              {!isCurrentWeek && (
+                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-full">
+                  Past Week
+                </span>
+              )}
+            </div>
+
+            <button
+              onClick={goToNextWeek}
+              disabled={isCurrentWeek}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Next week"
+            >
+              <ChevronRight className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Save status */}
+            {saveStatus === 'saving' && (
+              <div className="flex items-center gap-1 text-sm text-gray-500">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving...
+              </div>
+            )}
+            {saveStatus === 'saved' && (
+              <div className="flex items-center gap-1 text-sm text-green-600">
+                <Check className="w-4 h-4" />
+                Saved
+              </div>
+            )}
+
+            {!isCurrentWeek && (
+              <button
+                onClick={goToCurrentWeek}
+                className="px-3 py-1.5 text-sm bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+              >
+                Current Week
+              </button>
+            )}
+
+            {currentTimeLog && !currentTimeLog.is_complete && totalHours > 0 && (
+              <button
+                onClick={onMarkComplete}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <Check className="w-4 h-4" />
+                Mark Complete
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Previous weeks list */}
+        {timeLogs.length > 1 && (
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            <p className="text-xs text-gray-500 mb-2">Previous logs:</p>
+            <div className="flex flex-wrap gap-2">
+              {timeLogs
+                .filter(log => log.week_start_date !== currentWeekStart)
+                .slice(0, 5)
+                .map(log => (
+                  <button
+                    key={log.id}
+                    onClick={() => onWeekChange(log.week_start_date)}
+                    className={`px-2 py-1 text-xs rounded transition-colors ${
+                      log.is_complete
+                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {formatWeekDisplay(log.week_start_date)}
+                    {log.is_complete && <Check className="w-3 h-3 inline ml-1" />}
+                  </button>
+                ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Activity Selector */}
       <div className="bg-white rounded-lg border border-gray-200 p-4">
         <div className="flex items-center justify-between mb-3">
@@ -216,17 +531,19 @@ export default function Step1TimeLog({ onSkipStep }: Step1TimeLogProps) {
         <div className="flex flex-wrap gap-2">
           {activities.map(activity => (
             <div key={activity.id} className="relative group">
-              <button
-                onClick={() => setSelectedActivity(activity.id)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  selectedActivity === activity.id
-                    ? `${activity.color} text-white shadow-md scale-105`
-                    : `${activity.lightColor} text-gray-700 hover:scale-102`
+              <div
+                draggable
+                onDragStart={(e) => handleDragStart(e, activity.id)}
+                onDragEnd={handleDragEnd}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-grab active:cursor-grabbing ${
+                  draggedActivity === activity.id
+                    ? `${activity.color} text-white shadow-lg scale-110 opacity-75`
+                    : `${activity.lightColor} text-gray-700 hover:scale-105 hover:shadow-md`
                 }`}
               >
                 <span className={`w-2 h-2 rounded-full ${activity.color}`} />
                 {activity.label}
-              </button>
+              </div>
               {activity.isCustom && (
                 <button
                   onClick={(e) => {
@@ -294,8 +611,9 @@ export default function Step1TimeLog({ onSkipStep }: Step1TimeLogProps) {
       {/* Time Grid */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div
-          className="overflow-x-auto"
-          onMouseLeave={() => setIsDragging(false)}
+          className={`overflow-x-auto transition-colors ${isDraggingOver ? 'bg-teal-50' : ''}`}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
         >
           <table className="w-full text-sm select-none">
             <thead>
@@ -303,7 +621,7 @@ export default function Step1TimeLog({ onSkipStep }: Step1TimeLogProps) {
                 <th className="sticky left-0 bg-gray-50 px-3 py-2 text-left font-medium text-gray-600 w-16 border-r border-gray-200">
                   <Clock className="w-4 h-4" />
                 </th>
-                {DAYS.map(day => (
+                {DAY_LABELS.map((day, i) => (
                   <th key={day} className="px-2 py-2 text-center font-medium text-gray-600 min-w-[80px]">
                     {day}
                   </th>
@@ -325,24 +643,34 @@ export default function Step1TimeLog({ onSkipStep }: Step1TimeLogProps) {
                       return (
                         <td
                           key={`${day}-${slot}`}
-                          onMouseDown={() => {
-                            setIsDragging(true)
-                            handleCellClick(day, slot)
-                          }}
-                          onMouseUp={() => setIsDragging(false)}
-                          onMouseEnter={() => handleCellEnter(day, slot)}
+                          onDragOver={handleDragOver}
+                          onDragEnter={() => handleCellDragEnter(day, slot)}
+                          onDrop={(e) => handleDrop(e, day, slot)}
+                          onMouseDown={() => handleCellMouseDown(day, slot, activityId)}
+                          onMouseEnter={() => handleCellMouseEnter(day, slot)}
+                          onClick={() => handleCellClick(day, slot, activityId)}
                           className={`p-0.5 cursor-pointer transition-colors ${
-                            !activityId ? 'hover:bg-gray-100' : ''
-                          }`}
+                            !activityId ? 'hover:bg-gray-100' : 'hover:opacity-75'
+                          } ${isExtending ? 'cursor-crosshair' : ''}`}
                         >
                           <div
-                            className={`h-4 rounded-sm ${
+                            className={`h-6 rounded-sm transition-all flex items-center justify-center overflow-hidden ${
                               activityStyle
                                 ? `${activityStyle.color}`
-                                : 'bg-gray-50'
+                                : hoverCell?.day === day && hoverCell?.slot === slot && draggedActivity
+                                  ? 'bg-teal-200 ring-2 ring-teal-400'
+                                  : draggedActivity ? 'bg-gray-100' : 'bg-gray-50'
                             }`}
-                            title={activityStyle?.label || `${slot} - Click to log`}
-                          />
+                            title={activityStyle?.label || `${slot} - Drag activity here`}
+                          >
+                            {activityStyle && (
+                              <span className="text-[9px] font-medium text-white truncate px-0.5 leading-none">
+                                {activityStyle.label.length > 6
+                                  ? activityStyle.label.slice(0, 5) + '…'
+                                  : activityStyle.label}
+                              </span>
+                            )}
+                          </div>
                         </td>
                       )
                     })}
@@ -361,6 +689,12 @@ export default function Step1TimeLog({ onSkipStep }: Step1TimeLogProps) {
             <div>
               <p className="text-teal-100 text-sm mb-1">Total Hours Logged</p>
               <p className="text-3xl font-bold">{totalHours}h</p>
+              {currentTimeLog?.is_complete && (
+                <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 bg-white/20 rounded text-sm">
+                  <Check className="w-3 h-3" />
+                  Week Complete
+                </span>
+              )}
             </div>
             <div className="text-right">
               <p className="text-teal-100 text-sm mb-2">Breakdown</p>

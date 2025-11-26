@@ -290,7 +290,8 @@ export default function Step4AnalyzeSelect({
                     <div className="flex items-center gap-3 flex-wrap">
                       <h3 className="font-medium text-gray-900">{activity.activity_name}</h3>
                       <span className={`px-2 py-0.5 rounded text-xs ${zoneStyle.bgColor} ${zoneStyle.color} border ${zoneStyle.borderColor}`}>
-                        {zoneStyle.label}
+                        <span className="font-bold">{activity.zone.charAt(0).toUpperCase() + activity.zone.slice(1)}</span>
+                        <span className="opacity-75"> · {zoneStyle.label}</span>
                       </span>
                       {activity.focus_funnel_outcome && (
                         <span className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600 flex items-center gap-1">
