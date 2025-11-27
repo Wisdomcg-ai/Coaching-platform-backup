@@ -59,7 +59,9 @@ export default function Step5SprintPlanning({
                    yearType === 'CY' && today.getMonth() >= 9 ? currentYear + 1 : currentYear
 
   const QUARTERS = calculateQuarters(yearType, planYear)
-  const currentQuarter = QUARTERS.find(q => q.isCurrent) || QUARTERS[0]
+  // For quarterly review: plan for NEXT quarter, not current (which is locked)
+  const nextQuarter = QUARTERS.find(q => q.isNextQuarter)
+  const currentQuarter = nextQuarter || QUARTERS.find(q => q.isCurrent) || QUARTERS[0]
   const currentQuarterKey = currentQuarter.id // 'q1', 'q2', 'q3', or 'q4'
 
   // Monthly Targets State - Initialize from quarterly targets

@@ -14,6 +14,8 @@ export interface QuarterInfo {
   endDate: Date
   isPast: boolean
   isCurrent: boolean
+  isNextQuarter: boolean // The next quarter after current (planning target)
+  isLocked: boolean // Past OR current quarters are locked for planning
 }
 
 /**
@@ -22,16 +24,14 @@ export interface QuarterInfo {
  * CY = Calendar Year ending December 31
  */
 export function calculateQuarters(yearType: YearType, planYear: number): QuarterInfo[] {
-  const today = new Date()
-  const currentYear = today.getFullYear()
-  const currentMonth = today.getMonth() + 1 // 1-12
+  let quarters: Omit<QuarterInfo, 'isNextQuarter' | 'isLocked'>[]
 
   if (yearType === 'FY') {
     // Fiscal Year ending June 30
     // Q1: Jul-Sep, Q2: Oct-Dec, Q3: Jan-Mar, Q4: Apr-Jun
     const fyStartYear = planYear - 1 // FY2026 starts in July 2025
 
-    return [
+    quarters = [
       {
         id: 'q1',
         label: 'Q1',
@@ -84,7 +84,7 @@ export function calculateQuarters(yearType: YearType, planYear: number): Quarter
   } else {
     // Calendar Year ending December 31
     // Q1: Jan-Mar, Q2: Apr-Jun, Q3: Jul-Sep, Q4: Oct-Dec
-    return [
+    quarters = [
       {
         id: 'q1',
         label: 'Q1',
@@ -135,6 +135,18 @@ export function calculateQuarters(yearType: YearType, planYear: number): Quarter
       }
     ]
   }
+
+  // Find the current quarter index
+  const currentQuarterIndex = quarters.findIndex(q => q.isCurrent)
+
+  // Add isNextQuarter and isLocked properties
+  return quarters.map((q, index) => ({
+    ...q,
+    // isLocked: Past quarters AND current quarter are locked (already in execution)
+    isLocked: q.isPast || q.isCurrent,
+    // isNextQuarter: The quarter immediately after current is the planning target
+    isNextQuarter: currentQuarterIndex !== -1 && index === currentQuarterIndex + 1
+  }))
 }
 
 /**
