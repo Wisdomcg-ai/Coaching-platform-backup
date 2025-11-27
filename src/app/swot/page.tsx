@@ -8,6 +8,7 @@ import {
   SwotGridData,
   SwotCategory,
   QuarterInfo,
+  YearType,
   getCurrentQuarter,
   getCategoryColor
 } from '@/lib/swot/types';
@@ -24,7 +25,9 @@ export default function SwotPage() {
   );
 
   // State management
-  const [currentQuarter, setCurrentQuarter] = useState<QuarterInfo>(getCurrentQuarter());
+  const [yearType, setYearType] = useState<YearType>('FY');
+  const [yearTypeLoaded, setYearTypeLoaded] = useState(false);
+  const [currentQuarter, setCurrentQuarter] = useState<QuarterInfo>(getCurrentQuarter('FY'));
   const [swotAnalysis, setSwotAnalysis] = useState<SwotAnalysis | null>(null);
   const [swotItems, setSwotItems] = useState<SwotGridData>({
     strengths: [],
@@ -268,10 +271,43 @@ export default function SwotPage() {
     setRecurringItems(recurring);
   };
 
-  // Load data on component mount and quarter change
+  // Load year type preference from business_financial_goals
   useEffect(() => {
-    loadSwotAnalysis();
-  }, [loadSwotAnalysis]);
+    const loadYearType = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: goals } = await supabase
+          .from('business_financial_goals')
+          .select('year_type')
+          .eq('business_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (goals?.year_type) {
+          const loadedYearType = goals.year_type as YearType;
+          setYearType(loadedYearType);
+          setCurrentQuarter(getCurrentQuarter(loadedYearType));
+        }
+      } catch (err) {
+        // No goals found or error - default to FY
+        console.log('Using default FY year type');
+      } finally {
+        setYearTypeLoaded(true);
+      }
+    };
+
+    loadYearType();
+  }, [supabase]);
+
+  // Load data on component mount and quarter change (after yearType is loaded)
+  useEffect(() => {
+    if (yearTypeLoaded) {
+      loadSwotAnalysis();
+    }
+  }, [loadSwotAnalysis, yearTypeLoaded]);
 
   // Load historical data for trend analysis
   useEffect(() => {
@@ -525,6 +561,7 @@ export default function SwotPage() {
                 <QuarterSelector
                   currentQuarter={currentQuarter}
                   onQuarterChange={setCurrentQuarter}
+                  yearType={yearType}
                 />
 
                 {/* Action Buttons */}

@@ -49,6 +49,7 @@ interface NavItem {
   icon: any
   badge?: string
   disabled?: boolean
+  children?: NavItem[]
 }
 
 interface NavSection {
@@ -71,7 +72,7 @@ const getNavigation = (userRole: 'coach' | 'client'): NavSection[] => {
     {
       title: 'DASHBOARD',
       defaultOpen: true,
-      items: [{ label: 'Command Centre', href: '/dashboard', icon: LayoutDashboard }],
+      items: [{ label: 'Home', href: '/dashboard', icon: LayoutDashboard }],
     },
     {
       title: 'START HERE',
@@ -82,7 +83,14 @@ const getNavigation = (userRole: 'coach' | 'client'): NavSection[] => {
       ],
     },
     {
-      title: 'STRATEGY',
+      title: 'ROADMAP',
+      defaultOpen: true,
+      items: [
+        { label: 'Business Roadmap', href: '/business-roadmap', icon: Compass },
+      ],
+    },
+    {
+      title: 'BUSINESS PLAN',
       defaultOpen: true,
       items: [
         { label: 'Vision, Mission & Values', href: '/vision-mission', icon: Target },
@@ -101,11 +109,11 @@ const getNavigation = (userRole: 'coach' | 'client'): NavSection[] => {
       ],
     },
     {
-      title: 'EXECUTE & GROW',
+      title: 'EXECUTE',
       defaultOpen: true,
       items: [
-        { label: 'Business Roadmap', href: '/business-roadmap', icon: Compass },
         { label: 'Business Dashboard', href: '/business-dashboard', icon: BarChart3 },
+        { label: 'Issues List', href: '/issues-list', icon: AlertCircle },
       ],
     },
     {
@@ -114,36 +122,51 @@ const getNavigation = (userRole: 'coach' | 'client'): NavSection[] => {
       items: [
         { label: 'Open Loops', href: '/open-loops', icon: Layers },
         { label: 'To-Do', href: '/todo', icon: CheckSquare },
-        { label: 'Issues List', href: '/issues-list', icon: AlertCircle },
         { label: 'Stop Doing', href: '/stop-doing', icon: XCircle },
       ],
     },
     {
       title: 'REVIEWS',
-      defaultOpen: false,
+      defaultOpen: true,
       items: [
         { label: 'Weekly Review', href: '/reviews/weekly', icon: Calendar },
         { label: 'Monthly Review', href: '/reviews/monthly', icon: CalendarDays },
-        { label: 'Quarterly Review', href: '/reviews/quarterly', icon: CalendarCheck },
+        { label: 'Quarterly Review', href: '/quarterly-review', icon: CalendarCheck },
       ],
     },
     {
-      title: 'MARKETING',
+      title: 'BUSINESS ENGINES',
       defaultOpen: false,
       items: [
-        { label: 'Value Proposition & USP', href: '/marketing/value-prop', icon: Target },
-        { label: 'Marketing Channels', href: '/marketing/channels', icon: LineChart },
-        { label: 'Content Planner', href: '/marketing/content', icon: FileText },
-      ],
-    },
-    {
-      title: 'TEAM',
-      defaultOpen: false,
-      items: [
-        { label: 'Accountability Chart', href: '/team/accountability', icon: Network },
-        { label: 'Org Chart Builder', href: '/team/org-chart', icon: Users },
-        { label: 'Team Performance', href: '/team-performance', icon: Activity },
-        { label: 'Hiring Roadmap', href: '/team/hiring-roadmap', icon: Building2 },
+        {
+          label: 'Marketing',
+          href: '/engines/marketing',
+          icon: LineChart,
+          children: [
+            { label: 'Value Proposition & USP', href: '/marketing/value-prop', icon: Target },
+            { label: 'Marketing Channels', href: '/marketing/channels', icon: LineChart },
+            { label: 'Content Planner', href: '/marketing/content', icon: FileText },
+          ],
+        },
+        {
+          label: 'Team',
+          href: '/engines/team',
+          icon: Users,
+          children: [
+            { label: 'Accountability Chart', href: '/team/accountability', icon: Network },
+            { label: 'Org Chart Builder', href: '/team/org-chart', icon: Users },
+            { label: 'Team Performance', href: '/team-performance', icon: Activity },
+            { label: 'Hiring Roadmap', href: '/team/hiring-roadmap', icon: Building2 },
+          ],
+        },
+        {
+          label: 'Systems',
+          href: '/engines/systems',
+          icon: Settings,
+          children: [
+            { label: 'Systems & Processes', href: '/systems/processes', icon: Settings, disabled: true },
+          ],
+        },
       ],
     },
   ]
@@ -184,11 +207,13 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
   const [expandedSections, setExpandedSections] = useState<string[]>([
     'DASHBOARD',
     'START HERE',
-    'STRATEGY',
+    'ROADMAP',
+    'BUSINESS PLAN',
     'FINANCES',
-    'EXECUTE & GROW',
+    'EXECUTE',
     'PRODUCTIVITY',
   ])
+  const [expandedSubItems, setExpandedSubItems] = useState<string[]>([])
   const [navigation, setNavigation] = useState<NavSection[]>([])
   const [businessData, setBusinessData] = useState<BusinessData>({
     name: 'My Business',
@@ -244,6 +269,12 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
   const toggleSection = (section: string) => {
     setExpandedSections((prev) =>
       prev.includes(section) ? prev.filter((s) => s !== section) : [...prev, section]
+    )
+  }
+
+  const toggleSubItem = (itemLabel: string) => {
+    setExpandedSubItems((prev) =>
+      prev.includes(itemLabel) ? prev.filter((s) => s !== itemLabel) : [...prev, itemLabel]
     )
   }
 
@@ -310,22 +341,61 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
                       {section.items.map((item) => {
                         const Icon = item.icon
                         const isActive = pathname === item.href
+                        const hasChildren = item.children && item.children.length > 0
+                        const isExpanded = expandedSubItems.includes(item.label)
 
                         return (
-                          <Link
-                            key={item.href}
-                            href={item.disabled ? '#' : item.href}
-                            className={`flex items-center px-4 py-2 text-sm ${isActive ? 'bg-teal-50 text-teal-700 border-r-2 border-teal-600' : 'text-gray-700 hover:bg-gray-50'} ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            onClick={(e) => item.disabled && e.preventDefault()}
-                          >
-                            <Icon className="h-4 w-4 mr-3 flex-shrink-0" />
-                            <span className="flex-1">{item.label}</span>
-                            {item.badge && (
-                              <span className={`text-xs px-2 py-0.5 rounded ${item.badge === 'Private' ? 'bg-gray-100 text-gray-600' : 'bg-teal-100 text-teal-700'}`}>
-                                {item.badge}
-                              </span>
+                          <div key={item.href}>
+                            {hasChildren ? (
+                              <>
+                                <button
+                                  onClick={() => toggleSubItem(item.label)}
+                                  className={`w-full flex items-center px-4 py-2 text-sm ${isActive ? 'bg-teal-50 text-teal-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                                >
+                                  <Icon className="h-4 w-4 mr-3 flex-shrink-0" />
+                                  <span className="flex-1 text-left">{item.label}</span>
+                                  {isExpanded ? (
+                                    <ChevronUp className="h-3 w-3 text-gray-400" />
+                                  ) : (
+                                    <ChevronDown className="h-3 w-3 text-gray-400" />
+                                  )}
+                                </button>
+                                {isExpanded && (
+                                  <div className="ml-4 border-l border-gray-200 space-y-1">
+                                    {item.children!.map((child) => {
+                                      const ChildIcon = child.icon
+                                      const isChildActive = pathname === child.href
+                                      return (
+                                        <Link
+                                          key={child.href}
+                                          href={child.disabled ? '#' : child.href}
+                                          className={`flex items-center pl-6 pr-4 py-2 text-sm ${isChildActive ? 'bg-teal-50 text-teal-700 border-r-2 border-teal-600' : 'text-gray-600 hover:bg-gray-50'} ${child.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                          onClick={(e) => child.disabled && e.preventDefault()}
+                                        >
+                                          <ChildIcon className="h-4 w-4 mr-3 flex-shrink-0" />
+                                          <span className="flex-1">{child.label}</span>
+                                        </Link>
+                                      )
+                                    })}
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <Link
+                                href={item.disabled ? '#' : item.href}
+                                className={`flex items-center px-4 py-2 text-sm ${isActive ? 'bg-teal-50 text-teal-700 border-r-2 border-teal-600' : 'text-gray-700 hover:bg-gray-50'} ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                onClick={(e) => item.disabled && e.preventDefault()}
+                              >
+                                <Icon className="h-4 w-4 mr-3 flex-shrink-0" />
+                                <span className="flex-1">{item.label}</span>
+                                {item.badge && (
+                                  <span className={`text-xs px-2 py-0.5 rounded ${item.badge === 'Private' ? 'bg-gray-100 text-gray-600' : 'bg-teal-100 text-teal-700'}`}>
+                                    {item.badge}
+                                  </span>
+                                )}
+                              </Link>
                             )}
-                          </Link>
+                          </div>
                         )
                       })}
                     </div>
