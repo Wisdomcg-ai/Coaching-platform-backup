@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import SidebarLayout from '@/components/layout/sidebar-layout'
 import { Toaster } from 'sonner'
+import { BusinessContextProvider } from '@/contexts/BusinessContext'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -19,19 +20,22 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        {/* Global toast notifications */}
-        <Toaster
-          position="top-right"
-          richColors
-          closeButton
-          toastOptions={{
-            duration: 4000,
-          }}
-        />
-        {/* Wrap all page content with SidebarLayout */}
-        <SidebarLayout>
-          {children}
-        </SidebarLayout>
+        {/* Business Context Provider - manages active business for coach/client views */}
+        <BusinessContextProvider>
+          {/* Global toast notifications */}
+          <Toaster
+            position="top-right"
+            richColors
+            closeButton
+            toastOptions={{
+              duration: 4000,
+            }}
+          />
+          {/* Wrap all page content with SidebarLayout */}
+          <SidebarLayout>
+            {children}
+          </SidebarLayout>
+        </BusinessContextProvider>
       </body>
     </html>
   )

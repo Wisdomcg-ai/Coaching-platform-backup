@@ -12,6 +12,7 @@ import { Target, Calendar, Brain, Rocket, ChevronLeft, ChevronRight, CheckCircle
 // Note: Coach view is at /coach/clients/[id]/goals
 import Link from 'next/link'
 import { createBrowserClient } from '@supabase/ssr'
+import { useBusinessContext } from '@/hooks/useBusinessContext'
 
 type StepNumber = 1 | 2 | 3 | 4 | 5
 
@@ -165,6 +166,7 @@ function getSaveStatusDisplay(status: SaveStatus, isDirty: boolean, lastSaved: D
 
 export default function StrategicPlanningPage() {
   const searchParams = useSearchParams()
+  const { activeBusiness, viewerContext } = useBusinessContext()
 
   // Hydration fix: ensure state matches between server and client
   const [mounted, setMounted] = useState(false)
@@ -184,7 +186,7 @@ export default function StrategicPlanningPage() {
     }
   }, [searchParams])
 
-  // Load all data using the hook
+  // Load all data using the hook - pass active business ID when viewing as coach
   const {
     isLoading,
     error,
@@ -223,7 +225,7 @@ export default function StrategicPlanningPage() {
     setOperationalActivities,
     // Save
     saveAllData
-  } = useStrategicPlanning()
+  } = useStrategicPlanning(viewerContext.isViewingAsCoach ? activeBusiness?.id : undefined)
 
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
   const [showKPIModal, setShowKPIModal] = useState(false)

@@ -9,7 +9,8 @@ import {
   TrendingUp,
   ChevronRight,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  Eye
 } from 'lucide-react'
 
 export interface ClientCardData {
@@ -158,23 +159,29 @@ export function ClientCard({ client, onMessage, onSchedule }: ClientCardProps) {
 
         {/* Actions */}
         <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
+          <Link
+            href={`/coach/clients/${client.id}/view/dashboard`}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
+          >
+            <Eye className="w-4 h-4" />
+            Open
+          </Link>
           <button
             onClick={() => onMessage?.(client.id)}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <MessageSquare className="w-4 h-4" />
-            Message
           </button>
           <button
             onClick={() => onSchedule?.(client.id)}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <Calendar className="w-4 h-4" />
-            Schedule
           </button>
           <Link
             href={`/coach/clients/${client.id}`}
-            className="flex items-center justify-center p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+            className="flex items-center justify-center p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Client Profile"
           >
             <ChevronRight className="w-5 h-5" />
           </Link>

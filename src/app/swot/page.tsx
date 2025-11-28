@@ -16,9 +16,11 @@ import { SwotGrid } from '@/components/swot/SwotGrid';
 import { QuarterSelector } from '@/components/swot/QuarterSelector';
 import { createBrowserClient } from '@supabase/ssr';
 import { CheckCircle, AlertCircle, Download, History, TrendingUp } from 'lucide-react';
+import { useBusinessContext } from '@/hooks/useBusinessContext';
 
 export default function SwotPage() {
   const router = useRouter();
+  const { activeBusiness, viewerContext } = useBusinessContext();
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -57,9 +59,11 @@ export default function SwotPage() {
         return;
       }
 
-      // For demo purposes, using user.id as business_id
-      // In production, get the actual business_id from user's profile
-      const businessId = user.id;
+      // Use active business from context when viewing as coach
+      // Otherwise use user.id (SWOT stores with user.id as business_id)
+      const businessId = viewerContext.isViewingAsCoach && activeBusiness?.ownerId
+        ? activeBusiness.ownerId
+        : user.id;
 
       // Check if SWOT exists for this quarter
       const { data: existingSwot, error: fetchError } = await supabase
@@ -139,7 +143,7 @@ export default function SwotPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentQuarter, supabase]);
+  }, [currentQuarter, supabase, activeBusiness?.ownerId, viewerContext.isViewingAsCoach]);
 
   // Organize items into grid categories
   const organizeSwotItems = (items: SwotItem[]) => {
@@ -183,7 +187,10 @@ export default function SwotPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const businessId = user.id;
+      // Use active business from context when viewing as coach
+      const businessId = viewerContext.isViewingAsCoach && activeBusiness?.ownerId
+        ? activeBusiness.ownerId
+        : user.id;
 
       // Get previous 4 quarters' SWOT analyses
       const { data: historicalAnalyses, error } = await supabase
@@ -228,7 +235,7 @@ export default function SwotPage() {
     } catch (err) {
       console.error('Error loading historical data:', err);
     }
-  }, [currentQuarter, supabase, swotItems]);
+  }, [currentQuarter, supabase, swotItems, activeBusiness?.ownerId, viewerContext.isViewingAsCoach]);
 
   // Detect recurring items by comparing titles (simple string matching for MVP)
   const detectRecurringItems = (currentItems: SwotGridData, historicalItems: SwotItem[]) => {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useBusinessContext } from '@/hooks/useBusinessContext'
 import type { FinancialGoals, Rock, DashboardData, DashboardError, DashboardInsight, SuggestedAction } from '../types'
 
 interface UseDashboardDataReturn {
@@ -221,6 +222,7 @@ function generateSuggestedActions(
 
 export function useDashboardData(): UseDashboardDataReturn {
   const supabase = useMemo(() => createClient(), [])
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext()
 
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<DashboardError | null>(null)
@@ -340,6 +342,11 @@ export function useDashboardData(): UseDashboardDataReturn {
 
   const loadDashboardData = useCallback(async () => {
     try {
+      // Wait for context to finish loading
+      if (contextLoading) {
+        return
+      }
+
       setIsLoading(true)
       setError(null)
 
@@ -357,13 +364,20 @@ export function useDashboardData(): UseDashboardDataReturn {
 
       setUserId(user.id)
 
-      const { data: profile } = await supabase
-        .from('business_profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .single()
+      // Use active business from context if available (supports coach view)
+      // Otherwise fall back to fetching user's own business
+      let bId: string
+      if (activeBusiness?.id) {
+        bId = activeBusiness.id
+      } else {
+        const { data: profile } = await supabase
+          .from('business_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .single()
 
-      const bId = profile?.id || user.id
+        bId = profile?.id || user.id
+      }
       setBusinessId(bId)
 
       const currentQuarter = getCurrentQuarter()
@@ -430,7 +444,7 @@ export function useDashboardData(): UseDashboardDataReturn {
       })
       setIsLoading(false)
     }
-  }, [supabase, buildTeamMembersMap, loadAnnualGoals, loadQuarterlyGoals, loadRocks, loadWeeklyGoals])
+  }, [supabase, buildTeamMembersMap, loadAnnualGoals, loadQuarterlyGoals, loadRocks, loadWeeklyGoals, activeBusiness?.id, contextLoading])
 
   useEffect(() => {
     loadDashboardData()
