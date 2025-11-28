@@ -34,10 +34,13 @@ export default function CoachLogin() {
       }
 
       // Check if user is coach or super admin
+      console.log('[CoachLogin] Checking role...')
       const role = await getUserSystemRole()
+      console.log('[CoachLogin] Role:', role)
 
       if (role !== 'coach' && role !== 'super_admin') {
         // Not a coach or admin - sign them out and show error
+        console.log('[CoachLogin] Access denied, role was:', role)
         await supabase.auth.signOut()
         setError('Access denied. Coach privileges required.')
         setLoading(false)
@@ -45,7 +48,8 @@ export default function CoachLogin() {
       }
 
       // Success - redirect to coach dashboard
-      router.push('/coach/clients')
+      console.log('[CoachLogin] Success! Redirecting to /coach/dashboard')
+      router.push('/coach/dashboard')
 
     } catch (err) {
       console.error('Login error:', err)
@@ -133,7 +137,7 @@ export default function CoachLogin() {
 
           {/* Footer Links */}
           <div className="mt-6 text-center space-y-2">
-            <a href="/login" className="text-sm text-indigo-600 hover:text-indigo-700">
+            <a href="/auth/login" className="text-sm text-indigo-600 hover:text-indigo-700">
               Client Login →
             </a>
             <br />

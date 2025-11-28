@@ -123,7 +123,7 @@ export default function AnnualPlanProgressWidget({
           </div>
           <div className="flex items-center gap-2">
             <a
-              href="/annual-plan"
+              href="/goals"
               onClick={(e) => e.stopPropagation()}
               className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium"
             >

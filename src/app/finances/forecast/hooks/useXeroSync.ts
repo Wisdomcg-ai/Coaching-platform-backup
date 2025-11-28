@@ -34,8 +34,13 @@ export function useXeroSync({
   const [isSyncing, setIsSyncing] = useState(false)
 
   const handleConnectXero = useCallback(() => {
-    window.location.href = '/integrations'
-  }, [])
+    if (!businessId) {
+      toast.error('No business found. Please create a business profile first.')
+      return
+    }
+    // Directly start OAuth flow instead of redirecting to integrations
+    window.location.href = `/api/Xero/auth?business_id=${businessId}&return_to=/finances/forecast`
+  }, [businessId])
 
   const handleDisconnectXero = useCallback(() => {
     window.location.href = '/integrations'

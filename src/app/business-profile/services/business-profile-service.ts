@@ -67,16 +67,20 @@ export class BusinessProfileService {
 
       // Step 2: Get or create business_profile record
       // Query by user_id only since one user = one business profile
-      let { data: profile, error: profileError } = await supabase
+      // Use limit(1) with order to handle any duplicate profiles gracefully
+      let { data: profiles, error: profileError } = await supabase
         .from('business_profiles')
         .select('*')
         .eq('user_id', userId)
-        .maybeSingle() // Use maybeSingle() instead of single() to handle 0 results gracefully
+        .order('created_at', { ascending: true })
+        .limit(1)
 
       if (profileError) {
         console.error('[Business Profile Service] ❌ Error fetching profile:', profileError)
         return { business, profile: null, error: profileError.message }
       }
+
+      let profile = profiles && profiles.length > 0 ? profiles[0] : null
 
       // Create profile if doesn't exist
       if (!profile) {

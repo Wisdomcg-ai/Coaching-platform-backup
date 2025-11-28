@@ -226,6 +226,11 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
   const [userName, setUserName] = useState<string>('User Account')
   const [userEmail, setUserEmail] = useState<string>('user@example.com')
 
+  // Don't render client sidebar for coach routes - they have their own layout
+  const isCoachRoute = pathname?.startsWith('/coach')
+  const isAdminRoute = pathname?.startsWith('/admin')
+  const isAuthRoute = pathname?.startsWith('/auth') || pathname?.startsWith('/login')
+
   useEffect(() => {
     const loadUserData = async () => {
       try {
@@ -287,6 +292,11 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
     } catch (error) {
       console.error('Error signing out:', error)
     }
+  }
+
+  // For coach/admin/auth routes, just render children without the client sidebar
+  if (isCoachRoute || isAdminRoute || isAuthRoute) {
+    return <>{children}</>
   }
 
   return (

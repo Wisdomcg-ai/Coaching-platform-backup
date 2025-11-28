@@ -62,7 +62,14 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Define public routes that don't require authentication
-  const publicRoutes = ['/auth/login', '/auth/signup', '/auth/reset-password']
+  const publicRoutes = [
+    '/auth/login',
+    '/auth/signup',
+    '/auth/reset-password',
+    '/coach/login',
+    '/admin/login',
+    '/login'
+  ]
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
 
   // If user is not logged in and trying to access protected routes
@@ -83,7 +90,9 @@ export async function middleware(request: NextRequest) {
       '/business-profile',
       '/assessment',
       '/auth/callback',
-      '/auth/logout'
+      '/auth/logout',
+      '/coach',        // Coach portal doesn't require client onboarding
+      '/admin'         // Admin portal doesn't require client onboarding
     ]
     const isExemptRoute = onboardingExemptRoutes.some(route => pathname.startsWith(route))
 

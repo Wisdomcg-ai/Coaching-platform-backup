@@ -15,7 +15,12 @@ export async function getUserSystemRole(): Promise<SystemRole | null> {
   const supabase = createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  if (!user) {
+    console.log('[Auth] No user found')
+    return null
+  }
+
+  console.log('[Auth] Checking role for user:', user.id)
 
   const { data, error } = await supabase
     .from('system_roles')
@@ -23,8 +28,18 @@ export async function getUserSystemRole(): Promise<SystemRole | null> {
     .eq('user_id', user.id)
     .single()
 
-  if (error || !data) return 'client' // Default to client if no role found
+  if (error) {
+    console.log('[Auth] Error fetching role:', error.message)
+    // If table doesn't exist or no row found, default to client
+    return 'client'
+  }
 
+  if (!data) {
+    console.log('[Auth] No role data found, defaulting to client')
+    return 'client'
+  }
+
+  console.log('[Auth] Found role:', data.role)
   return data.role as SystemRole
 }
 

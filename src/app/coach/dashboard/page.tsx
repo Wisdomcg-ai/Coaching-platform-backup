@@ -1,455 +1,238 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import SidebarLayout from '@/components/layout/sidebar-layout'
-import type { Database } from '@/types/database.types'
-import {
-  Users,
-  TrendingUp,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  Calendar,
-  ChevronRight,
-  RefreshCw,
-  Building2,
-  Activity,
-  MessageCircle,
-  Target,
-  BarChart3,
-  Eye,
-  AlertTriangle,
-  XCircle
-} from 'lucide-react'
+import { DashboardStats } from '@/components/coach/DashboardStats'
+import { TodaySchedule, type Session } from '@/components/coach/TodaySchedule'
+import { ClientQuickList, type Client } from '@/components/coach/ClientQuickList'
+import { ActivityFeed, type ActivityItem } from '@/components/coach/ActivityFeed'
+import { Loader2, AlertTriangle, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
 
-type Business = Database['public']['Tables']['businesses']['Row']
-type Assessment = Database['public']['Tables']['assessments']['Row']
-
-interface ClientData {
-  business: Business
-  latestAssessment?: Assessment
-  daysSinceAssessment?: number
-  needsAttention: boolean
-  attentionReason?: string
-}
-
-export default function CoachDashboard() {
-  const router = useRouter()
+export default function CoachDashboardPage() {
   const supabase = createClient()
-  
+
   const [loading, setLoading] = useState(true)
-  const [clients, setClients] = useState<ClientData[]>([])
   const [stats, setStats] = useState({
-    totalClients: 0,
-    activeThisWeek: 0,
-    needingAttention: 0,
-    assessmentsDue: 0
+    activeClients: 0,
+    sessionsThisWeek: 0,
+    pendingActions: 0,
+    unreadMessages: 0
   })
-  const [selectedView, setSelectedView] = useState<'grid' | 'list'>('grid')
+  const [todaySessions, setTodaySessions] = useState<Session[]>([])
+  const [clients, setClients] = useState<Client[]>([])
+  const [activities, setActivities] = useState<ActivityItem[]>([])
+  const [clientsNeedingAttention, setClientsNeedingAttention] = useState<{
+    id: string
+    name: string
+    reason: string
+  }[]>([])
 
   useEffect(() => {
-    checkAuthAndLoadData()
+    loadDashboardData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function checkAuthAndLoadData() {
+  async function loadDashboardData() {
     try {
       setLoading(true)
-      
-      // Check if user is authenticated and is a coach
+
       const { data: { user } } = await supabase.auth.getUser()
-      
-      if (!user) {
-        router.push('/auth/login')
-        return
-      }
-      
-      // Check if user is a coach (using email for now)
-      if (!user.email?.includes('@wisdomcoaching.com.au')) {
-        // Not a coach, redirect to regular dashboard
-        router.push('/dashboard')
-        return
-      }
-      
-      // Load all businesses and their assessments
-      const { data: businesses, error: businessError } = await supabase
+      if (!user) return
+
+      // Load businesses assigned to this coach
+      const { data: businesses } = await supabase
         .from('businesses')
         .select('*')
+        .eq('assigned_coach_id', user.id)
         .order('business_name')
-      
-      if (businessError) {
-        console.error('Error loading businesses:', businessError)
-        return
-      }
-      
-      // Load assessments for all businesses
-      const { data: assessments, error: assessmentError } = await supabase
-        .from('assessments')
-        .select('*')
-        .order('created_at', { ascending: false })
-      
-      if (assessmentError) {
-        console.error('Error loading assessments:', assessmentError)
-      }
-      
-      // Process client data
-      const clientsData: ClientData[] = []
-      let activeCount = 0
-      let attentionCount = 0
-      let assessmentsDueCount = 0
-      
-      for (const business of businesses || []) {
-        // Find latest assessment for this business
-        const businessAssessments = assessments?.filter(a => a.business_id === business.id) || []
-        const latestAssessment = businessAssessments[0]
-        
-        // Calculate days since assessment
-        let daysSinceAssessment = null
-        if (latestAssessment) {
-          daysSinceAssessment = Math.floor(
-            (Date.now() - new Date(latestAssessment.created_at).getTime()) / (1000 * 60 * 60 * 24)
-          )
+
+      // Sessions, messages, and action_items tables may not exist yet
+      // Use empty defaults for launch-ready state
+      const sessions: any[] = []
+      const actionsCount = 0
+      const messagesCount = 0
+      const recentActions: any[] = []
+
+      // Process clients data
+      const processedClients: Client[] = (businesses || []).map(b => {
+        return {
+          id: b.id,
+          businessName: b.business_name || 'Unnamed Business',
+          status: (b.status as Client['status']) || 'active',
+          lastSessionDate: b.last_session_date || undefined,
+          healthScore: b.health_score || undefined,
+          industry: b.industry || undefined,
+          unreadMessages: 0,
+          pendingActions: 0
         }
-        
-        // Determine if needs attention
-        let needsAttention = false
-        let attentionReason = ''
-        
-        if (!latestAssessment) {
-          needsAttention = true
-          attentionReason = 'No assessment completed'
-          assessmentsDueCount++
-        } else if (daysSinceAssessment && daysSinceAssessment > 90) {
-          needsAttention = true
-          attentionReason = 'Assessment overdue (90+ days)'
-          assessmentsDueCount++
-        } else if (latestAssessment.health_status === 'STRUGGLING' || latestAssessment.health_status === 'URGENT') {
-          needsAttention = true
-          attentionReason = `Health status: ${latestAssessment.health_status}`
-        }
-        
-        if (needsAttention) attentionCount++
-        if (daysSinceAssessment && daysSinceAssessment < 7) activeCount++
-        
-        clientsData.push({
-          business,
-          latestAssessment,
-          daysSinceAssessment,
-          needsAttention,
-          attentionReason
-        })
-      }
-      
-      setClients(clientsData)
-      setStats({
-        totalClients: clientsData.length,
-        activeThisWeek: activeCount,
-        needingAttention: attentionCount,
-        assessmentsDue: assessmentsDueCount
       })
-      
+
+      // Identify clients needing attention
+      const attention: { id: string; name: string; reason: string }[] = []
+      for (const client of processedClients) {
+        if (client.status === 'at-risk') {
+          attention.push({
+            id: client.id,
+            name: client.businessName,
+            reason: 'Marked as at-risk'
+          })
+        } else if (client.healthScore !== undefined && client.healthScore < 50) {
+          attention.push({
+            id: client.id,
+            name: client.businessName,
+            reason: `Low health score (${client.healthScore}%)`
+          })
+        } else if (client.lastSessionDate) {
+          const lastSession = new Date(client.lastSessionDate)
+          const daysSince = Math.floor((Date.now() - lastSession.getTime()) / (1000 * 60 * 60 * 24))
+          if (daysSince > 30) {
+            attention.push({
+              id: client.id,
+              name: client.businessName,
+              reason: `No session in ${daysSince} days`
+            })
+          }
+        }
+      }
+
+      // Process today's sessions
+      const processedSessions: Session[] = (sessions || []).map(s => {
+        const sessionData = s as any
+        const scheduledAt = new Date(s.scheduled_at)
+        const endTime = new Date(scheduledAt.getTime() + (s.duration_minutes || 60) * 60000)
+
+        return {
+          id: s.id,
+          clientName: sessionData.businesses?.business_name || 'Unknown Client',
+          clientId: s.business_id,
+          time: scheduledAt.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false }),
+          endTime: endTime.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false }),
+          type: (s.session_type as Session['type']) || 'video',
+          status: (s.status as Session['status']) || 'upcoming',
+          prepCompleted: s.prep_completed || false
+        }
+      })
+
+      // Process activity feed
+      const processedActivities: ActivityItem[] = (recentActions || []).map(a => {
+        const actionData = a as any
+        return {
+          id: a.id,
+          type: 'action_completed' as const,
+          clientId: a.business_id,
+          clientName: actionData.businesses?.business_name || 'Unknown',
+          description: `Completed: ${a.title}`,
+          timestamp: a.updated_at
+        }
+      })
+
+      setStats({
+        activeClients: processedClients.filter(c => c.status === 'active').length,
+        sessionsThisWeek: 0,
+        pendingActions: actionsCount || 0,
+        unreadMessages: messagesCount || 0
+      })
+      setTodaySessions(processedSessions)
+      setClients(processedClients)
+      setActivities(processedActivities)
+      setClientsNeedingAttention(attention)
+
     } catch (error) {
-      console.error('Error loading coach dashboard:', error)
+      console.error('Error loading dashboard:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const getHealthColor = (status: string | null | undefined) => {
-    switch (status?.toUpperCase()) {
-      case 'THRIVING': return 'bg-green-100 text-green-800 border-green-200'
-      case 'STRONG': return 'bg-teal-100 text-teal-800 border-teal-200'
-      case 'STABLE': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
-      case 'BUILDING': return 'bg-orange-100 text-orange-800 border-orange-200'
-      case 'STRUGGLING': return 'bg-red-100 text-red-800 border-red-200'
-      case 'URGENT': return 'bg-red-200 text-red-900 border-red-300'
-      default: return 'bg-gray-100 text-gray-800 border-gray-200'
-    }
-  }
-
-  const getHealthIcon = (status: string | null | undefined) => {
-    switch (status?.toUpperCase()) {
-      case 'THRIVING': 
-      case 'STRONG': 
-        return <CheckCircle className="h-5 w-5" />
-      case 'STABLE':
-      case 'BUILDING':
-        return <Activity className="h-5 w-5" />
-      case 'STRUGGLING':
-      case 'URGENT':
-        return <AlertTriangle className="h-5 w-5" />
-      default:
-        return <AlertCircle className="h-5 w-5" />
-    }
-  }
-
   if (loading) {
     return (
-      <SidebarLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <RefreshCw className="h-8 w-8 animate-spin text-teal-600 mx-auto mb-4" />
-            <p className="text-gray-600">Loading coach dashboard...</p>
-          </div>
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto mb-4" />
+          <p className="text-gray-500">Loading dashboard...</p>
         </div>
-      </SidebarLayout>
+      </div>
     )
   }
 
   return (
-    <SidebarLayout>
-      <div className="p-6">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
-          <p className="text-gray-600 mt-2">Overview of all your coaching clients</p>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Clients</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.totalClients}</p>
-              </div>
-              <Users className="h-10 w-10 text-teal-500" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Active This Week</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.activeThisWeek}</p>
-              </div>
-              <TrendingUp className="h-10 w-10 text-green-500" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Need Attention</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.needingAttention}</p>
-              </div>
-              <AlertCircle className="h-10 w-10 text-orange-500" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Assessments Due</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.assessmentsDue}</p>
-              </div>
-              <Clock className="h-10 w-10 text-red-500" />
-            </div>
-          </div>
-        </div>
-
-        {/* Clients Needing Attention */}
-        {clients.filter(c => c.needsAttention).length > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-8">
-            <h2 className="text-lg font-semibold text-red-900 mb-4 flex items-center">
-              <AlertTriangle className="h-5 w-5 mr-2" />
-              Clients Needing Attention
-            </h2>
-            <div className="space-y-3">
-              {clients.filter(c => c.needsAttention).map((client) => (
-                <div key={client.business.id} className="flex items-center justify-between bg-white rounded-lg p-4">
-                  <div className="flex items-center">
-                    <AlertCircle className="h-5 w-5 text-red-500 mr-3" />
-                    <div>
-                      <p className="font-medium text-gray-900">{client.business.business_name}</p>
-                      <p className="text-sm text-gray-600">{client.attentionReason}</p>
-                    </div>
-                  </div>
-                  <Link
-                    href={`/dashboard?client=${client.business.id}`}
-                    className="text-teal-600 hover:text-teal-700 font-medium text-sm flex items-center"
-                  >
-                    View Client <ChevronRight className="h-4 w-4 ml-1" />
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* View Toggle */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">All Clients</h2>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setSelectedView('grid')}
-              className={`px-4 py-2 rounded-lg font-medium ${
-                selectedView === 'grid' 
-                  ? 'bg-teal-600 text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Grid View
-            </button>
-            <button
-              onClick={() => setSelectedView('list')}
-              className={`px-4 py-2 rounded-lg font-medium ${
-                selectedView === 'list' 
-                  ? 'bg-teal-600 text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              List View
-            </button>
-          </div>
-        </div>
-
-        {/* Clients Grid/List */}
-        {selectedView === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {clients.map((client) => (
-              <div key={client.business.id} className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow">
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <Building2 className="h-8 w-8 text-gray-400" />
-                    {client.needsAttention && (
-                      <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded-full">
-                        Attention
-                      </span>
-                    )}
-                  </div>
-                  
-                  <h3 className="font-semibold text-gray-900 mb-2">
-                    {client.business.business_name}
-                  </h3>
-                  
-                  <p className="text-sm text-gray-600 mb-4">
-                    {client.business.industry || 'Industry not set'}
-                  </p>
-                  
-                  {client.latestAssessment ? (
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Health Score</span>
-                        <span className="font-bold text-lg">
-                          {client.latestAssessment.overall_score || 0}%
-                        </span>
-                      </div>
-                      <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                        getHealthColor(client.latestAssessment.health_status)
-                      }`}>
-                        {getHealthIcon(client.latestAssessment.health_status)}
-                        <span className="ml-2">{client.latestAssessment.health_status || 'Unknown'}</span>
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        Last assessed {client.daysSinceAssessment} days ago
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="mb-4">
-                      <p className="text-sm text-gray-500 italic">No assessment data</p>
-                    </div>
-                  )}
-                  
-                  <Link
-                    href={`/dashboard?client=${client.business.id}`}
-                    className="w-full bg-teal-600 text-white py-2 px-4 rounded-lg hover:bg-teal-700 transition-colors text-center block font-medium"
-                  >
-                    View Client
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Client
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Industry
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Health Score
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Assessment
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {clients.map((client) => (
-                  <tr key={client.business.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Building2 className="h-5 w-5 text-gray-400 mr-3" />
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {client.business.business_name}
-                          </div>
-                          {client.needsAttention && (
-                            <div className="text-xs text-red-600">
-                              {client.attentionReason}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {client.business.industry || 'Not set'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {client.latestAssessment ? (
-                        <div className="text-sm font-bold text-gray-900">
-                          {client.latestAssessment.overall_score || 0}%
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-500">-</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {client.latestAssessment ? (
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          getHealthColor(client.latestAssessment.health_status)
-                        }`}>
-                          {client.latestAssessment.health_status}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-gray-500">No data</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {client.daysSinceAssessment !== null && client.daysSinceAssessment !== undefined
-                        ? `${client.daysSinceAssessment} days ago`
-                        : 'Never'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <Link
-                        href={`/dashboard?client=${client.business.id}`}
-                        className="text-teal-600 hover:text-teal-700 font-medium flex items-center"
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+    <div className="p-6 space-y-6">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Command Center</h1>
+        <p className="text-gray-500 mt-1">Welcome back! Here&apos;s what&apos;s happening today.</p>
       </div>
-    </SidebarLayout>
+
+      {/* Stats Row */}
+      <DashboardStats
+        activeClients={stats.activeClients}
+        sessionsThisWeek={stats.sessionsThisWeek}
+        pendingActions={stats.pendingActions}
+        unreadMessages={stats.unreadMessages}
+      />
+
+      {/* Clients Needing Attention Alert */}
+      {clientsNeedingAttention.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <div className="bg-amber-100 p-2 rounded-lg">
+              <AlertTriangle className="w-5 h-5 text-amber-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-amber-900">
+                {clientsNeedingAttention.length} client{clientsNeedingAttention.length !== 1 ? 's' : ''} need attention
+              </h3>
+              <div className="mt-2 space-y-2">
+                {clientsNeedingAttention.slice(0, 3).map((client) => (
+                  <div key={client.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
+                    <div>
+                      <span className="font-medium text-gray-900">{client.name}</span>
+                      <span className="text-gray-500 text-sm ml-2">- {client.reason}</span>
+                    </div>
+                    <Link
+                      href={`/coach/clients/${client.id}`}
+                      className="text-amber-600 hover:text-amber-700 text-sm font-medium flex items-center"
+                    >
+                      View <ChevronRight className="w-4 h-4" />
+                    </Link>
+                  </div>
+                ))}
+                {clientsNeedingAttention.length > 3 && (
+                  <Link
+                    href="/coach/clients?filter=attention"
+                    className="text-sm text-amber-700 hover:text-amber-800 font-medium"
+                  >
+                    View all {clientsNeedingAttention.length} clients
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column */}
+        <div className="space-y-6">
+          <TodaySchedule
+            sessions={todaySessions}
+            onStartSession={(id) => console.log('Start session:', id)}
+            onViewPrep={(id) => console.log('View prep:', id)}
+          />
+          <ActivityFeed activities={activities} />
+        </div>
+
+        {/* Right Column */}
+        <div>
+          <ClientQuickList
+            clients={clients}
+            onMessageClient={(id) => console.log('Message client:', id)}
+            onScheduleSession={(id) => console.log('Schedule session:', id)}
+          />
+        </div>
+      </div>
+    </div>
   )
 }
