@@ -115,7 +115,7 @@ CREATE POLICY "coach_update_session_notes" ON session_notes
     )
   );
 
--- Business owner/partner can see all their sessions
+-- Business owner/partner can see all their sessions (via business_users or direct ownership)
 CREATE POLICY "business_owner_view_session_notes" ON session_notes
   FOR SELECT
   USING (
@@ -124,7 +124,6 @@ CREATE POLICY "business_owner_view_session_notes" ON session_notes
       WHERE bu.business_id = session_notes.business_id
       AND bu.user_id = auth.uid()
       AND bu.role IN ('owner', 'partner')
-      AND bu.status = 'active'
     )
     OR EXISTS (
       SELECT 1 FROM businesses b
@@ -141,7 +140,6 @@ CREATE POLICY "business_user_insert_session_notes" ON session_notes
       SELECT 1 FROM business_users bu
       WHERE bu.business_id = session_notes.business_id
       AND bu.user_id = auth.uid()
-      AND bu.status = 'active'
     )
     OR EXISTS (
       SELECT 1 FROM businesses b
@@ -158,7 +156,6 @@ CREATE POLICY "business_user_update_session_notes" ON session_notes
       SELECT 1 FROM business_users bu
       WHERE bu.business_id = session_notes.business_id
       AND bu.user_id = auth.uid()
-      AND bu.status = 'active'
     )
     OR EXISTS (
       SELECT 1 FROM businesses b
@@ -176,7 +173,6 @@ CREATE POLICY "team_member_view_session_notes" ON session_notes
       WHERE bu.business_id = session_notes.business_id
       AND bu.user_id = auth.uid()
       AND bu.role = 'team_member'
-      AND bu.status = 'active'
     )
     AND (
       visible_to_all_users = TRUE
@@ -229,7 +225,6 @@ CREATE POLICY "business_owner_manage_attendees" ON session_attendees
           WHERE bu.business_id = sn.business_id
           AND bu.user_id = auth.uid()
           AND bu.role IN ('owner', 'partner')
-          AND bu.status = 'active'
         )
         OR EXISTS (
           SELECT 1 FROM businesses b
