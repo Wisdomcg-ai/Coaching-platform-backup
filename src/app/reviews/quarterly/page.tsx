@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { SnapshotService } from '@/app/goals/services/snapshot-service'
+import { useBusinessContext } from '@/hooks/useBusinessContext'
 import { StrategicInitiative, KPIData, QuarterType, InitiativeStatus } from '@/app/goals/types'
 import {
   CheckCircle,
@@ -24,6 +25,7 @@ import {
 export default function QuarterlyReviewPage() {
   const router = useRouter()
   const supabase = createClient()
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext()
 
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -52,8 +54,10 @@ export default function QuarterlyReviewPage() {
   const [activeSection, setActiveSection] = useState<'initiatives' | 'kpis' | 'reflections'>('initiatives')
 
   useEffect(() => {
-    loadData()
-  }, [])
+    if (!contextLoading) {
+      loadData()
+    }
+  }, [contextLoading, activeBusiness?.id])
 
   const loadData = async () => {
     try {
@@ -63,20 +67,44 @@ export default function QuarterlyReviewPage() {
         router.push('/auth/login')
         return
       }
-      setUserId(user.id)
 
-      const { data: businesses } = await supabase
-        .from('businesses')
-        .select('id')
-        .eq('owner_id', user.id)
-        .limit(1)
+      // Use activeBusiness ownerId if viewing as coach, otherwise current user
+      const targetUserId = activeBusiness?.ownerId || user.id
+      setUserId(targetUserId)
 
-      if (!businesses || businesses.length === 0) {
-        setIsLoading(false)
-        return
+      // Determine the correct business_profiles.id for data queries
+      // Strategic initiatives and KPIs use business_profiles.id
+      let bizId: string | null = null
+      if (activeBusiness?.id) {
+        // Coach view: activeBusiness.id is businesses.id
+        // Need to look up the corresponding business_profiles.id
+        const { data: profile } = await supabase
+          .from('business_profiles')
+          .select('id')
+          .eq('business_id', activeBusiness.id)
+          .single()
+
+        if (profile?.id) {
+          bizId = profile.id
+        } else {
+          console.warn('[Quarterly Review] No business_profiles found for businesses.id:', activeBusiness.id)
+          bizId = activeBusiness.id // Fallback
+        }
+      } else {
+        // Get user's own business profile
+        const { data: profile } = await supabase
+          .from('business_profiles')
+          .select('id')
+          .eq('user_id', targetUserId)
+          .single()
+
+        if (!profile?.id) {
+          setIsLoading(false)
+          return
+        }
+        bizId = profile.id
       }
 
-      const bizId = businesses[0].id
       setBusinessId(bizId)
 
       // Get current quarter
@@ -87,7 +115,7 @@ export default function QuarterlyReviewPage() {
       const { data: initiativesData } = await supabase
         .from('strategic_initiatives')
         .select('*')
-        .eq('business_id', bizId)
+        .eq('business_id', bizId!)
         .eq('year_assigned', quarter.year)
         .eq('quarter_assigned', quarter.quarter)
 
@@ -132,7 +160,7 @@ export default function QuarterlyReviewPage() {
         setKpis(mappedKpis)
 
         // Load existing actuals for this quarter
-        const actuals = await SnapshotService.getKPIActuals(bizId, {
+        const actuals = await SnapshotService.getKPIActuals(bizId!, {
           year: quarter.year,
           quarter: quarter.quarter
         })

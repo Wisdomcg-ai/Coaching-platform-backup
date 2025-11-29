@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useBusinessContext } from '@/contexts/BusinessContext';
 import { quarterlyReviewService } from '../services/quarterly-review-service';
 import type {
   QuarterlyReview,
@@ -98,6 +99,7 @@ interface UseQuarterlyReviewReturn {
 
 export function useQuarterlyReview(options: UseQuarterlyReviewOptions = {}): UseQuarterlyReviewReturn {
   const supabase = createClient();
+  const { activeBusiness } = useBusinessContext();
 
   // Determine quarter/year
   const currentQtr = getCurrentQuarter();
@@ -124,8 +126,16 @@ export function useQuarterlyReview(options: UseQuarterlyReviewOptions = {}): Use
       }
       setUserId(user.id);
 
-      if (!options.businessId) {
-        // Fetch user's business
+      // Determine which business to use:
+      // 1. If options.businessId is provided (explicit), use it
+      // 2. If activeBusiness is set (coach viewing client), use it
+      // 3. Otherwise, fetch user's own business
+      if (options.businessId) {
+        setBusinessId(options.businessId);
+      } else if (activeBusiness?.id) {
+        setBusinessId(activeBusiness.id);
+      } else {
+        // Fetch user's own business
         const { data: business } = await supabase
           .from('businesses')
           .select('id')
@@ -142,7 +152,7 @@ export function useQuarterlyReview(options: UseQuarterlyReviewOptions = {}): Use
     };
 
     getUserAndBusiness();
-  }, [options.businessId, supabase]);
+  }, [options.businessId, supabase, activeBusiness?.id]);
 
   // Initialize or fetch review
   const initReview = useCallback(async () => {

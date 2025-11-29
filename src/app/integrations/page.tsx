@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Link2, CheckCircle, XCircle, RefreshCw, Trash2, ExternalLink, Plus, Settings } from 'lucide-react'
+import { useBusinessContext } from '@/hooks/useBusinessContext'
 
 interface Integration {
   id: string
@@ -16,6 +17,7 @@ interface Integration {
 
 export default function IntegrationsPage() {
   const supabase = createClient()
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext()
   const [loading, setLoading] = useState(true)
   const [xeroConnected, setXeroConnected] = useState(false)
   const [xeroData, setXeroData] = useState<any>(null)
@@ -23,8 +25,10 @@ export default function IntegrationsPage() {
   const [businessId, setBusinessId] = useState<string | null>(null)
 
   useEffect(() => {
-    loadIntegrations()
-  }, [])
+    if (!contextLoading) {
+      loadIntegrations()
+    }
+  }, [contextLoading, activeBusiness?.id])
 
   async function loadIntegrations() {
     setLoading(true)
@@ -34,24 +38,31 @@ export default function IntegrationsPage() {
 
     console.log('[Integrations] User ID:', user.id)
 
-    // Get user's business first to get the business_id
-    const { data: businessData, error: businessError } = await supabase
-      .from('businesses')
-      .select('id')
-      .eq('owner_id', user.id)
-      .maybeSingle()
+    // Use activeBusiness if viewing as coach, otherwise get user's own business
+    let bizId: string | null = null
+    if (activeBusiness?.id) {
+      bizId = activeBusiness.id
+    } else {
+      // Get user's business first to get the business_id
+      const { data: businessData, error: businessError } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('owner_id', user.id)
+        .maybeSingle()
 
-    console.log('[Integrations] Business data:', businessData)
-    console.log('[Integrations] Business error:', businessError)
+      console.log('[Integrations] Business data:', businessData)
+      console.log('[Integrations] Business error:', businessError)
+      bizId = businessData?.id || null
+    }
 
-    if (businessData) {
-      setBusinessId(businessData.id)
+    if (bizId) {
+      setBusinessId(bizId)
 
       // Check Xero connection
       const { data: xeroIntegration, error: xeroError } = await supabase
         .from('xero_connections')
         .select('*')
-        .eq('business_id', businessData.id)
+        .eq('business_id', bizId)
         .maybeSingle()
 
       console.log('[Integrations] Xero data:', xeroIntegration)

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Plus, Trash2, UserPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { useBusinessContext } from '@/hooks/useBusinessContext';
 
 interface HiringPriority {
   role: string;
@@ -25,6 +26,7 @@ export default function HiringRoadmapPage() {
   const supabase = createClient();
   const saveTimeoutRef = useRef<NodeJS.Timeout>();
   const lastSavedDataRef = useRef<string>('');
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -44,8 +46,10 @@ export default function HiringRoadmapPage() {
   });
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (!contextLoading) {
+      loadData();
+    }
+  }, [contextLoading, activeBusiness?.id]);
 
   const loadData = async () => {
     try {
@@ -57,11 +61,14 @@ export default function HiringRoadmapPage() {
         return;
       }
 
+      // Use activeBusiness ownerId if viewing as coach, otherwise current user
+      const targetUserId = activeBusiness?.ownerId || user.id;
+
       // Load from team_data table
       const { data: existingData } = await supabase
         .from('team_data')
         .select('hiring_roadmap')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .single();
 
       if (existingData?.hiring_roadmap) {
@@ -103,10 +110,13 @@ export default function HiringRoadmapPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Use activeBusiness ownerId if viewing as coach, otherwise current user
+      const targetUserId = activeBusiness?.ownerId || user.id;
+
       const { error } = await supabase
         .from('team_data')
         .upsert({
-          user_id: user.id,
+          user_id: targetUserId,
           hiring_roadmap: formData,
           updated_at: new Date().toISOString()
         }, {

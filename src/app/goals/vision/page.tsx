@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Navigation from '@/components/Navigation'
 import { Calculator, Plus, Trash2, ChevronDown, ChevronUp, Edit2 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
 import ProfitCalculator from '@/components/ProfitCalculator'
+import { useBusinessContext } from '@/hooks/useBusinessContext'
 
 interface VisionTarget {
   id?: string
@@ -76,6 +77,8 @@ const PEOPLE_METRICS = [
 
 export default function VisionTargetsPage() {
   const router = useRouter()
+  const supabase = createClient()
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [businessId, setBusinessId] = useState<string>('')
@@ -103,8 +106,10 @@ export default function VisionTargetsPage() {
   })
 
   useEffect(() => {
-    checkAuth()
-  }, [])
+    if (!contextLoading) {
+      checkAuth()
+    }
+  }, [contextLoading, activeBusiness?.id])
 
   const checkAuth = async () => {
     try {
@@ -114,15 +119,33 @@ export default function VisionTargetsPage() {
         return
       }
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('business_id')
-        .eq('id', user.id)
-        .single()
+      // Determine the correct business_profiles.id for data queries
+      // Vision targets are stored with business_profiles.id
+      let bizId: string | null = null
+      if (activeBusiness?.id) {
+        // Coach view: activeBusiness.id is businesses.id
+        // Need to look up the corresponding business_profiles.id
+        const { data: profile } = await supabase
+          .from('business_profiles')
+          .select('id')
+          .eq('business_id', activeBusiness.id)
+          .single()
 
-      if (profile?.business_id) {
-        setBusinessId(profile.business_id)
-        await fetchVisionTargets(profile.business_id)
+        bizId = profile?.id || null
+      } else {
+        // Get user's own business profile
+        const { data: profile } = await supabase
+          .from('business_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .single()
+
+        bizId = profile?.id || null
+      }
+
+      if (bizId) {
+        setBusinessId(bizId)
+        await fetchVisionTargets(bizId)
       } else {
         router.push('/assessment')
       }

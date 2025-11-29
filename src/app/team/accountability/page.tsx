@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { useBusinessContext } from '@/hooks/useBusinessContext';
 
 interface Role {
   function: string;
@@ -22,6 +23,7 @@ export default function AccountabilityChartPage() {
   const supabase = createClient();
   const saveTimeoutRef = useRef<NodeJS.Timeout>();
   const lastSavedDataRef = useRef<string>('');
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -42,8 +44,10 @@ export default function AccountabilityChartPage() {
   });
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (!contextLoading) {
+      loadData();
+    }
+  }, [contextLoading, activeBusiness?.id]);
 
   const loadData = async () => {
     try {
@@ -55,11 +59,14 @@ export default function AccountabilityChartPage() {
         return;
       }
 
+      // Use activeBusiness ownerId if viewing as coach, otherwise current user
+      const targetUserId = activeBusiness?.ownerId || user.id;
+
       // Load from team_data table
       const { data: existingData } = await supabase
         .from('team_data')
         .select('accountability_chart')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .single();
 
       if (existingData?.accountability_chart) {
@@ -101,10 +108,13 @@ export default function AccountabilityChartPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Use activeBusiness ownerId if viewing as coach, otherwise current user
+      const targetUserId = activeBusiness?.ownerId || user.id;
+
       const { error } = await supabase
         .from('team_data')
         .upsert({
-          user_id: user.id,
+          user_id: targetUserId,
           accountability_chart: formData,
           updated_at: new Date().toISOString()
         }, {

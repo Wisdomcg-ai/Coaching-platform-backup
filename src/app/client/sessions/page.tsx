@@ -13,6 +13,7 @@ import {
   CheckCircle,
   AlertCircle
 } from 'lucide-react'
+import { useBusinessContext } from '@/hooks/useBusinessContext'
 
 interface Session {
   id: string
@@ -26,31 +27,40 @@ interface Session {
 
 export default function SessionsPage() {
   const supabase = createClient()
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext()
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadSessions()
-  }, [])
+    if (!contextLoading) {
+      loadSessions()
+    }
+  }, [contextLoading, activeBusiness?.id])
 
   async function loadSessions() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    // Get user's business
-    const { data: businessData } = await supabase
-      .from('businesses')
-      .select('id')
-      .eq('owner_id', user.id)
-      .single()
+    // Use activeBusiness if viewing as coach, otherwise get user's own business
+    let bizId: string | null = null
+    if (activeBusiness?.id) {
+      bizId = activeBusiness.id
+    } else {
+      const { data: businessData } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('owner_id', user.id)
+        .single()
+      bizId = businessData?.id || null
+    }
 
-    if (!businessData) {
+    if (!bizId) {
       setLoading(false)
       return
     }
 
     // Get sessions from API
-    const res = await fetch(`/api/sessions?business_id=${businessData.id}`)
+    const res = await fetch(`/api/sessions?business_id=${bizId}`)
     const data = await res.json()
 
     if (data.success) {

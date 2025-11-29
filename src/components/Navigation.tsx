@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
 import { 
   Home, 
   Target, 
@@ -24,6 +24,7 @@ export default function Navigation() {
   const [isOpen, setIsOpen] = useState(false)
 
   const handleLogout = async () => {
+    const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/auth/login')
   }

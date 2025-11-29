@@ -1,52 +1,64 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/client';
 import { DollarSign, TrendingUp, TrendingDown, Activity } from 'lucide-react';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { useBusinessContext } from '@/hooks/useBusinessContext';
 
 export default function FinancialsPage() {
-  const [businesses, setBusinesses] = useState<any[]>([]);
-  const [selectedBusiness, setSelectedBusiness] = useState('');
+  const supabase = createClient();
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext();
   const [metrics, setMetrics] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadBusinesses();
-  }, []);
-
-  useEffect(() => {
-    if (selectedBusiness) {
-      loadMetrics(selectedBusiness);
+    if (!contextLoading) {
+      loadMetrics();
     }
-  }, [selectedBusiness]);
+  }, [contextLoading, activeBusiness?.id]);
 
-  async function loadBusinesses() {
-    const { data } = await supabase
-      .from('businesses')
-      .select('id, name')
-      .order('name');
-    
-    if (data) {
-      setBusinesses(data);
-      if (data.length > 0) setSelectedBusiness(data[0].id);
-    }
-  }
-
-  async function loadMetrics(businessId: string) {
+  async function loadMetrics() {
     setLoading(true);
+
+    // Determine the correct business_profiles.id for data queries
+    let bizId: string | null = null;
+
+    if (activeBusiness?.id) {
+      // Coach view: activeBusiness.id is businesses.id
+      // Need to look up the corresponding business_profiles.id
+      const { data: profile } = await supabase
+        .from('business_profiles')
+        .select('id')
+        .eq('business_id', activeBusiness.id)
+        .single();
+
+      bizId = profile?.id || null;
+    } else {
+      // Get current user's business profile
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('business_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+        bizId = profile?.id || null;
+      }
+    }
+
+    if (!bizId) {
+      setLoading(false);
+      return;
+    }
+
     const { data } = await supabase
       .from('financial_metrics')
       .select('*')
-      .eq('business_id', businessId)
+      .eq('business_id', bizId)
       .order('metric_date', { ascending: false })
       .limit(1)
       .single();
-    
+
     setMetrics(data);
     setLoading(false);
   }
@@ -66,18 +78,12 @@ export default function FinancialsPage() {
     <div className="p-8 max-w-7xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-4">Financial Dashboard</h1>
-        <select
-          value={selectedBusiness}
-          onChange={(e) => setSelectedBusiness(e.target.value)}
-          className="px-4 py-2 border rounded-lg"
-        >
-          {businesses.map(b => (
-            <option key={b.id} value={b.id}>{b.name}</option>
-          ))}
-        </select>
+        {activeBusiness?.name && (
+          <p className="text-gray-600">{activeBusiness.name}</p>
+        )}
       </div>
 
-      {loading ? (
+      {loading || contextLoading ? (
         <div className="text-center py-12">Loading...</div>
       ) : metrics ? (
         <div className="space-y-6">
@@ -154,4 +160,3 @@ export default function FinancialsPage() {
     </div>
   );
 }
-EOF

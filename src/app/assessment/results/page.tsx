@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, Trash2, Plus, AlertTriangle, FileText, Calendar, CheckCircle, XCircle } from 'lucide-react'
 
 interface Assessment {
@@ -28,6 +28,7 @@ export default function ManageAssessments() {
 
   const loadAssessments = async () => {
     try {
+      const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.push('/auth/login')
@@ -66,6 +67,7 @@ export default function ManageAssessments() {
   const deleteAssessment = async (assessmentId: string) => {
     setDeleting(assessmentId)
     try {
+      const supabase = createClient()
       const { error } = await supabase
         .from('assessments')
         .delete()
@@ -93,6 +95,7 @@ export default function ManageAssessments() {
 
     setDeleting('all')
     try {
+      const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 

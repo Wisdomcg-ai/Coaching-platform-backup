@@ -7,8 +7,11 @@ import {
   ChevronRight,
   Check,
   CheckCheck,
-  Clock
+  Clock,
+  FileText,
+  Download
 } from 'lucide-react'
+import { formatFileSize } from '@/lib/services/messageAttachments'
 
 export interface Message {
   id: string
@@ -18,6 +21,10 @@ export interface Message {
   senderType: 'coach' | 'client'
   createdAt: string
   status: 'sending' | 'sent' | 'delivered' | 'read'
+  attachmentUrl?: string
+  attachmentName?: string
+  attachmentSize?: number
+  attachmentType?: string
 }
 
 interface MessageThreadProps {
@@ -176,7 +183,53 @@ export function MessageThread({
                               : 'bg-white text-gray-900 rounded-bl-md shadow-sm border border-gray-100'
                           }`}
                         >
-                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                          {message.content && (
+                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                          )}
+
+                          {/* Attachment */}
+                          {message.attachmentUrl && (
+                            <div className={`${message.content ? 'mt-2 pt-2 border-t' : ''} ${
+                              isOwn ? 'border-indigo-500' : 'border-gray-200'
+                            }`}>
+                              {message.attachmentType?.startsWith('image/') ? (
+                                <a
+                                  href={message.attachmentUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block"
+                                >
+                                  <img
+                                    src={message.attachmentUrl}
+                                    alt={message.attachmentName || 'Attached image'}
+                                    className="max-w-xs rounded-lg hover:opacity-90 transition-opacity"
+                                  />
+                                </a>
+                              ) : (
+                                <a
+                                  href={message.attachmentUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`flex items-center gap-2 p-2 rounded-lg transition-colors ${
+                                    isOwn
+                                      ? 'bg-indigo-500 hover:bg-indigo-400 text-white'
+                                      : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                                  }`}
+                                >
+                                  <FileText className="w-5 h-5 flex-shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate">{message.attachmentName}</p>
+                                    {message.attachmentSize && (
+                                      <p className={`text-xs ${isOwn ? 'text-indigo-200' : 'text-gray-500'}`}>
+                                        {formatFileSize(message.attachmentSize)}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <Download className="w-4 h-4 flex-shrink-0" />
+                                </a>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className={`flex items-center gap-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
                           <span className={`text-xs ${isOwn ? 'text-gray-500' : 'text-gray-400'}`}>

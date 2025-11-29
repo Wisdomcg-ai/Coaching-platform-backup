@@ -15,6 +15,7 @@ import {
   FileCode,
   Calendar
 } from 'lucide-react'
+import { useBusinessContext } from '@/hooks/useBusinessContext'
 
 interface Document {
   id: string

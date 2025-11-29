@@ -268,12 +268,12 @@ export default function ForecastWizard({
 
     // Get month keys for validation
     const currentYearMonthKeys = ForecastService.getCurrentYearMonthKeys(
-      forecast.baseline_end_month,
-      forecast.forecast_start_month
+      forecast.baseline_end_month!,
+      forecast.forecast_start_month!
     )
     const forecastMonthKeys = ForecastService.getForecastMonthKeys(
-      forecast.forecast_start_month,
-      forecast.forecast_end_month
+      forecast.forecast_start_month!,
+      forecast.forecast_end_month!
     )
 
     // Validate goals before generating

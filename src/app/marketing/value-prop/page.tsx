@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Sparkles, Target, TrendingUp, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { useBusinessContext } from '@/hooks/useBusinessContext';
 
 interface ValuePropData {
   target_demographics: string;
@@ -28,12 +29,13 @@ interface AISuggestions {
 
 export default function ValuePropositionPage() {
   const router = useRouter();
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [aiLoading, setAiLoading] = useState<string | null>(null);
   const [aiSuggestions, setAiSuggestions] = useState<AISuggestions>({});
-  const [businessContext, setBusinessContext] = useState<any>({});
+  const [businessContextData, setBusinessContextData] = useState<any>({});
 
   const [formData, setFormData] = useState<ValuePropData>({
     target_demographics: '',
@@ -63,24 +65,29 @@ export default function ValuePropositionPage() {
   }, [formData]);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (!contextLoading) {
+      loadData();
+    }
+  }, [contextLoading, activeBusiness?.id]);
 
   const loadData = async () => {
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         router.push('/auth/login');
         return;
       }
 
+      // Use activeBusiness ownerId if viewing as coach, otherwise current user
+      const targetUserId = activeBusiness?.ownerId || user.id;
+
       // Load existing data from marketing_data table
       const { data: existingData } = await supabase
         .from('marketing_data')
         .select('value_proposition')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .single();
 
       if (existingData?.value_proposition) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Download, TrendingUp, Target, AlertCircle, CheckCircle, Zap, Award } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -25,7 +25,23 @@ interface Assessment {
   answers: Record<string, any>;
 }
 
+// Wrapper component to handle Suspense for useSearchParams
 export default function AssessmentResultsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading your results...</p>
+        </div>
+      </div>
+    }>
+      <AssessmentResultsContent />
+    </Suspense>
+  );
+}
+
+function AssessmentResultsContent() {
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +92,13 @@ export default function AssessmentResultsPage() {
       case 'URGENT': return 'bg-red-600';
       default: return 'bg-gray-500';
     }
+  }
+
+  // Traffic light color for the score circle based on percentage
+  function getTrafficLightColor(percentage: number): string {
+    if (percentage >= 70) return 'text-green-500';
+    if (percentage >= 50) return 'text-yellow-500';
+    return 'text-red-500';
   }
 
   function getHealthStatusText(status: string): { title: string; description: string } {
@@ -142,11 +165,11 @@ export default function AssessmentResultsPage() {
 
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(24);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text('Business Assessment Report', pageWidth / 2, 15, { align: 'center' });
 
     doc.setFontSize(12);
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
     const dateStr = new Date(assessment.created_at).toLocaleDateString('en-US', {
       month: 'long',
       day: 'numeric',
@@ -160,19 +183,19 @@ export default function AssessmentResultsPage() {
 
     // Overall Score Section
     doc.setFontSize(16);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text('Overall Business Health', 14, yPos);
 
     yPos += 10;
     doc.setFontSize(12);
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
 
     // Score box
     doc.setFillColor(249, 250, 251);
     doc.roundedRect(14, yPos, pageWidth - 28, 25, 3, 3, 'F');
 
     doc.setFontSize(32);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.setTextColor(37, 99, 235);
     doc.text(`${assessment.percentage}%`, 30, yPos + 17);
 
@@ -183,7 +206,7 @@ export default function AssessmentResultsPage() {
     // Health status
     const healthStatus = getHealthStatusText(assessment.health_status);
     doc.setFontSize(12);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     const statusColor = getHealthStatusColorRGB(assessment.health_status);
     doc.setTextColor(statusColor.r, statusColor.g, statusColor.b);
     doc.text(healthStatus.title.toUpperCase(), 70, yPos + 21);
@@ -193,7 +216,7 @@ export default function AssessmentResultsPage() {
 
     // 8 Business Engines Breakdown
     doc.setFontSize(16);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text('8 Business Engines', 14, yPos);
     yPos += 5;
 
@@ -243,12 +266,12 @@ export default function AssessmentResultsPage() {
 
     // Detailed Recommendations
     doc.setFontSize(16);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text('Detailed Assessment', 14, yPos);
     yPos += 8;
 
     doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
 
     sections.forEach((section, index) => {
       if (yPos > pageHeight - 40) {
@@ -258,11 +281,11 @@ export default function AssessmentResultsPage() {
 
       const percentage = Math.round((section.score / section.max) * 100);
 
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
       doc.text(section.name, 14, yPos);
 
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
       doc.setTextColor(100, 100, 100);
       doc.text(section.description, 14, yPos + 5);
@@ -285,12 +308,12 @@ export default function AssessmentResultsPage() {
     }
 
     doc.setFontSize(16);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text('Your Next Steps', 14, yPos);
     yPos += 8;
 
     doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
 
     const nextSteps = [
       '1. Review & Discuss: We\'ll review these results together in your next coaching session and identify quick wins.',
@@ -379,13 +402,27 @@ export default function AssessmentResultsPage() {
               <ArrowLeft className="w-5 h-5 mr-2" />
               Back to Dashboard
             </button>
-            <button
-              onClick={downloadPDF}
-              className="flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Download PDF Report
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push('/assessment/history')}
+                className="text-teal-600 hover:text-teal-700 font-medium text-sm"
+              >
+                View History
+              </button>
+              <button
+                onClick={() => router.push('/assessment?new=true')}
+                className="flex items-center px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+              >
+                Retake Assessment
+              </button>
+              <button
+                onClick={downloadPDF}
+                className="flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download PDF
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -426,14 +463,13 @@ export default function AssessmentResultsPage() {
                   stroke="currentColor"
                   strokeWidth="16"
                   fill="none"
-                  className={getHealthStatusColor(assessment.health_status)}
+                  className={getTrafficLightColor(assessment.percentage)}
                   strokeDasharray={`${(assessment.percentage / 100) * 704} 704`}
                   strokeLinecap="round"
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <div className="text-6xl font-bold text-gray-900">{assessment.percentage}%</div>
-                <div className="text-gray-600 text-lg mt-2">{assessment.total_score}/{TOTAL_MAX_SCORE}</div>
               </div>
             </div>
 

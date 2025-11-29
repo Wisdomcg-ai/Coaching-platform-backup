@@ -30,6 +30,7 @@ import WeeklyReviewService, {
 } from '../services/weekly-review-service'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { useBusinessContext } from '@/hooks/useBusinessContext'
 
 const DEFAULT_DISCIPLINES = [
   'Dashboard updated',
@@ -40,6 +41,7 @@ const DEFAULT_DISCIPLINES = [
 
 export default function WeeklyReviewPage() {
   const supabase = createClient()
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext()
   const [mounted, setMounted] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -64,8 +66,10 @@ export default function WeeklyReviewPage() {
 
   useEffect(() => {
     setMounted(true)
-    loadInitialData()
-  }, [])
+    if (!contextLoading) {
+      loadInitialData()
+    }
+  }, [contextLoading, activeBusiness?.id])
 
   const loadInitialData = async () => {
     try {
@@ -78,17 +82,37 @@ export default function WeeklyReviewPage() {
         return
       }
 
-      const uid = user.id
+      // Use activeBusiness if viewing as coach, otherwise current user
+      const uid = activeBusiness?.ownerId || user.id
       setUserId(uid)
 
-      // Get business profile to get business_id
-      const { data: profile } = await supabase
-        .from('business_profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .single()
+      // Determine the correct business_profiles.id for data queries
+      // Weekly reviews are stored with business_profiles.id as the business_id
+      let bizId: string
+      if (activeBusiness?.id) {
+        // Coach view: activeBusiness.id is businesses.id
+        // Need to look up the corresponding business_profiles.id
+        const { data: profile } = await supabase
+          .from('business_profiles')
+          .select('id')
+          .eq('business_id', activeBusiness.id)
+          .single()
 
-      const bizId = profile?.id || user.id
+        if (profile?.id) {
+          bizId = profile.id
+        } else {
+          console.warn('[Weekly Review] No business_profiles found for businesses.id:', activeBusiness.id)
+          bizId = activeBusiness.id // Fallback
+        }
+      } else {
+        // Get business profile to get business_id
+        const { data: profile } = await supabase
+          .from('business_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .single()
+        bizId = profile?.id || user.id
+      }
       setBusinessId(bizId)
 
       console.log(`[Weekly Review] 📥 Loading data for business: ${bizId}`)

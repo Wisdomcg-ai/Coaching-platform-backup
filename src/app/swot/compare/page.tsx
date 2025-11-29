@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
+import { useBusinessContext } from '@/hooks/useBusinessContext'
 
 interface SwotAnalysis {
   id: string
@@ -33,10 +34,8 @@ interface ComparisonData {
 
 export default function SwotComparePage() {
   const router = useRouter()
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = createClient()
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext()
 
   const [availableAnalyses, setAvailableAnalyses] = useState<SwotAnalysis[]>([])
   const [selectedPeriod1, setSelectedPeriod1] = useState<string>('')
@@ -48,8 +47,10 @@ export default function SwotComparePage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    loadAvailableAnalyses()
-  }, [])
+    if (!contextLoading) {
+      loadAvailableAnalyses()
+    }
+  }, [contextLoading, activeBusiness?.id])
 
   const loadAvailableAnalyses = async () => {
     try {
@@ -62,10 +63,13 @@ export default function SwotComparePage() {
         return
       }
 
+      // Use activeBusiness ownerId if viewing as coach, otherwise current user
+      const targetUserId = activeBusiness?.ownerId || user.id
+
       const { data, error: fetchError } = await supabase
         .from('swot_analyses')
         .select('id, quarter, year, status')
-        .eq('business_id', user.id)
+        .eq('business_id', targetUserId)
         .order('year', { ascending: false })
         .order('quarter', { ascending: false })
 

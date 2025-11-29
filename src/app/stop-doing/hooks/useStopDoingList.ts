@@ -2,12 +2,15 @@
  * useStopDoingList Hook
  * =====================
  * State management for the Stop Doing List wizard
+ *
+ * Supports coach view: Pass overrideBusinessId when viewing as a coach
  */
 
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useBusinessContext } from '@/contexts/BusinessContext'
 import {
   TimeLogService,
   HourlyRateService,
@@ -31,8 +34,9 @@ import { calculateMonthlyHours, calculateOpportunityCost, calculateNetGainLoss, 
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
-export function useStopDoingList() {
+export function useStopDoingList(overrideBusinessId?: string) {
   const supabase = createClient()
+  const { activeBusiness } = useBusinessContext()
 
   // Loading & Error States
   const [isLoading, setIsLoading] = useState(true)
@@ -114,23 +118,48 @@ export function useStopDoingList() {
 
         setUserId(user.id)
 
-        // Get business profile
-        const { data: profile } = await supabase
-          .from('business_profiles')
-          .select('id')
-          .eq('user_id', user.id)
-          .single()
+        // Determine which business_profile to load:
+        // Stop doing tables use business_profiles.id as their business_id
+        // So we need to get the business_profiles.id, not businesses.id
+        let bizId: string
 
-        if (!profile) {
-          setError('No business profile found')
-          setIsLoading(false)
-          return
+        if (overrideBusinessId) {
+          bizId = overrideBusinessId
+        } else if (activeBusiness?.id) {
+          // Coach viewing client: activeBusiness.id is businesses.id
+          // We need to get the corresponding business_profiles.id
+          const { data: profile } = await supabase
+            .from('business_profiles')
+            .select('id')
+            .eq('business_id', activeBusiness.id)
+            .single()
+
+          if (!profile) {
+            setError('No business profile found for this client')
+            setIsLoading(false)
+            return
+          }
+          bizId = profile.id
+        } else {
+          // Get user's own business profile
+          const { data: profile } = await supabase
+            .from('business_profiles')
+            .select('id')
+            .eq('user_id', user.id)
+            .single()
+
+          if (!profile) {
+            setError('No business profile found')
+            setIsLoading(false)
+            return
+          }
+          bizId = profile.id
         }
 
-        setBusinessId(profile.id)
+        setBusinessId(bizId)
 
         // Load all data
-        const data = await StopDoingService.loadAllData(profile.id)
+        const data = await StopDoingService.loadAllData(bizId)
 
         // Set time logs
         setTimeLogs(data.timeLogs)
@@ -153,7 +182,7 @@ export function useStopDoingList() {
         setStopDoingItems(data.stopDoingItems)
 
         // Calculate step completion
-        const completion = await StopDoingService.getStepCompletion(profile.id)
+        const completion = await StopDoingService.getStepCompletion(bizId)
         setStepCompletion(completion)
 
         setIsLoading(false)
@@ -166,7 +195,7 @@ export function useStopDoingList() {
     }
 
     loadData()
-  }, [supabase, getMondayOfWeek])
+  }, [supabase, getMondayOfWeek, overrideBusinessId, activeBusiness?.id])
 
   // ============================================
   // Hourly Rate Calculation

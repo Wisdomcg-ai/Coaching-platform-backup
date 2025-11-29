@@ -11,6 +11,7 @@ import {
   VALIDATION,
   getWordCount
 } from '@/lib/vision-mission/constants';
+import { useBusinessContext } from '@/hooks/useBusinessContext';
 
 interface VisionMissionData {
   mission_statement: string;
@@ -23,6 +24,7 @@ export default function VisionMissionPage() {
   const supabase = createClient();
   const saveTimeoutRef = useRef<NodeJS.Timeout>();
   const lastSavedDataRef = useRef<string>('');
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -87,16 +89,18 @@ export default function VisionMissionPage() {
     ? CORE_VALUES_LIBRARY
     : CORE_VALUES_LIBRARY.filter(v => v.category === selectedCategory);
 
-  // Cleanup timeout on unmount
+  // Cleanup timeout on unmount and load data when context is ready
   useEffect(() => {
-    loadData();
+    if (!contextLoading) {
+      loadData();
+    }
 
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, []);
+  }, [contextLoading, activeBusiness?.id]);
 
   // Handle escape key for modal
   useEffect(() => {
@@ -123,10 +127,13 @@ export default function VisionMissionPage() {
         return;
       }
 
+      // Use activeBusiness ownerId if viewing as coach, otherwise current user
+      const targetUserId = activeBusiness?.ownerId || user.id;
+
       const { data: existingData } = await supabase
         .from('strategy_data')
         .select('vision_mission')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .single();
 
       if (existingData?.vision_mission) {

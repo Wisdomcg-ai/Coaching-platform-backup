@@ -69,7 +69,7 @@ export default function DistributionPanel({
         }, {} as { [key: string]: number })
       }
 
-      case 'seasonal': {
+      case 'seasonal_pattern': {
         // Seasonal pattern based on FY25 actual data
         // Use the proportion of each month from historical data
         // For now, default to even split (will be enhanced with actual historical pattern)
@@ -248,15 +248,15 @@ export default function DistributionPanel({
             </button>
 
             <button
-              onClick={() => setSelectedMethod('seasonal')}
+              onClick={() => setSelectedMethod('seasonal_pattern')}
               className={`p-4 rounded-lg border-2 transition-all ${
-                selectedMethod === 'seasonal'
+                selectedMethod === 'seasonal_pattern'
                   ? 'border-green-500 bg-green-50'
                   : 'border-gray-200 bg-white hover:border-gray-300'
               }`}
             >
               <Calendar className={`w-5 h-5 mx-auto mb-2 ${
-                selectedMethod === 'seasonal' ? 'text-green-600' : 'text-gray-400'
+                selectedMethod === 'seasonal_pattern' ? 'text-green-600' : 'text-gray-400'
               }`} />
               <div className="text-sm font-medium text-gray-900">Seasonal</div>
               <div className="text-xs text-gray-500 mt-1">Based on FY25</div>

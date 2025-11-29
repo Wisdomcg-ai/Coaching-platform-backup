@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BusinessProfileService } from './services/business-profile-service'
+import { useBusinessContext } from '@/hooks/useBusinessContext'
 import toast, { Toaster } from 'react-hot-toast'
 import {
   ArrowLeft,
@@ -114,6 +115,7 @@ const BUSINESS_MODELS = [
 export default function EnhancedBusinessProfile() {
   const router = useRouter()
   const supabase = createClient()
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext()
 
   const [currentStep, setCurrentStep] = useState(1)
   const [business, setBusiness] = useState<Partial<BusinessProfile>>({})
@@ -126,10 +128,12 @@ export default function EnhancedBusinessProfile() {
   const [saveTimer, setSaveTimer] = useState<NodeJS.Timeout | null>(null)
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
 
-  // Load business data on mount
+  // Load business data on mount or when active business changes
   useEffect(() => {
-    loadBusiness()
-  }, [])
+    if (!contextLoading) {
+      loadBusiness()
+    }
+  }, [contextLoading, activeBusiness?.id])
 
   // Validation function
   const validateBusinessProfile = (): ValidationError[] => {
@@ -206,9 +210,12 @@ export default function EnhancedBusinessProfile() {
         return
       }
 
-      // Use Business Profile Service to get or create both records
-      const { data, businessId: bizId, profileId: profId, error } =
-        await BusinessProfileService.loadBusinessProfile(user.id)
+      // Determine which business to load:
+      // 1. If activeBusiness is set (coach viewing client), use it
+      // 2. Otherwise, load user's own business profile
+      const { data, businessId: bizId, profileId: profId, error } = activeBusiness?.id
+        ? await BusinessProfileService.getBusinessProfileByBusinessId(activeBusiness.id)
+        : await BusinessProfileService.loadBusinessProfile(user.id)
 
       if (error) {
         console.error('❌ Error loading business profile:', error)
@@ -304,7 +311,7 @@ export default function EnhancedBusinessProfile() {
 
   // Handle array field changes
   const handleArrayFieldChange = (field: string, index: number, value: string) => {
-    const currentArray = (business[field] as string[]) || []
+    const currentArray = ((business as Record<string, unknown>)[field] as string[]) || []
     const newArray = [...currentArray]
     newArray[index] = value
     handleFieldChange(field, newArray)
@@ -312,13 +319,13 @@ export default function EnhancedBusinessProfile() {
 
   // Add item to array field
   const addArrayItem = (field: string) => {
-    const currentArray = (business[field] as string[]) || []
+    const currentArray = ((business as Record<string, unknown>)[field] as string[]) || []
     handleFieldChange(field, [...currentArray, ''])
   }
 
   // Remove item from array field
   const removeArrayItem = (field: string, index: number) => {
-    const currentArray = (business[field] as string[]) || []
+    const currentArray = ((business as Record<string, unknown>)[field] as string[]) || []
     const newArray = currentArray.filter((_, i) => i !== index)
     handleFieldChange(field, newArray)
   }

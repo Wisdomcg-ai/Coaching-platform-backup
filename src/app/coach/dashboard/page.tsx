@@ -3,24 +3,32 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { DashboardStats } from '@/components/coach/DashboardStats'
-import { TodaySchedule, type Session } from '@/components/coach/TodaySchedule'
-import { ClientQuickList, type Client } from '@/components/coach/ClientQuickList'
+import { ClientOverviewTable, type ClientMetrics } from '@/components/coach/ClientOverviewTable'
 import { ActivityFeed, type ActivityItem } from '@/components/coach/ActivityFeed'
-import { Loader2, AlertTriangle, ChevronRight } from 'lucide-react'
+import { Loader2, AlertTriangle, ChevronRight, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
+
+// Stage calculation from revenue (matching stage-service.ts)
+function calculateStageFromRevenue(revenue: number | null | undefined): string {
+  if (!revenue || revenue < 500000) return 'Foundation'
+  if (revenue < 1000000) return 'Traction'
+  if (revenue < 5000000) return 'Growth'
+  if (revenue < 10000000) return 'Scale'
+  return 'Mastery'
+}
 
 export default function CoachDashboardPage() {
   const supabase = createClient()
 
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [stats, setStats] = useState({
     activeClients: 0,
     sessionsThisWeek: 0,
     pendingActions: 0,
     unreadMessages: 0
   })
-  const [todaySessions, setTodaySessions] = useState<Session[]>([])
-  const [clients, setClients] = useState<Client[]>([])
+  const [clientMetrics, setClientMetrics] = useState<ClientMetrics[]>([])
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [clientsNeedingAttention, setClientsNeedingAttention] = useState<{
     id: string
@@ -33,108 +41,233 @@ export default function CoachDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function loadDashboardData() {
+  async function loadDashboardData(isRefresh = false) {
     try {
-      setLoading(true)
+      if (isRefresh) {
+        setRefreshing(true)
+      } else {
+        setLoading(true)
+      }
 
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
       // Load businesses assigned to this coach
-      const { data: businesses } = await supabase
+      const { data: businesses, error: bizError } = await supabase
         .from('businesses')
         .select('*')
         .eq('assigned_coach_id', user.id)
         .order('business_name')
 
-      // Sessions, messages, and action_items tables may not exist yet
-      // Use empty defaults for launch-ready state
-      const sessions: any[] = []
-      const actionsCount = 0
-      const messagesCount = 0
-      const recentActions: any[] = []
+      if (bizError) {
+        console.error('[Dashboard] Error loading businesses:', bizError)
+      }
 
-      // Process clients data
-      const processedClients: Client[] = (businesses || []).map(b => {
+      // Load business profiles separately to avoid join issues
+      let businessProfiles: { id: string; business_id: string; annual_revenue: number | null; industry: string | null }[] = []
+      if (businesses && businesses.length > 0) {
+        const businessIds = businesses.map(b => b.id)
+        const { data: profilesData } = await supabase
+          .from('business_profiles')
+          .select('id, business_id, annual_revenue, industry')
+          .in('business_id', businessIds)
+        businessProfiles = profilesData || []
+      }
+
+      // Attach profiles to businesses
+      const businessesWithProfiles = (businesses || []).map(b => ({
+        ...b,
+        business_profiles: businessProfiles.filter(p => p.business_id === b.id)
+      }))
+
+      if (!businessesWithProfiles || businessesWithProfiles.length === 0) {
+        setClientMetrics([])
+        setStats({ activeClients: 0, sessionsThisWeek: 0, pendingActions: 0, unreadMessages: 0 })
+        setLoading(false)
+        setRefreshing(false)
+        return
+      }
+
+      // Get all business IDs and owner IDs
+      const businessIds = businessesWithProfiles.map(b => b.id)
+      const ownerIds = businessesWithProfiles.map(b => b.owner_id).filter(Boolean)
+
+      // Fetch all metrics data in parallel - guard all queries with empty array checks
+      const [
+        weeklyReviewsResult,
+        dashboardSnapshotsResult,
+        assessmentsResult,
+        openLoopsResult,
+        issuesResult
+      ] = await Promise.all([
+        // Latest completed weekly review per business
+        businessIds.length > 0
+          ? supabase
+              .from('weekly_reviews')
+              .select('business_id, completed_at')
+              .in('business_id', businessIds)
+              .eq('is_completed', true)
+              .order('completed_at', { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
+
+        // Latest dashboard snapshot per business
+        businessIds.length > 0
+          ? supabase
+              .from('weekly_metrics_snapshots')
+              .select('business_id, updated_at')
+              .in('business_id', businessIds)
+              .order('updated_at', { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
+
+        // Latest completed assessment per user
+        ownerIds.length > 0
+          ? supabase
+              .from('assessments')
+              .select('user_id, total_score, health_status, created_at')
+              .in('user_id', ownerIds)
+              .eq('status', 'completed')
+              .order('created_at', { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
+
+        // Open loops count per user (tables use user_id, not business_id)
+        ownerIds.length > 0
+          ? supabase
+              .from('open_loops')
+              .select('user_id')
+              .in('user_id', ownerIds)
+              .eq('archived', false)
+          : Promise.resolve({ data: [], error: null }),
+
+        // Open issues count per user
+        ownerIds.length > 0
+          ? supabase
+              .from('issues_list')
+              .select('user_id')
+              .in('user_id', ownerIds)
+              .neq('status', 'solved')
+              .eq('archived', false)
+          : Promise.resolve({ data: [], error: null })
+      ])
+
+      // Build lookup maps for efficient access
+      const weeklyReviewsByBusiness = new Map<string, string>()
+      weeklyReviewsResult.data?.forEach(wr => {
+        if (!weeklyReviewsByBusiness.has(wr.business_id)) {
+          weeklyReviewsByBusiness.set(wr.business_id, wr.completed_at)
+        }
+      })
+
+      const dashboardUpdatesByProfile = new Map<string, string>()
+      dashboardSnapshotsResult.data?.forEach(ds => {
+        if (!dashboardUpdatesByProfile.has(ds.business_id)) {
+          dashboardUpdatesByProfile.set(ds.business_id, ds.updated_at)
+        }
+      })
+
+      const assessmentsByUser = new Map<string, { score: number; status: string }>()
+      assessmentsResult.data?.forEach(a => {
+        if (!assessmentsByUser.has(a.user_id)) {
+          assessmentsByUser.set(a.user_id, {
+            score: a.total_score,
+            status: a.health_status
+          })
+        }
+      })
+
+      const openLoopsByUser = new Map<string, number>()
+      openLoopsResult.data?.forEach(ol => {
+        const count = openLoopsByUser.get(ol.user_id) || 0
+        openLoopsByUser.set(ol.user_id, count + 1)
+      })
+
+      const issuesByUser = new Map<string, number>()
+      issuesResult.data?.forEach(issue => {
+        const count = issuesByUser.get(issue.user_id) || 0
+        issuesByUser.set(issue.user_id, count + 1)
+      })
+
+      // Build client metrics
+      const metrics: ClientMetrics[] = businessesWithProfiles.map(b => {
+        const profile = b.business_profiles?.[0]
+        const profileId = profile?.id
+        const ownerId = b.owner_id
+        const revenue = profile?.annual_revenue
+
+        const assessment = ownerId ? assessmentsByUser.get(ownerId) : undefined
+
         return {
           id: b.id,
           businessName: b.business_name || 'Unnamed Business',
-          status: (b.status as Client['status']) || 'active',
-          lastSessionDate: b.last_session_date || undefined,
-          healthScore: b.health_score || undefined,
-          industry: b.industry || undefined,
-          unreadMessages: 0,
-          pendingActions: 0
+          status: (b.status as ClientMetrics['status']) || 'active',
+          lastLogin: b.last_session_date || null, // Using last_session_date as proxy for now
+          lastWeeklyReview: weeklyReviewsByBusiness.get(b.id) || null,
+          lastDashboardUpdate: profileId ? dashboardUpdatesByProfile.get(profileId) || null : null,
+          lastAssessmentScore: assessment?.score ?? null,
+          lastAssessmentStatus: assessment?.status ?? null,
+          roadmapLevel: calculateStageFromRevenue(revenue),
+          roadmapRevenue: revenue || null,
+          openLoopsCount: ownerId ? openLoopsByUser.get(ownerId) || 0 : 0,
+          openIssuesCount: ownerId ? issuesByUser.get(ownerId) || 0 : 0,
+          industry: profile?.industry || b.industry || undefined
         }
       })
 
       // Identify clients needing attention
       const attention: { id: string; name: string; reason: string }[] = []
-      for (const client of processedClients) {
+      metrics.forEach(client => {
         if (client.status === 'at-risk') {
           attention.push({
             id: client.id,
             name: client.businessName,
             reason: 'Marked as at-risk'
           })
-        } else if (client.healthScore !== undefined && client.healthScore < 50) {
+        } else if (client.lastAssessmentScore !== null && client.lastAssessmentScore < 50) {
           attention.push({
             id: client.id,
             name: client.businessName,
-            reason: `Low health score (${client.healthScore}%)`
+            reason: `Low assessment score (${client.lastAssessmentScore})`
           })
-        } else if (client.lastSessionDate) {
-          const lastSession = new Date(client.lastSessionDate)
-          const daysSince = Math.floor((Date.now() - lastSession.getTime()) / (1000 * 60 * 60 * 24))
-          if (daysSince > 30) {
-            attention.push({
-              id: client.id,
-              name: client.businessName,
-              reason: `No session in ${daysSince} days`
-            })
+        } else {
+          // Check for inactivity
+          const dates = [client.lastLogin, client.lastWeeklyReview, client.lastDashboardUpdate]
+            .filter(Boolean)
+            .map(d => new Date(d!).getTime())
+
+          if (dates.length > 0) {
+            const mostRecent = Math.max(...dates)
+            const daysSince = Math.floor((Date.now() - mostRecent) / (1000 * 60 * 60 * 24))
+            if (daysSince > 14) {
+              attention.push({
+                id: client.id,
+                name: client.businessName,
+                reason: `No activity in ${daysSince} days`
+              })
+            }
           }
         }
-      }
+      })
 
-      // Process today's sessions
-      const processedSessions: Session[] = (sessions || []).map(s => {
-        const sessionData = s as any
-        const scheduledAt = new Date(s.scheduled_at)
-        const endTime = new Date(scheduledAt.getTime() + (s.duration_minutes || 60) * 60000)
-
+      // Build activity feed from recent weekly reviews
+      const recentReviews = weeklyReviewsResult.data?.slice(0, 10) || []
+      const processedActivities: ActivityItem[] = recentReviews.map((r, idx) => {
+        const business = businessesWithProfiles.find(b => b.id === r.business_id)
         return {
-          id: s.id,
-          clientName: sessionData.businesses?.business_name || 'Unknown Client',
-          clientId: s.business_id,
-          time: scheduledAt.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false }),
-          endTime: endTime.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false }),
-          type: (s.session_type as Session['type']) || 'video',
-          status: (s.status as Session['status']) || 'upcoming',
-          prepCompleted: s.prep_completed || false
+          id: `review-${idx}`,
+          type: 'session_completed' as const,
+          clientId: r.business_id,
+          clientName: business?.business_name || 'Unknown',
+          description: 'Completed weekly review',
+          timestamp: r.completed_at
         }
       })
 
-      // Process activity feed
-      const processedActivities: ActivityItem[] = (recentActions || []).map(a => {
-        const actionData = a as any
-        return {
-          id: a.id,
-          type: 'action_completed' as const,
-          clientId: a.business_id,
-          clientName: actionData.businesses?.business_name || 'Unknown',
-          description: `Completed: ${a.title}`,
-          timestamp: a.updated_at
-        }
-      })
-
+      setClientMetrics(metrics)
       setStats({
-        activeClients: processedClients.filter(c => c.status === 'active').length,
+        activeClients: metrics.filter(c => c.status === 'active').length,
         sessionsThisWeek: 0,
-        pendingActions: actionsCount || 0,
-        unreadMessages: messagesCount || 0
+        pendingActions: metrics.reduce((sum, c) => sum + c.openLoopsCount + c.openIssuesCount, 0),
+        unreadMessages: 0
       })
-      setTodaySessions(processedSessions)
-      setClients(processedClients)
       setActivities(processedActivities)
       setClientsNeedingAttention(attention)
 
@@ -142,6 +275,7 @@ export default function CoachDashboardPage() {
       console.error('Error loading dashboard:', error)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -159,9 +293,19 @@ export default function CoachDashboardPage() {
   return (
     <div className="p-6 space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Command Center</h1>
-        <p className="text-gray-500 mt-1">Welcome back! Here&apos;s what&apos;s happening today.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Command Center</h1>
+          <p className="text-gray-500 mt-1">Monitor and manage all your coaching clients</p>
+        </div>
+        <button
+          onClick={() => loadDashboardData(true)}
+          disabled={refreshing}
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </div>
 
       {/* Stats Row */}
@@ -191,7 +335,7 @@ export default function CoachDashboardPage() {
                       <span className="text-gray-500 text-sm ml-2">- {client.reason}</span>
                     </div>
                     <Link
-                      href={`/coach/clients/${client.id}`}
+                      href={`/coach/clients/${client.id}/view/dashboard`}
                       className="text-amber-600 hover:text-amber-700 text-sm font-medium flex items-center"
                     >
                       View <ChevronRight className="w-4 h-4" />
@@ -199,12 +343,9 @@ export default function CoachDashboardPage() {
                   </div>
                 ))}
                 {clientsNeedingAttention.length > 3 && (
-                  <Link
-                    href="/coach/clients?filter=attention"
-                    className="text-sm text-amber-700 hover:text-amber-800 font-medium"
-                  >
-                    View all {clientsNeedingAttention.length} clients
-                  </Link>
+                  <p className="text-sm text-amber-700">
+                    And {clientsNeedingAttention.length - 3} more...
+                  </p>
                 )}
               </div>
             </div>
@@ -212,27 +353,15 @@ export default function CoachDashboardPage() {
         </div>
       )}
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column */}
-        <div className="space-y-6">
-          <TodaySchedule
-            sessions={todaySessions}
-            onStartSession={(id) => console.log('Start session:', id)}
-            onViewPrep={(id) => console.log('View prep:', id)}
-          />
+      {/* Client Overview Table */}
+      <ClientOverviewTable clients={clientMetrics} isLoading={refreshing} />
+
+      {/* Activity Feed */}
+      {activities.length > 0 && (
+        <div className="mt-6">
           <ActivityFeed activities={activities} />
         </div>
-
-        {/* Right Column */}
-        <div>
-          <ClientQuickList
-            clients={clients}
-            onMessageClient={(id) => console.log('Message client:', id)}
-            onScheduleSession={(id) => console.log('Schedule session:', id)}
-          />
-        </div>
-      </div>
+      )}
     </div>
   )
 }

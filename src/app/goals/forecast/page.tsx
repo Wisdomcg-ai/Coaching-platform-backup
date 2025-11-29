@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useBusinessContext } from '@/hooks/useBusinessContext';
 
 export default function QuarterlyForecastPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext();
   const [loading, setLoading] = useState(false);
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [visionTargets, setVisionTargets] = useState<any>(null);
@@ -48,8 +50,10 @@ export default function QuarterlyForecastPage() {
   });
 
   useEffect(() => {
-    loadData();
-  }, [selectedQuarter]);
+    if (!contextLoading) {
+      loadData();
+    }
+  }, [selectedQuarter, contextLoading, activeBusiness?.id]);
 
   useEffect(() => {
     calculateTotalsAndGaps();
@@ -63,14 +67,30 @@ export default function QuarterlyForecastPage() {
         return;
       }
 
-      // Get business
-      const { data: business } = await supabase
-        .from('businesses')
-        .select('id')
-        .eq('owner_id', user.id)
-        .single();
+      // Determine the correct business_profiles.id for data queries
+      // Vision targets and forecasts are stored with business_profiles.id
+      let bizId: string | null = null;
+      if (activeBusiness?.id) {
+        // Coach view: activeBusiness.id is businesses.id
+        // Need to look up the corresponding business_profiles.id
+        const { data: profile } = await supabase
+          .from('business_profiles')
+          .select('id')
+          .eq('business_id', activeBusiness.id)
+          .single();
 
-      const bizId = business?.id;
+        bizId = profile?.id || null;
+      } else {
+        // Get user's own business profile
+        const { data: profile } = await supabase
+          .from('business_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+
+        bizId = profile?.id || null;
+      }
+
       if (!bizId) {
         router.push('/business-profile');
         return;

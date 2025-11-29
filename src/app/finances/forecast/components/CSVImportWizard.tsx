@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from 'react'
 import { X, Upload, FileText, CheckCircle, AlertTriangle, Download } from 'lucide-react'
 import { parseXeroCSV, convertToPLLines, type ParsedCSVData } from '../utils/csv-parser'
-import type { FinancialForecast } from '../types'
+import type { FinancialForecast, PLLine } from '../types'
 
 interface CSVImportWizardProps {
   isOpen: boolean
@@ -147,7 +147,7 @@ export default function CSVImportWizard({
     setError(null)
 
     try {
-      const linesToImport = []
+      const linesToImport: PLLine[] = []
 
       // Convert baseline data to PL lines
       if (baselineData) {

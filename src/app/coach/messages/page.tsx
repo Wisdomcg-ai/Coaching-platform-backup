@@ -6,10 +6,10 @@ import { ConversationList, type Conversation } from '@/components/coach/messages
 import { MessageThread, type Message } from '@/components/coach/messages/MessageThread'
 import { MessageComposer } from '@/components/coach/messages/MessageComposer'
 import { BroadcastModal } from '@/components/coach/messages/BroadcastModal'
+import { uploadMessageAttachment } from '@/lib/services/messageAttachments'
 import {
   Loader2,
   MessageSquare,
-  Send,
   Radio
 } from 'lucide-react'
 
@@ -88,59 +88,68 @@ export default function MessagesPage() {
       }
 
       // Load conversations (aggregate messages by business)
+      // First get all businesses for this coach
+      if (!businessesData || businessesData.length === 0) {
+        setLoading(false)
+        return
+      }
+
+      const businessIds = businessesData.map(b => b.id)
+
       const { data: messagesData } = await supabase
         .from('messages')
-        .select(`
-          id,
-          business_id,
-          content,
-          created_at,
-          read,
-          sender_id,
-          businesses (
-            business_name
-          )
-        `)
-        .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
+        .select('*')
+        .in('business_id', businessIds)
         .order('created_at', { ascending: false })
 
+      // Group by business_id and get latest message per conversation
+      const conversationMap = new Map<string, Conversation>()
+
+      // Initialize conversations from businesses
+      businessesData.forEach(b => {
+        conversationMap.set(b.id, {
+          id: b.id,
+          businessId: b.id,
+          businessName: b.business_name || 'Unknown',
+          lastMessage: '',
+          lastMessageAt: '',
+          unreadCount: 0,
+          isStarred: false,
+          isArchived: false
+        })
+      })
+
+      // Update with message data
       if (messagesData) {
-        // Group by business_id and get latest message per conversation
-        const conversationMap = new Map<string, Conversation>()
-
         messagesData.forEach(msg => {
-          const businessData = msg.businesses as unknown
-          const business = Array.isArray(businessData)
-            ? businessData[0] as { business_name: string } | undefined
-            : businessData as { business_name: string } | null
-
           if (!msg.business_id) return
 
           const existing = conversationMap.get(msg.business_id)
 
-          if (!existing) {
-            conversationMap.set(msg.business_id, {
-              id: msg.business_id,
-              businessId: msg.business_id,
-              businessName: business?.business_name || 'Unknown',
-              lastMessage: msg.content || '',
-              lastMessageAt: msg.created_at,
-              unreadCount: msg.read === false && msg.sender_id !== user.id ? 1 : 0,
-              isStarred: false,
-              isArchived: false
-            })
-          } else if (!msg.read && msg.sender_id !== user.id) {
-            existing.unreadCount++
+          if (existing) {
+            // Set last message if this is the most recent
+            if (!existing.lastMessageAt || msg.created_at > existing.lastMessageAt) {
+              existing.lastMessage = msg.content || ''
+              existing.lastMessageAt = msg.created_at
+            }
+            // Count unread from clients
+            if (!msg.read && msg.sender_type !== 'coach') {
+              existing.unreadCount++
+            }
           }
         })
+      }
 
-        setConversations(Array.from(conversationMap.values()))
+      // Filter to only show conversations with messages
+      const conversationsWithMessages = Array.from(conversationMap.values())
+        .filter(c => c.lastMessageAt)
+        .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime())
 
-        // Auto-select first conversation if none selected
-        if (!selectedConversation && conversationMap.size > 0) {
-          const first = Array.from(conversationMap.values())[0]
-          setSelectedConversation(first)
-        }
+      setConversations(conversationsWithMessages)
+
+      // Auto-select first conversation if none selected
+      if (!selectedConversation && conversationsWithMessages.length > 0) {
+        setSelectedConversation(conversationsWithMessages[0])
       }
 
     } catch (error) {
@@ -159,44 +168,36 @@ export default function MessagesPage() {
 
       const { data: messagesData } = await supabase
         .from('messages')
-        .select(`
-          id,
-          content,
-          created_at,
-          read,
-          sender_id,
-          users:sender_id (
-            full_name
-          )
-        `)
+        .select('*')
         .eq('business_id', businessId)
         .order('created_at', { ascending: true })
 
       if (messagesData) {
-        setMessages(messagesData.map(msg => {
-          const userData = msg.users as unknown
-          const senderUser = Array.isArray(userData)
-            ? userData[0] as { full_name: string } | undefined
-            : userData as { full_name: string } | null
-
-          return {
-            id: msg.id,
-            content: msg.content || '',
-            senderId: msg.sender_id || '',
-            senderName: senderUser?.full_name || 'Unknown',
-            senderType: msg.sender_id === user.id ? 'coach' as const : 'client' as const,
-            createdAt: msg.created_at,
-            status: msg.read ? 'read' as const : 'delivered' as const
-          }
-        }))
+        setMessages(messagesData.map(msg => ({
+          id: msg.id,
+          content: msg.content || '',
+          senderId: msg.sender_id || '',
+          senderName: msg.sender_type === 'coach' ? 'You' : 'Client',
+          senderType: msg.sender_type === 'coach' ? 'coach' as const : 'client' as const,
+          createdAt: msg.created_at,
+          status: msg.read ? 'read' as const : 'delivered' as const,
+          attachmentUrl: msg.attachment_url,
+          attachmentName: msg.attachment_name,
+          attachmentSize: msg.attachment_size,
+          attachmentType: msg.attachment_type
+        })))
 
         // Mark messages as read
-        await supabase
-          .from('messages')
-          .update({ read: true })
-          .eq('business_id', businessId)
-          .eq('recipient_id', user.id)
-          .eq('read', false)
+        const unreadIds = messagesData
+          .filter(m => !m.read && m.sender_id !== user.id)
+          .map(m => m.id)
+
+        if (unreadIds.length > 0) {
+          await supabase
+            .from('messages')
+            .update({ read: true })
+            .in('id', unreadIds)
+        }
 
         // Update conversation unread count
         setConversations(prev => prev.map(conv =>
@@ -213,7 +214,7 @@ export default function MessagesPage() {
     }
   }
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, attachments?: File[]) => {
     if (!selectedConversation || !currentUserId) return
 
     const { data: { user } } = await supabase.auth.getUser()
@@ -226,15 +227,34 @@ export default function MessagesPage() {
       .eq('id', selectedConversation.businessId)
       .single()
 
+    // Prepare message data
+    const messageData: any = {
+      business_id: selectedConversation.businessId,
+      sender_id: user.id,
+      sender_type: 'coach',
+      recipient_id: business?.owner_id || null,
+      content,
+      read: false
+    }
+
+    // Upload attachment if present
+    if (attachments && attachments.length > 0) {
+      const file = attachments[0] // Handle first attachment
+      try {
+        const attachmentData = await uploadMessageAttachment(file, selectedConversation.businessId)
+        messageData.attachment_url = attachmentData.url
+        messageData.attachment_name = attachmentData.name
+        messageData.attachment_size = attachmentData.size
+        messageData.attachment_type = attachmentData.type
+      } catch (err) {
+        console.error('Error uploading attachment:', err)
+        throw new Error('Failed to upload attachment')
+      }
+    }
+
     const { data: newMessage, error } = await supabase
       .from('messages')
-      .insert({
-        business_id: selectedConversation.businessId,
-        sender_id: user.id,
-        recipient_id: business?.owner_id || null,
-        content,
-        read: false
-      })
+      .insert(messageData)
       .select()
       .single()
 
@@ -252,13 +272,17 @@ export default function MessagesPage() {
         senderName: 'You',
         senderType: 'coach',
         createdAt: newMessage.created_at,
-        status: 'sent'
+        status: 'sent',
+        attachmentUrl: newMessage.attachment_url,
+        attachmentName: newMessage.attachment_name,
+        attachmentSize: newMessage.attachment_size,
+        attachmentType: newMessage.attachment_type
       }])
 
       // Update conversation
       setConversations(prev => prev.map(conv =>
         conv.businessId === selectedConversation.businessId
-          ? { ...conv, lastMessage: content, lastMessageAt: newMessage.created_at }
+          ? { ...conv, lastMessage: content || 'Sent an attachment', lastMessageAt: newMessage.created_at }
           : conv
       ))
     }
@@ -281,6 +305,7 @@ export default function MessagesPage() {
         .insert({
           business_id: businessId,
           sender_id: user.id,
+          sender_type: 'coach',
           recipient_id: business?.owner_id || null,
           content: message,
           read: false

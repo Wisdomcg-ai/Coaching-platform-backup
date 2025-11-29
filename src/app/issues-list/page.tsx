@@ -14,8 +14,10 @@ import {
   type Issue,
   type CreateIssueInput
 } from '@/lib/services/issuesService';
+import { useBusinessContext } from '@/hooks/useBusinessContext';
 
 export default function IssuesListPage() {
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext();
   const [issues, setIssues] = useState<Issue[]>([]);
   const [solvedIssues, setSolvedIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,25 +47,31 @@ export default function IssuesListPage() {
     solution: null
   });
 
-  // Load data on mount
+  // Load data on mount and when context changes
   useEffect(() => {
-    loadData();
-    
+    if (!contextLoading) {
+      loadData();
+    }
+
     // Check localStorage for info box state
     const stored = localStorage.getItem('issuesInfoExpanded');
     if (stored === 'false') {
       setExpandedInfo(false);
     }
-  }, []);
+  }, [contextLoading, activeBusiness?.id]);
 
   async function loadData() {
     try {
       setLoading(true);
+      // Pass ownerId when viewing as coach, otherwise undefined for current user
+      const overrideUserId = activeBusiness?.ownerId;
+      console.log('[IssuesListPage] loadData called - activeBusiness:', activeBusiness?.id, 'ownerId:', overrideUserId);
       const [activeData, solvedData, statsData] = await Promise.all([
-        getActiveIssues(),
-        getSolvedIssues(),
-        getIssuesStats()
+        getActiveIssues(overrideUserId),
+        getSolvedIssues(overrideUserId),
+        getIssuesStats(overrideUserId)
       ]);
+      console.log('[IssuesListPage] Data loaded - issues:', activeData.length, 'solved:', solvedData.length);
 
       setIssues(activeData);
       setSolvedIssues(solvedData);

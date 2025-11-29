@@ -5,7 +5,6 @@ import Link from 'next/link'
 import {
   LayoutDashboard,
   Users,
-  Calendar,
   MessageSquare,
   ListChecks,
   BarChart3,
@@ -15,7 +14,8 @@ import {
   LogOut,
   UserPlus
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useUnreadMessages } from '@/hooks/useUnreadMessages'
 
 interface Client {
   id: string
@@ -29,18 +29,21 @@ interface CoachSidebarProps {
   onLogout?: () => void
 }
 
-const mainNavItems = [
-  { href: '/coach/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/coach/clients', icon: Users, label: 'Clients' },
-  { href: '/coach/schedule', icon: Calendar, label: 'Schedule' },
-  { href: '/coach/messages', icon: MessageSquare, label: 'Messages', badge: 0 },
-  { href: '/coach/actions', icon: ListChecks, label: 'Actions', badge: 0 },
-  { href: '/coach/reports', icon: BarChart3, label: 'Reports' },
-]
-
 export function CoachSidebar({ clients = [], userName = 'Coach', onLogout }: CoachSidebarProps) {
   const pathname = usePathname()
   const [clientsExpanded, setClientsExpanded] = useState(true)
+
+  // Get unread message count with real-time updates
+  const { unreadCount } = useUnreadMessages({ role: 'coach' })
+
+  // Build nav items with dynamic badge
+  const mainNavItems = useMemo(() => [
+    { href: '/coach/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { href: '/coach/clients', icon: Users, label: 'Clients' },
+    { href: '/coach/messages', icon: MessageSquare, label: 'Messages', badge: unreadCount },
+    { href: '/coach/actions', icon: ListChecks, label: 'Actions' },
+    { href: '/coach/reports', icon: BarChart3, label: 'Reports' },
+  ], [unreadCount])
 
   const isActive = (href: string) => {
     if (href === '/coach/dashboard') {
@@ -130,7 +133,7 @@ export function CoachSidebar({ clients = [], userName = 'Coach', onLogout }: Coa
                 return (
                   <Link
                     key={client.id}
-                    href={`/coach/clients/${client.id}`}
+                    href={`/coach/clients/${client.id}/view/dashboard`}
                     className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                       clientActive
                         ? 'bg-slate-800 text-white'

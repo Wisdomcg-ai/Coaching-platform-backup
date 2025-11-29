@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Target, Plus, User, AlertCircle, Lightbulb, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { TrendingUp, Package, Heart, Settings, Users, DollarSign, Brain } from 'lucide-react';
 import { Building, CheckSquare, Square, Check, Zap, TrendingDown } from 'lucide-react';
+import { useBusinessContext } from '@/hooks/useBusinessContext';
 
 interface Initiative {
   id: string;
@@ -141,6 +142,7 @@ const REVENUE_STAGES = [
 ];
 
 export default function StrategicInitiatives() {
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext();
   const [initiatives, setInitiatives] = useState<Initiative[]>([]);
   const [loading, setLoading] = useState(true);
   const [newInitiative, setNewInitiative] = useState('');
@@ -160,16 +162,18 @@ export default function StrategicInitiatives() {
   const supabase = createClient();
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (!contextLoading) {
+      loadData();
+    }
+  }, [contextLoading, activeBusiness?.id]);
 
   const loadData = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
+
       if (userError) {
         setError('Authentication error. Please log in again.');
         setLoading(false);
@@ -181,17 +185,20 @@ export default function StrategicInitiatives() {
         return;
       }
 
+      // Use activeBusiness ownerId if viewing as coach, otherwise current user
+      const targetUserId = activeBusiness?.ownerId || user.id;
+
       // Load business profile and determine revenue stage
-      await loadBusinessProfile();
+      await loadBusinessProfile(targetUserId);
 
       // Load latest assessment and generate suggestions
-      await loadLatestAssessment();
+      await loadLatestAssessment(targetUserId);
 
       // Load initiatives
       const { data: initiativesData, error: dbError } = await supabase
         .from('strategic_initiatives')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .order('created_at', { ascending: false });
 
       if (dbError) {
@@ -206,7 +213,7 @@ export default function StrategicInitiatives() {
         const { data: completionsData } = await supabase
           .from('roadmap_completions')
           .select('*')
-          .eq('user_id', user.id);
+          .eq('user_id', targetUserId);
 
         if (completionsData) {
           setRoadmapCompletions(completionsData);
@@ -223,16 +230,12 @@ export default function StrategicInitiatives() {
     }
   };
 
-  const loadBusinessProfile = async () => {
+  const loadBusinessProfile = async (targetUserId: string) => {
     try {
-      // Try Supabase first, then fallback to localStorage
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data: profileData } = await supabase
         .from('business_profiles')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .single();
 
       let revenue = 500000; // default
@@ -255,16 +258,13 @@ export default function StrategicInitiatives() {
     }
   };
 
-  const loadLatestAssessment = async () => {
+  const loadLatestAssessment = async (targetUserId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       // Load latest assessment from Supabase
       const { data: assessmentData, error } = await supabase
         .from('assessments')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
@@ -535,19 +535,22 @@ export default function StrategicInitiatives() {
 
   const addInitiative = async () => {
     if (!newInitiative.trim()) return;
-    
+
     setError(null);
-    
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         setError('Please log in to add initiatives');
         return;
       }
 
+      // Use activeBusiness ownerId if viewing as coach, otherwise current user
+      const targetUserId = activeBusiness?.ownerId || user.id;
+
       const initiative = {
-        user_id: user.id,
+        user_id: targetUserId,
         title: newInitiative.trim(),
         category: selectedCategory,
         priority: 'medium',
@@ -580,8 +583,11 @@ export default function StrategicInitiatives() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Use activeBusiness ownerId if viewing as coach, otherwise current user
+      const targetUserId = activeBusiness?.ownerId || user.id;
+
       const initiative = {
-        user_id: user.id,
+        user_id: targetUserId,
         title: suggestion.title,
         category: suggestion.category,
         priority: suggestion.priority,
@@ -610,8 +616,11 @@ export default function StrategicInitiatives() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Use activeBusiness ownerId if viewing as coach, otherwise current user
+      const targetUserId = activeBusiness?.ownerId || user.id;
+
       const initiative = {
-        user_id: user.id,
+        user_id: targetUserId,
         title: task,
         category: category,
         priority: 'medium',
@@ -640,6 +649,9 @@ export default function StrategicInitiatives() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Use activeBusiness ownerId if viewing as coach, otherwise current user
+      const targetUserId = activeBusiness?.ownerId || user.id;
+
       const existing = roadmapCompletions.find(
         r => r.stage === stage && r.category === category && r.item_text === itemText
       );
@@ -647,15 +659,15 @@ export default function StrategicInitiatives() {
       if (existing) {
         const { error } = await supabase
           .from('roadmap_completions')
-          .update({ 
+          .update({
             completed: !existing.completed,
             completed_at: !existing.completed ? new Date().toISOString() : null
           })
           .eq('id', existing.id);
 
         if (!error) {
-          setRoadmapCompletions(prev => prev.map(r => 
-            r.id === existing.id 
+          setRoadmapCompletions(prev => prev.map(r =>
+            r.id === existing.id
               ? { ...r, completed: !r.completed, completed_at: !r.completed ? new Date().toISOString() : undefined }
               : r
           ));
@@ -664,7 +676,7 @@ export default function StrategicInitiatives() {
         const { data, error } = await supabase
           .from('roadmap_completions')
           .insert({
-            user_id: user.id,
+            user_id: targetUserId,
             stage,
             category,
             item_text: itemText,

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, FileText, Calendar, CheckCircle } from 'lucide-react'
 import { BUSINESS_ENGINES, getScoreBgColorClass } from '@/lib/assessment/constants'
+import { useBusinessContext } from '@/hooks/useBusinessContext'
 
 interface Assessment {
   id: string
@@ -28,11 +29,13 @@ export default function AssessmentHistory() {
   const [loading, setLoading] = useState(true)
   const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null)
   const router = useRouter()
-  // supabase client imported from lib
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext()
 
   useEffect(() => {
-    loadAssessments()
-  }, [])
+    if (!contextLoading) {
+      loadAssessments()
+    }
+  }, [contextLoading, activeBusiness?.id])
 
   const loadAssessments = async () => {
     try {
@@ -43,11 +46,14 @@ export default function AssessmentHistory() {
         return
       }
 
+      // Use activeBusiness ownerId if viewing as coach, otherwise current user
+      const targetUserId = activeBusiness?.ownerId || user.id
+
       // Get all assessments for this user (using user_id directly)
       const { data: assessmentData, error } = await supabase
         .from('assessments')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -128,7 +134,7 @@ export default function AssessmentHistory() {
           <div className="bg-white rounded-xl shadow-sm p-12 text-center">
             <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
             <h2 className="text-2xl font-semibold text-gray-900 mb-2">No Assessments Found</h2>
-            <p className="text-gray-600 mb-6">You haven't completed any assessments yet.</p>
+            <p className="text-gray-600 mb-6">You haven&apos;t completed any assessments yet.</p>
             <button
               onClick={() => router.push('/assessment')}
               className="px-6 py-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-lg hover:from-teal-700 hover:to-teal-800 transition-all duration-200 shadow-lg"

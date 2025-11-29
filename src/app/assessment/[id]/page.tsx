@@ -3,29 +3,44 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import { 
-  ArrowLeft, 
-  TrendingUp, 
-  AlertCircle, 
-  CheckCircle, 
+import {
+  ArrowLeft,
+  TrendingUp,
+  AlertCircle,
+  CheckCircle,
   Target,
   Award,
   BarChart3,
-  Users,
   DollarSign,
-  Brain
+  Brain,
+  Clock,
+  RefreshCw
 } from 'lucide-react';
 
 interface AssessmentResult {
   id: string;
   created_at: string;
-  health_score: number;
-  revenue_stage: string;
-  foundation_score: number;
-  strategic_wheel_score: number;
-  profitability_score: number;
-  engines_score: number;
-  disciplines_score: number;
+  total_score: number;
+  percentage: number;
+  health_status: string;
+  total_max: number;
+  // 8 Engine scores
+  attract_score: number;
+  attract_max: number;
+  convert_score: number;
+  convert_max: number;
+  deliver_score: number;
+  deliver_max: number;
+  people_score: number;
+  people_max: number;
+  systems_score: number;
+  systems_max: number;
+  finance_score: number;
+  finance_max: number;
+  leadership_score: number;
+  leadership_max: number;
+  time_score: number;
+  time_max: number;
   answers: any;
 }
 
@@ -85,69 +100,56 @@ export default function AssessmentResultsPage() {
     );
   }
 
-  // Calculate percentage and determine health status
-  const healthPercentage = Math.round((assessment.health_score / 290) * 100);
-  
-  const getHealthStatus = (percentage: number) => {
-    if (percentage >= 90) return { label: 'THRIVING', color: 'text-green-600', bg: 'bg-green-100' };
-    if (percentage >= 80) return { label: 'STRONG', color: 'text-green-500', bg: 'bg-green-50' };
-    if (percentage >= 70) return { label: 'STABLE', color: 'text-yellow-600', bg: 'bg-yellow-50' };
-    if (percentage >= 60) return { label: 'BUILDING', color: 'text-orange-600', bg: 'bg-orange-50' };
-    if (percentage >= 50) return { label: 'STRUGGLING', color: 'text-red-500', bg: 'bg-red-50' };
-    return { label: 'URGENT', color: 'text-red-600', bg: 'bg-red-100' };
+  // Use the percentage directly from the assessment, or calculate if missing
+  const healthPercentage = assessment.percentage || Math.round((assessment.total_score / (assessment.total_max || 300)) * 100);
+
+  const getHealthStatusDisplay = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case 'THRIVING': return { label: 'THRIVING', color: 'text-green-600', bg: 'bg-green-100' };
+      case 'STRONG': return { label: 'STRONG', color: 'text-green-500', bg: 'bg-green-50' };
+      case 'STABLE': return { label: 'STABLE', color: 'text-yellow-600', bg: 'bg-yellow-50' };
+      case 'BUILDING': return { label: 'BUILDING', color: 'text-orange-600', bg: 'bg-orange-50' };
+      case 'STRUGGLING': return { label: 'STRUGGLING', color: 'text-red-500', bg: 'bg-red-50' };
+      default: return { label: 'URGENT', color: 'text-red-600', bg: 'bg-red-100' };
+    }
   };
 
-  const healthStatus = getHealthStatus(healthPercentage);
+  const healthStatus = getHealthStatusDisplay(assessment.health_status);
 
-  const getRevenueStageLabel = (stage: string) => {
-    const stages: Record<string, string> = {
-      'under_250k': 'Foundation Stage (Under $250K)',
-      '250k_1m': 'Traction Stage ($250K - $1M)',
-      '1m_3m': 'Scaling Stage ($1M - $3M)',
-      '3m_5m': 'Optimization Stage ($3M - $5M)',
-      '5m_10m': 'Leadership Stage ($5M - $10M)',
-      'over_10m': 'Mastery Stage ($10M+)'
-    };
-    return stages[stage] || 'Unknown Stage';
-  }; // FIXED: Added missing closing brace
+  // Calculate time since assessment
+  const getTimeSinceAssessment = () => {
+    const assessmentDate = new Date(assessment.created_at);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - assessmentDate.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-  // Calculate section percentages
-  const sections = [
-    {
-      name: 'Foundation',
-      score: assessment.foundation_score || 0,
-      max: 40,
-      icon: Target,
-      color: 'blue'
-    },
-    {
-      name: 'Strategic Wheel',
-      score: assessment.strategic_wheel_score || 0,
-      max: 60,
-      icon: Brain,
-      color: 'purple'
-    },
-    {
-      name: 'Profitability',
-      score: assessment.profitability_score || 0,
-      max: 30,
-      icon: DollarSign,
-      color: 'green'
-    },
-    {
-      name: 'Business Engines',
-      score: assessment.engines_score || 0,
-      max: 100,
-      icon: BarChart3,
-      color: 'indigo'
-    },
-    {
-      name: 'Success Disciplines',
-      score: assessment.disciplines_score || 0,
-      max: 60,
-      icon: Award,
-      color: 'yellow'
+    if (diffDays === 0) return { text: 'Completed today', shouldRetake: false };
+    if (diffDays === 1) return { text: 'Completed yesterday', shouldRetake: false };
+    if (diffDays < 7) return { text: `Completed ${diffDays} days ago`, shouldRetake: false };
+    if (diffDays < 30) {
+      const weeks = Math.floor(diffDays / 7);
+      return { text: `Completed ${weeks} week${weeks > 1 ? 's' : ''} ago`, shouldRetake: false };
     }
+    if (diffDays < 90) {
+      const months = Math.floor(diffDays / 30);
+      return { text: `Completed ${months} month${months > 1 ? 's' : ''} ago`, shouldRetake: months >= 2 };
+    }
+    const months = Math.floor(diffDays / 30);
+    return { text: `Completed ${months} months ago`, shouldRetake: true };
+  };
+
+  const timeSince = getTimeSinceAssessment();
+
+  // 8 Business Engines configuration
+  const engines = [
+    { id: 'attract', name: 'Attract', subtitle: 'Marketing & Lead Gen', score: assessment.attract_score || 0, max: assessment.attract_max || 40, icon: Target, color: 'blue' },
+    { id: 'convert', name: 'Convert', subtitle: 'Sales & Closing', score: assessment.convert_score || 0, max: assessment.convert_max || 40, icon: TrendingUp, color: 'green' },
+    { id: 'deliver', name: 'Deliver', subtitle: 'Client Experience', score: assessment.deliver_score || 0, max: assessment.deliver_max || 40, icon: CheckCircle, color: 'purple' },
+    { id: 'people', name: 'People', subtitle: 'Team & Culture', score: assessment.people_score || 0, max: assessment.people_max || 40, icon: Award, color: 'indigo' },
+    { id: 'systems', name: 'Systems', subtitle: 'Operations & Tech', score: assessment.systems_score || 0, max: assessment.systems_max || 40, icon: BarChart3, color: 'slate' },
+    { id: 'finance', name: 'Finance', subtitle: 'Money & Metrics', score: assessment.finance_score || 0, max: assessment.finance_max || 30, icon: DollarSign, color: 'emerald' },
+    { id: 'leadership', name: 'Leadership', subtitle: 'Vision & Strategy', score: assessment.leadership_score || 0, max: assessment.leadership_max || 30, icon: Brain, color: 'amber' },
+    { id: 'time', name: 'Time', subtitle: 'Freedom & Leverage', score: assessment.time_score || 0, max: assessment.time_max || 40, icon: Clock, color: 'cyan' },
   ];
 
   return (
@@ -163,8 +165,16 @@ export default function AssessmentResultsPage() {
               <ArrowLeft className="w-5 h-5 mr-2" />
               Back to Dashboard
             </button>
-            <div className="text-sm text-gray-500">
-              Completed: {new Date(assessment.created_at).toLocaleDateString()}
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push('/assessment/history')}
+                className="text-sm text-teal-600 hover:text-teal-700 font-medium"
+              >
+                View History
+              </button>
+              <div className="text-sm text-gray-500">
+                Completed: {new Date(assessment.created_at).toLocaleDateString()}
+              </div>
             </div>
           </div>
         </div>
@@ -172,6 +182,26 @@ export default function AssessmentResultsPage() {
 
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* Time Since Assessment Banner */}
+        {timeSince.shouldRetake && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-center justify-between">
+            <div className="flex items-center">
+              <Clock className="w-5 h-5 text-amber-600 mr-3" />
+              <div>
+                <p className="text-amber-800 font-medium">{timeSince.text}</p>
+                <p className="text-amber-600 text-sm">We recommend retaking the assessment quarterly to track your progress</p>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push('/assessment?new=true')}
+              className="flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Retake Now
+            </button>
+          </div>
+        )}
+
         {/* Overall Score Card */}
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
           <div className="text-center mb-8">
@@ -222,27 +252,27 @@ export default function AssessmentResultsPage() {
                   Overall Business Health
                 </p>
                 <p className="text-sm text-gray-600">
-                  {assessment.health_score} out of 290 points
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {getRevenueStageLabel(assessment.revenue_stage)}
+                  {assessment.total_score || 0} out of {assessment.total_max || 300} points
                 </p>
               </div>
             </div>
 
-            {/* Detailed Breakdown */}
-            <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Score Breakdown</h3>
-              {sections.map((section) => {
-                const percentage = Math.round((section.score / section.max) * 100);
-                const Icon = section.icon;
-                
+            {/* Detailed Breakdown - 8 Engines */}
+            <div className="space-y-3">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">8 Business Engines</h3>
+              {engines.map((engine) => {
+                const percentage = engine.max > 0 ? Math.round((engine.score / engine.max) * 100) : 0;
+                const Icon = engine.icon;
+
                 return (
-                  <div key={section.name} className="bg-gray-50 rounded-lg p-4">
+                  <div key={engine.id} className="bg-gray-50 rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center">
-                        <Icon className={`w-5 h-5 mr-2 text-${section.color}-600`} />
-                        <span className="font-medium text-gray-900">{section.name}</span>
+                        <Icon className="w-4 h-4 mr-2 text-gray-600" />
+                        <div>
+                          <span className="font-medium text-gray-900">{engine.name}</span>
+                          <span className="text-xs text-gray-500 ml-2">{engine.subtitle}</span>
+                        </div>
                       </div>
                       <span className={`text-sm font-semibold ${
                         percentage >= 80 ? 'text-green-600' :
@@ -261,7 +291,7 @@ export default function AssessmentResultsPage() {
                       />
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
-                      {section.score}/{section.max} points
+                      {engine.score}/{engine.max} points
                     </div>
                   </div>
                 );
@@ -285,15 +315,19 @@ export default function AssessmentResultsPage() {
                 <h3 className="font-semibold text-red-900">Priority Areas</h3>
               </div>
               <ul className="text-sm text-red-800 space-y-2">
-                {sections
-                  .filter(section => (section.score / section.max) < 0.6)
-                  .map(section => (
-                    <li key={section.name} className="flex items-center">
+                {engines
+                  .filter(engine => engine.max > 0 && (engine.score / engine.max) < 0.6)
+                  .slice(0, 4)
+                  .map(engine => (
+                    <li key={engine.id} className="flex items-center">
                       <div className="w-2 h-2 bg-red-500 rounded-full mr-2" />
-                      Focus on {section.name}
+                      Focus on {engine.name}
                     </li>
                   ))
                 }
+                {engines.filter(engine => engine.max > 0 && (engine.score / engine.max) < 0.6).length === 0 && (
+                  <li className="text-red-600 italic">No critical areas!</li>
+                )}
               </ul>
             </div>
 
@@ -304,15 +338,19 @@ export default function AssessmentResultsPage() {
                 <h3 className="font-semibold text-green-900">Your Strengths</h3>
               </div>
               <ul className="text-sm text-green-800 space-y-2">
-                {sections
-                  .filter(section => (section.score / section.max) >= 0.8)
-                  .map(section => (
-                    <li key={section.name} className="flex items-center">
+                {engines
+                  .filter(engine => engine.max > 0 && (engine.score / engine.max) >= 0.8)
+                  .slice(0, 4)
+                  .map(engine => (
+                    <li key={engine.id} className="flex items-center">
                       <div className="w-2 h-2 bg-green-500 rounded-full mr-2" />
-                      Strong {section.name}
+                      Strong {engine.name}
                     </li>
                   ))
                 }
+                {engines.filter(engine => engine.max > 0 && (engine.score / engine.max) >= 0.8).length === 0 && (
+                  <li className="text-green-600 italic">Keep building!</li>
+                )}
               </ul>
             </div>
 
@@ -357,7 +395,7 @@ export default function AssessmentResultsPage() {
               Set Strategic Goals
             </button>
             <button
-              onClick={() => router.push('/assessment')}
+              onClick={() => router.push('/assessment?new=true')}
               className="bg-teal-700 text-white font-semibold py-3 px-6 rounded-lg hover:bg-teal-800 transition-colors"
             >
               Retake Assessment

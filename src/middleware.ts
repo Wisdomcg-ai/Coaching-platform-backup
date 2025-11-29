@@ -92,7 +92,8 @@ export async function middleware(request: NextRequest) {
       '/auth/callback',
       '/auth/logout',
       '/coach',        // Coach portal doesn't require client onboarding
-      '/admin'         // Admin portal doesn't require client onboarding
+      '/admin',        // Admin portal doesn't require client onboarding
+      '/dashboard'     // Allow dashboard access - it handles its own auth/data
     ]
     const isExemptRoute = onboardingExemptRoutes.some(route => pathname.startsWith(route))
 
@@ -100,19 +101,19 @@ export async function middleware(request: NextRequest) {
     if (!isExemptRoute) {
       try {
         // STEP 1: Check if business profile is completed
-        const { data: businessProfile } = await supabase
+        const { data: businessProfile, error: profileError } = await supabase
           .from('business_profiles')
           .select('profile_completed')
           .eq('user_id', user.id)
-          .single()
+          .maybeSingle()  // Use maybeSingle to avoid errors if no row exists
 
         // If profile doesn't exist or is not completed, redirect to business profile
-        if (!businessProfile || !businessProfile.profile_completed) {
+        if (profileError || !businessProfile || !businessProfile.profile_completed) {
           return NextResponse.redirect(new URL('/business-profile', request.url))
         }
 
         // STEP 2: Check if assessment is completed
-        const { data: completedAssessment } = await supabase
+        const { data: completedAssessment, error: assessmentError } = await supabase
           .from('assessments')
           .select('id')
           .eq('user_id', user.id)
@@ -121,16 +122,17 @@ export async function middleware(request: NextRequest) {
           .limit(1)
           .maybeSingle()
 
-        // If no completed assessment, redirect to assessment page
-        if (!completedAssessment) {
+        // If no completed assessment (and no error), redirect to assessment page
+        if (!assessmentError && !completedAssessment) {
           return NextResponse.redirect(new URL('/assessment', request.url))
         }
 
         // Both profile and assessment complete - allow access to everything
       } catch (error) {
-        // If there's an error, redirect to business profile to be safe
+        // If there's an unexpected error, log it but allow the request through
+        // This prevents redirect loops when DB is having issues
         console.error('Error checking onboarding completion:', error)
-        return NextResponse.redirect(new URL('/business-profile', request.url))
+        // Don't redirect on errors - let the page handle it
       }
     }
   }

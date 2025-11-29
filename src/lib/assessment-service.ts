@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
 import { Database } from '@/types/database.types';
 
 export interface AssessmentData {

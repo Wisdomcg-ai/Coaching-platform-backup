@@ -7,11 +7,9 @@ import { createClient } from '@/lib/supabase/client'
 import RoleSwitcher from '@/components/shared/RoleSwitcher'
 import {
   Home,
-  Briefcase,
   TrendingUp,
   Target,
   Calendar,
-  MessageSquare,
   FileText,
   ListChecks,
   Building,
@@ -22,7 +20,6 @@ interface Business {
   id: string
   business_name: string
   enabled_modules: {
-    plan: boolean
     forecast: boolean
     goals: boolean
     chat: boolean
@@ -60,15 +57,30 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
       : user.email?.split('@')[0] || 'User'
     setUserName(name)
 
-    // Get user's business
-    const { data: businessData, error } = await supabase
-      .from('businesses')
-      .select('*')
+    // First try via business_users join table
+    const { data: businessUser } = await supabase
+      .from('business_users')
+      .select('business_id')
       .eq('user_id', user.id)
       .maybeSingle()
 
-    if (error) {
-      console.error('Error loading business:', error)
+    let businessData = null
+
+    if (businessUser) {
+      const { data } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('id', businessUser.business_id)
+        .maybeSingle()
+      businessData = data
+    } else {
+      // Fallback: try direct owner_id lookup
+      const { data } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('owner_id', user.id)
+        .maybeSingle()
+      businessData = data
     }
 
     // Set business data even if null (user might not have a business yet)
@@ -82,12 +94,6 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
       href: '/dashboard',
       icon: Home,
       enabled: true
-    },
-    {
-      name: 'Business Plan',
-      href: '/plan',
-      icon: Briefcase,
-      enabled: business?.enabled_modules?.plan ?? true
     },
     {
       name: 'Forecast',
@@ -106,12 +112,6 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
       href: '/client/sessions',
       icon: Calendar,
       enabled: true
-    },
-    {
-      name: 'Messages',
-      href: '/client/chat',
-      icon: MessageSquare,
-      enabled: business?.enabled_modules?.chat ?? true
     },
     {
       name: 'Documents',
@@ -170,11 +170,12 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
           <div className="flex space-x-1 overflow-x-auto pb-px">
             {enabledTabs.map((tab) => {
               const isActive = pathname === tab.href || pathname.startsWith(tab.href + '/')
+              const badgeCount = 'badge' in tab ? (tab as { badge?: number }).badge : undefined
               return (
                 <Link
                   key={tab.href}
                   href={tab.href}
-                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  className={`relative flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                     isActive
                       ? 'border-teal-600 text-teal-600'
                       : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
@@ -182,6 +183,11 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
                 >
                   <tab.icon className="w-4 h-4" />
                   {tab.name}
+                  {badgeCount !== undefined && badgeCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-xs font-bold text-white bg-red-500 rounded-full">
+                      {badgeCount > 99 ? '99+' : badgeCount}
+                    </span>
+                  )}
                 </Link>
               )
             })}

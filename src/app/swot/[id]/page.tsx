@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, Save, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 import { SwotGrid } from '@/components/swot/SwotGrid'
 import type { SwotCategory } from '@/lib/swot/types'
+import { useBusinessContext } from '@/hooks/useBusinessContext'
 
 interface SwotAnalysis {
   id: string
@@ -39,11 +40,8 @@ export default function SwotDetailPage() {
   const router = useRouter()
   const params = useParams()
   const swotId = params.id as string
-
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = createClient()
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext()
 
   const [analysis, setAnalysis] = useState<SwotAnalysis | null>(null)
   const [items, setItems] = useState<SwotGridData>({
@@ -58,8 +56,10 @@ export default function SwotDetailPage() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
 
   useEffect(() => {
-    loadSwotDetail()
-  }, [swotId])
+    if (!contextLoading) {
+      loadSwotDetail()
+    }
+  }, [swotId, contextLoading, activeBusiness?.id])
 
   const loadSwotDetail = async () => {
     try {
@@ -72,12 +72,15 @@ export default function SwotDetailPage() {
         return
       }
 
+      // Use activeBusiness ownerId if viewing as coach, otherwise current user
+      const targetUserId = activeBusiness?.ownerId || user.id
+
       // Fetch SWOT analysis
       const { data: swotData, error: swotError } = await supabase
         .from('swot_analyses')
         .select('*')
         .eq('id', swotId)
-        .eq('business_id', user.id)
+        .eq('business_id', targetUserId)
         .single()
 
       if (swotError) {

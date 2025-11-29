@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, Calendar, TrendingUp, Eye, Clock, AlertTriangle, Target, Shield, Lightbulb } from 'lucide-react'
 import Link from 'next/link'
+import { useBusinessContext } from '@/hooks/useBusinessContext'
 
 interface SwotAnalysis {
   id: string
@@ -25,18 +26,18 @@ interface SwotAnalysis {
 
 export default function SwotHistoryPage() {
   const router = useRouter()
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = createClient()
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext()
 
   const [analyses, setAnalyses] = useState<SwotAnalysis[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    loadHistory()
-  }, [])
+    if (!contextLoading) {
+      loadHistory()
+    }
+  }, [contextLoading, activeBusiness?.id])
 
   const loadHistory = async () => {
     try {
@@ -49,6 +50,9 @@ export default function SwotHistoryPage() {
         return
       }
 
+      // Use activeBusiness ownerId if viewing as coach, otherwise current user
+      const targetUserId = activeBusiness?.ownerId || user.id
+
       // Fetch all SWOT analyses for this user
       const { data: swots, error: fetchError } = await supabase
         .from('swot_analyses')
@@ -56,7 +60,7 @@ export default function SwotHistoryPage() {
           *,
           swot_items (category)
         `)
-        .eq('business_id', user.id)
+        .eq('business_id', targetUserId)
         .order('year', { ascending: false })
         .order('quarter', { ascending: false })
 

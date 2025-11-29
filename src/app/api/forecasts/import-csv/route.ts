@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServerComponentClient } from '@/lib/supabase/server'
 import type { PLLine } from '@/app/finances/forecast/types'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = await createServerComponentClient()
 
     // Check authentication
     const { data: { user }, error: userError } = await supabase.auth.getUser()

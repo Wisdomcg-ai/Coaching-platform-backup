@@ -1,5 +1,14 @@
 import { createClient } from '@/lib/supabase/client';
 
+// Helper to get the effective user ID for queries
+// When overrideUserId is provided (coach viewing client), use that instead
+const getEffectiveUserId = async (overrideUserId?: string): Promise<string | null> => {
+  if (overrideUserId) return overrideUserId;
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id || null;
+};
+
 export interface OpenLoop {
   id: string;
   user_id: string;
@@ -24,18 +33,17 @@ export interface CreateOpenLoopInput {
   blocker: string | null;
 }
 
-const supabase = createClient();
-
 // Get all open loops for current user (not archived)
-export async function getOpenLoops(status?: string) {
+export async function getOpenLoops(status?: string, overrideUserId?: string) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
+    const supabase = createClient();
+    const userId = await getEffectiveUserId(overrideUserId);
+    if (!userId) throw new Error('Not authenticated');
 
     let query = supabase
       .from('open_loops')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('archived', false)
       .order('created_at', { ascending: false });
 
@@ -54,15 +62,16 @@ export async function getOpenLoops(status?: string) {
 }
 
 // Get completed loops (archived)
-export async function getCompletedLoops() {
+export async function getCompletedLoops(overrideUserId?: string) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
+    const supabase = createClient();
+    const userId = await getEffectiveUserId(overrideUserId);
+    if (!userId) throw new Error('Not authenticated');
 
     const { data, error } = await supabase
       .from('open_loops')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('archived', true)
       .order('completed_date', { ascending: false });
 
@@ -75,15 +84,16 @@ export async function getCompletedLoops() {
 }
 
 // Get all loops including archived
-export async function getAllLoops() {
+export async function getAllLoops(overrideUserId?: string) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
+    const supabase = createClient();
+    const userId = await getEffectiveUserId(overrideUserId);
+    if (!userId) throw new Error('Not authenticated');
 
     const { data, error } = await supabase
       .from('open_loops')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -97,6 +107,7 @@ export async function getAllLoops() {
 // Create a new open loop
 export async function createOpenLoop(input: CreateOpenLoopInput) {
   try {
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
@@ -123,6 +134,7 @@ export async function createOpenLoop(input: CreateOpenLoopInput) {
 // Update an open loop
 export async function updateOpenLoop(id: string, updates: Partial<CreateOpenLoopInput>) {
   try {
+    const supabase = createClient();
     const { data, error } = await supabase
       .from('open_loops')
       .update({
@@ -144,6 +156,7 @@ export async function updateOpenLoop(id: string, updates: Partial<CreateOpenLoop
 // Mark loop as completed and archived
 export async function completeOpenLoop(id: string) {
   try {
+    const supabase = createClient();
     const { data, error } = await supabase
       .from('open_loops')
       .update({
@@ -166,6 +179,7 @@ export async function completeOpenLoop(id: string) {
 // Delete an open loop
 export async function deleteOpenLoop(id: string) {
   try {
+    const supabase = createClient();
     const { error } = await supabase
       .from('open_loops')
       .delete()
@@ -189,10 +203,10 @@ export async function updateOpenLoopStatus(id: string, status: 'in-progress' | '
 }
 
 // Get stats
-export async function getOpenLoopsStats() {
+export async function getOpenLoopsStats(overrideUserId?: string) {
   try {
-    const loops = await getOpenLoops();
-    
+    const loops = await getOpenLoops(undefined, overrideUserId);
+
     return {
       total: loops.length,
       inProgress: loops.filter(l => l.status === 'in-progress').length,

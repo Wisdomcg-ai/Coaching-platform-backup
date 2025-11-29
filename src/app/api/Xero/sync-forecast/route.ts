@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
     console.log(`[Sync] Fetching data for periods:`, periods);
 
     // We'll aggregate all monthly data into a single structure
-    const monthlyData: { [accountName: string]: { category: string, [monthKey: string]: number } } = {}
+    const monthlyData: { [accountName: string]: { category: string; months: { [monthKey: string]: number } } } = {}
 
     // Fetch each period
     for (const period of periods) {
@@ -211,11 +211,11 @@ export async function POST(request: NextRequest) {
 
                 // Initialize account if needed
                 if (!monthlyData[accountName]) {
-                  monthlyData[accountName] = { category };
+                  monthlyData[accountName] = { category, months: {} };
                 }
 
                 // Store this month's value
-                monthlyData[accountName][monthKey] = value;
+                monthlyData[accountName].months[monthKey] = value;
               }
             });
           }
@@ -240,7 +240,7 @@ export async function POST(request: NextRequest) {
     }> = [];
 
     Object.entries(monthlyData).forEach(([accountName, data]) => {
-      const { category, ...months } = data;
+      const { category, months } = data;
       const actual_months: { [key: string]: number } = {};
 
       // Extract just the month values

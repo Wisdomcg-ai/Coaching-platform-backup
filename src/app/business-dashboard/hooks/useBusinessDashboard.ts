@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useBusinessContext } from '@/contexts/BusinessContext'
 import WeeklyMetricsService, { WeeklyMetricsSnapshot } from '../services/weekly-metrics-service'
 import DashboardPreferencesService, { DashboardPreferences } from '../services/dashboard-preferences-service'
 import { FinancialService } from '../../goals/services/financial-service'
@@ -32,8 +33,9 @@ export interface QuarterInfo {
   isPast: boolean
 }
 
-export function useBusinessDashboard() {
+export function useBusinessDashboard(overrideBusinessId?: string) {
   const supabase = createClient()
+  const { activeBusiness } = useBusinessContext()
   const [mounted, setMounted] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -111,13 +113,41 @@ export function useBusinessDashboard() {
       const uid = user.id
       setUserId(uid)
 
-      const { data: profile } = await supabase
-        .from('business_profiles')
-        .select('id, industry')
-        .eq('user_id', user.id)
-        .single()
+      // Determine which business to load:
+      // 1. If overrideBusinessId is provided (explicit), use it (assumed to be business_profiles.id)
+      // 2. If activeBusiness is set (coach viewing client), look up business_profiles.id
+      // 3. Otherwise, load user's own business profile
+      //
+      // IMPORTANT: Dashboard data (financial goals, KPIs, snapshots) uses business_profiles.id
+      // But activeBusiness.id is businesses.id - we must look up the correct profile ID
+      let bizId: string
 
-      const bizId = profile?.id || user.id
+      if (overrideBusinessId) {
+        bizId = overrideBusinessId
+      } else if (activeBusiness?.id) {
+        // Coach view: activeBusiness.id is businesses.id
+        // Need to get the corresponding business_profiles.id
+        const { data: profile } = await supabase
+          .from('business_profiles')
+          .select('id')
+          .eq('business_id', activeBusiness.id)
+          .single()
+
+        if (profile?.id) {
+          bizId = profile.id
+        } else {
+          console.warn('[BusinessDashboard] No business_profiles found for businesses.id:', activeBusiness.id)
+          bizId = activeBusiness.id // Fallback
+        }
+      } else {
+        const { data: profile } = await supabase
+          .from('business_profiles')
+          .select('id, industry')
+          .eq('user_id', user.id)
+          .single()
+        bizId = profile?.id || user.id
+      }
+
       setBusinessId(bizId)
 
       // Load targets

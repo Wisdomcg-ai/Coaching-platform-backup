@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useBusinessContext } from '@/hooks/useBusinessContext';
 
 export default function CreateGoalPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const goalType = searchParams.get('type') || 'annual';
   const supabase = createClient();
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext();
 
   const [loading, setLoading] = useState(false);
   const [businessId, setBusinessId] = useState<string | null>(null);
@@ -34,8 +36,10 @@ export default function CreateGoalPage() {
   });
 
   useEffect(() => {
-    loadBusinessAndGoals();
-  }, []);
+    if (!contextLoading) {
+      loadBusinessAndGoals();
+    }
+  }, [contextLoading, activeBusiness?.id]);
 
   async function loadBusinessAndGoals() {
     try {
@@ -45,48 +49,43 @@ export default function CreateGoalPage() {
         return;
       }
 
-      // Get user's business
-      const { data: business } = await supabase
-        .from('businesses')
-        .select('id')
-        .eq('owner_id', user.id)
-        .single();
+      // Determine the correct business_profiles.id for data queries
+      // Goals are stored with business_profiles.id
+      let bizId: string | null = null;
+      if (activeBusiness?.id) {
+        // Coach view: activeBusiness.id is businesses.id
+        // Need to look up the corresponding business_profiles.id
+        const { data: profile } = await supabase
+          .from('business_profiles')
+          .select('id')
+          .eq('business_id', activeBusiness.id)
+          .single();
 
-      if (business) {
-        setBusinessId(business.id);
-        
+        bizId = profile?.id || null;
+      } else {
+        // Get user's own business profile
+        const { data: profile } = await supabase
+          .from('business_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+
+        bizId = profile?.id || null;
+      }
+
+      if (bizId) {
+        setBusinessId(bizId);
+
         // Load annual goals if creating a 90-day rock
         if (goalType === '90_day_rock') {
           const { data: goals } = await supabase
             .from('goals')
             .select('id, title')
-            .eq('business_id', business.id)
+            .eq('business_id', bizId)
             .eq('goal_type', 'annual')
             .order('priority');
-          
-          setAnnualGoals(goals || []);
-        }
-      } else {
-        // Check if user is a team member
-        const { data: member } = await supabase
-          .from('business_members')
-          .select('business_id')
-          .eq('user_id', user.id)
-          .single();
 
-        if (member) {
-          setBusinessId(member.business_id);
-          
-          if (goalType === '90_day_rock') {
-            const { data: goals } = await supabase
-              .from('goals')
-              .select('id, title')
-              .eq('business_id', member.business_id)
-              .eq('goal_type', 'annual')
-              .order('priority');
-            
-            setAnnualGoals(goals || []);
-          }
+          setAnnualGoals(goals || []);
         }
       }
     } catch (error) {

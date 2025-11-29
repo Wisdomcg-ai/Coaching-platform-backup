@@ -1,5 +1,14 @@
 import { createClient } from '@/lib/supabase/client';
 
+// Helper to get the effective user ID for queries
+// When overrideUserId is provided (coach viewing client), use that instead
+const getEffectiveUserId = async (overrideUserId?: string): Promise<string | null> => {
+  if (overrideUserId) return overrideUserId;
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id || null;
+};
+
 export interface Issue {
   id: string;
   user_id: string;
@@ -29,19 +38,22 @@ export interface CreateIssueInput {
 }
 
 // Get all active issues (not solved/archived)
-export async function getActiveIssues() {
+// Pass overrideUserId when viewing as coach
+export async function getActiveIssues(overrideUserId?: string) {
   try {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+    const userId = await getEffectiveUserId(overrideUserId);
+    console.log('[IssuesService] getActiveIssues - overrideUserId:', overrideUserId, 'effectiveUserId:', userId);
+    if (!userId) return [];
 
     const { data, error } = await supabase
       .from('issues_list')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('archived', false)
       .order('priority', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false });
+    console.log('[IssuesService] Query result - data:', data?.length, 'error:', error?.message);
 
     if (error) {
       console.error('Error fetching active issues:', error);
@@ -55,16 +67,16 @@ export async function getActiveIssues() {
 }
 
 // Get top 3 priority issues
-export async function getTopPriorityIssues() {
+export async function getTopPriorityIssues(overrideUserId?: string) {
   try {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+    const userId = await getEffectiveUserId(overrideUserId);
+    if (!userId) return [];
 
     const { data, error } = await supabase
       .from('issues_list')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('archived', false)
       .in('priority', [1, 2, 3])
       .order('priority', { ascending: true });
@@ -81,16 +93,16 @@ export async function getTopPriorityIssues() {
 }
 
 // Get solved issues
-export async function getSolvedIssues() {
+export async function getSolvedIssues(overrideUserId?: string) {
   try {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+    const userId = await getEffectiveUserId(overrideUserId);
+    if (!userId) return [];
 
     const { data, error } = await supabase
       .from('issues_list')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('status', 'solved')
       .order('solved_date', { ascending: false });
 
@@ -195,10 +207,10 @@ export async function deleteIssue(id: string) {
 }
 
 // Get issues stats
-export async function getIssuesStats() {
+export async function getIssuesStats(overrideUserId?: string) {
   try {
-    const issues = await getActiveIssues();
-    
+    const issues = await getActiveIssues(overrideUserId);
+
     return {
       total: issues.length,
       topPriority: issues.filter(i => i.priority && i.priority <= 3).length,

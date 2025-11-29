@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useBusinessContext } from '@/hooks/useBusinessContext'
 import { Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import ForecastService from './services/forecast-service'
@@ -30,6 +31,7 @@ import { getForecastFiscalYear } from './utils/fiscal-year'
 
 export default function FinancialForecastPage() {
   const supabase = createClient()
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext()
   const [mounted, setMounted] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -113,8 +115,10 @@ export default function FinancialForecastPage() {
 
   useEffect(() => {
     setMounted(true)
-    loadInitialData()
-  }, [])
+    if (!contextLoading) {
+      loadInitialData()
+    }
+  }, [contextLoading, activeBusiness?.id])
 
   // Keyboard shortcuts
   useKeyboardShortcuts([
@@ -155,14 +159,20 @@ export default function FinancialForecastPage() {
       const uid = user.id
       setUserId(uid)
 
-      // Get business using owner_id (to match xero_connections table)
-      const { data: business } = await supabase
-        .from('businesses')
-        .select('id')
-        .eq('owner_id', user.id)
-        .maybeSingle()
-
-      const bizId = business?.id || user.id
+      // Use activeBusiness if available (supports coach view)
+      // Otherwise fall back to querying user's own business
+      let bizId: string
+      if (activeBusiness?.id) {
+        bizId = activeBusiness.id
+      } else {
+        // Get business using owner_id (to match xero_connections table)
+        const { data: business } = await supabase
+          .from('businesses')
+          .select('id')
+          .eq('owner_id', user.id)
+          .maybeSingle()
+        bizId = business?.id || user.id
+      }
       setBusinessId(bizId)
 
       console.log(`[Forecast] Loading data for business: ${bizId}`)

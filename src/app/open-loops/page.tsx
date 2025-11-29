@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Check, Trash2, ChevronDown } from 'lucide-react';
-import { 
-  getOpenLoops, 
+import {
+  getOpenLoops,
   createOpenLoop,
   updateOpenLoop,
   completeOpenLoop,
@@ -15,8 +15,10 @@ import {
   type OpenLoop,
   type CreateOpenLoopInput
 } from '@/lib/services/openLoopsService';
+import { useBusinessContext } from '@/hooks/useBusinessContext';
 
 export default function OpenLoopsPage() {
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext();
   const [loops, setLoops] = useState<OpenLoop[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,19 +36,23 @@ export default function OpenLoopsPage() {
     blocker: null
   });
 
-  // Load data on mount
+  // Load data on mount and when context changes
   useEffect(() => {
-    loadData();
-  }, []);
+    if (!contextLoading) {
+      loadData();
+    }
+  }, [contextLoading, activeBusiness?.id]);
 
   async function loadData() {
     try {
       setLoading(true);
+      // Pass ownerId when viewing as coach, otherwise undefined for current user
+      const overrideUserId = activeBusiness?.ownerId;
       const [activeLoops, statsData] = await Promise.all([
-        getOpenLoops(),
-        getOpenLoopsStats()
+        getOpenLoops(undefined, overrideUserId),
+        getOpenLoopsStats(overrideUserId)
       ]);
-      
+
       setLoops(activeLoops);
       setStats(statsData);
       setError(null);

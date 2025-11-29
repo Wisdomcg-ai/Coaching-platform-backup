@@ -15,10 +15,12 @@ import {
   BarChart3,
   Target
 } from 'lucide-react';
+import { useBusinessContext } from '@/hooks/useBusinessContext';
 
 export default function QuarterlyReviewPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext();
   const [reviews, setReviews] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [businessId, setBusinessId] = useState<string | null>(null);
@@ -27,6 +29,8 @@ export default function QuarterlyReviewPage() {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (contextLoading) return;
+
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
@@ -34,26 +38,32 @@ export default function QuarterlyReviewPage() {
           return;
         }
 
-        const { data: business, error: bizError } = await supabase
-          .from('businesses')
-          .select('id')
-          .eq('owner_id', user.id)
-          .single();
+        // Use activeBusiness from context if available (coach view)
+        let bizId: string | null = null;
+        if (activeBusiness?.id) {
+          bizId = activeBusiness.id;
+        } else {
+          const { data: business, error: bizError } = await supabase
+            .from('businesses')
+            .select('id')
+            .eq('owner_id', user.id)
+            .single();
 
-        if (bizError) {
-          console.error('Error fetching business:', bizError);
-          setIsLoading(false);
-          return;
+          if (bizError) {
+            console.error('Error fetching business:', bizError);
+            setIsLoading(false);
+            return;
+          }
+          bizId = business?.id || null;
         }
 
-        if (business) {
-          setBusinessId(business.id);
+        if (bizId) {
+          setBusinessId(bizId);
           try {
-            const allReviews = await quarterlyReviewService.getAllReviews(business.id);
+            const allReviews = await quarterlyReviewService.getAllReviews(bizId);
             setReviews(allReviews);
           } catch (reviewError) {
             console.error('Error fetching reviews:', reviewError);
-            // Continue with empty reviews array
           }
         }
       } catch (error) {
@@ -64,7 +74,7 @@ export default function QuarterlyReviewPage() {
     };
 
     fetchData();
-  }, [supabase, router]);
+  }, [supabase, router, contextLoading, activeBusiness?.id]);
 
   const startNewReview = () => {
     router.push(`/quarterly-review/workshop?quarter=${quarter}&year=${year}`);
@@ -81,7 +91,7 @@ export default function QuarterlyReviewPage() {
   const currentQuarterReview = reviews.find(r => r.quarter === quarter && r.year === year);
   const pastReviews = reviews.filter(r => !(r.quarter === quarter && r.year === year));
 
-  if (isLoading) {
+  if (isLoading || contextLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>

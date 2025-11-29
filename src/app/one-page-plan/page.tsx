@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useBusinessContext } from '@/hooks/useBusinessContext'
 import { ArrowLeft, Printer, Loader2, ExternalLink, CheckCircle2, Circle, Lightbulb } from 'lucide-react'
 import { calculateQuarters, determinePlanYear } from '@/app/goals/utils/quarters'
 import type { YearType } from '@/app/goals/types'
@@ -82,6 +83,7 @@ interface OnePagePlanData {
 export default function OnePagePlan() {
   const router = useRouter()
   const supabase = createClient()
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<OnePagePlanData | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -160,8 +162,10 @@ export default function OnePagePlan() {
   }
 
   useEffect(() => {
-    loadAllData()
-  }, [])
+    if (!contextLoading) {
+      loadAllData()
+    }
+  }, [contextLoading, activeBusiness?.id])
 
   // Auto-reload data when page becomes visible (user navigates back)
   useEffect(() => {
@@ -196,17 +200,45 @@ export default function OnePagePlan() {
         return
       }
 
-      // Get business_id from business_profiles (same as strategic planning wizard)
-      const { data: profile, error: profileError } = await supabase
-        .from('business_profiles')
-        .select('id, industry, owner_info, key_roles')
-        .eq('user_id', user.id)
-        .single()
+      // Determine which business to load:
+      // 1. If activeBusiness is set (coach viewing client), use it
+      // 2. Otherwise, load user's own business profile
+      let businessId: string
+      let profile: any = null
 
-      devLog('[One Page Plan] 🏢 Business Profile query:', { profile, error: profileError })
+      if (activeBusiness?.id) {
+        // Coach view - activeBusiness.id is businesses.id
+        const businessesId = activeBusiness.id
+        devLog('[One Page Plan] 🏢 Coach view - loading client business:', businessesId)
 
-      // Fallback to user.id if no profile (same as strategic planning wizard)
-      const businessId = profile?.id || user.id
+        // Load profile by business_id instead of user_id
+        const { data: profileData, error: profileError } = await supabase
+          .from('business_profiles')
+          .select('id, industry, owner_info, key_roles')
+          .eq('business_id', businessesId)
+          .single()
+
+        profile = profileData
+        devLog('[One Page Plan] 🏢 Business Profile query (coach view):', { profile, error: profileError })
+
+        // CRITICAL: Use business_profiles.id for data queries (strategic_initiatives, etc.)
+        // These tables use business_profiles.id as their business_id, not businesses.id
+        businessId = profile?.id || businessesId
+        devLog('[One Page Plan] 🏢 Using businessId for data queries:', businessId)
+      } else {
+        // Normal user view - get their business profile
+        const { data: profileData, error: profileError } = await supabase
+          .from('business_profiles')
+          .select('id, industry, owner_info, key_roles')
+          .eq('user_id', user.id)
+          .single()
+
+        profile = profileData
+        devLog('[One Page Plan] 🏢 Business Profile query:', { profile, error: profileError })
+
+        // Fallback to user.id if no profile (same as strategic planning wizard)
+        businessId = profile?.id || user.id
+      }
 
       // Parse owner_info if it exists (JSONB field)
       const ownerInfo = profile?.owner_info || {}
@@ -232,21 +264,30 @@ export default function OnePagePlan() {
       devLog('[One Page Plan] 👥 Team Members Map:', teamMembersMap)
 
       // Get company name from businesses table
-      const { data: businessData } = await supabase
-        .from('businesses')
-        .select('name')
-        .eq('owner_id', user.id)
-        .limit(1)
-        .single()
+      // Use business ID when viewing as coach, otherwise use owner_id
+      const { data: businessData } = activeBusiness?.id
+        ? await supabase
+            .from('businesses')
+            .select('name')
+            .eq('id', activeBusiness.id)
+            .single()
+        : await supabase
+            .from('businesses')
+            .select('name')
+            .eq('owner_id', user.id)
+            .limit(1)
+            .single()
 
       const companyName = businessData?.name || 'Your Company'
       devLog('[One Page Plan] ✅ Business ID:', businessId, 'Name:', companyName)
 
       // Load Vision/Mission/Values
+      // When viewing as coach, use the client's owner ID instead of the coach's user ID
+      const ownerUserId = activeBusiness?.ownerId || user.id
       const { data: visionMissionData, error: vmError } = await supabase
         .from('strategy_data')
         .select('vision_mission')
-        .eq('user_id', user.id)
+        .eq('user_id', ownerUserId)
         .single()
 
       devLog('[One Page Plan] 📖 Vision/Mission data:', { data: visionMissionData, error: vmError })
@@ -254,15 +295,16 @@ export default function OnePagePlan() {
       const visionMission = visionMissionData?.vision_mission || {}
 
       // Load SWOT - get ALL items from ALL analyses for this user (since items may be spread across quarters)
-      devLog('[One Page Plan] 📅 Looking for SWOT:', { businessId, userId: user.id })
+      devLog('[One Page Plan] 📅 Looking for SWOT:', { businessId, ownerUserId })
 
       let swotItems: any[] = []
 
-      // Get all SWOT analyses for this user (try both businessId and user.id)
+      // Get all SWOT analyses for this user (try both businessId and ownerUserId)
+      // When viewing as coach, use client's businessId and ownerId
       const { data: allAnalyses, error: analysesError } = await supabase
         .from('swot_analyses')
         .select('id, business_id, quarter, year')
-        .or(`business_id.eq.${businessId},business_id.eq.${user.id}`)
+        .or(`business_id.eq.${businessId},business_id.eq.${ownerUserId}`)
 
       console.log('[One Page Plan] 💡 All user analyses:', JSON.stringify({
         count: allAnalyses?.length || 0,

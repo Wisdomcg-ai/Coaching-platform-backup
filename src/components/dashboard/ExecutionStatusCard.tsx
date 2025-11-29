@@ -7,8 +7,10 @@ import { getOpenLoops } from '@/lib/services/openLoopsService';
 import { getActiveIssues } from '@/lib/services/issuesService';
 import { type Issue } from '@/lib/services/issuesService';
 import { type OpenLoop } from '@/lib/services/openLoopsService';
+import { useBusinessContext } from '@/hooks/useBusinessContext';
 
 export default function ExecutionStatusCard() {
+  const { activeBusiness } = useBusinessContext();
   const [loops, setLoops] = useState<OpenLoop[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,14 +18,16 @@ export default function ExecutionStatusCard() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [activeBusiness?.ownerId]);
 
   async function loadData() {
     try {
       setLoading(true);
+      // Pass ownerId for coach view - these tables use user_id
+      const overrideUserId = activeBusiness?.ownerId;
       const [loopsData, issuesData] = await Promise.all([
-        getOpenLoops(),
-        getActiveIssues()
+        getOpenLoops(undefined, overrideUserId),
+        getActiveIssues(overrideUserId)
       ]);
 
       setLoops(loopsData);

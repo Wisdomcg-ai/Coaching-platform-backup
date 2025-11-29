@@ -526,18 +526,41 @@ export function useStrategicPlanning(overrideBusinessId?: string) {
         let ownerUser: string = user.id
 
         if (overrideBusinessId) {
-          // Coach view - use the client's business_id
-          bizId = overrideBusinessId
+          // Coach view - overrideBusinessId is businesses.id
+          // But Goals data is stored with business_profiles.id - we need to look it up!
+          console.log(`[Strategic Planning] 🔍 Coach view - overrideBusinessId: ${overrideBusinessId}`)
 
           // Get the owner_id from the businesses table for SWOT queries
-          const { data: business } = await supabase
+          const { data: business, error: businessError } = await supabase
             .from('businesses')
             .select('owner_id')
             .eq('id', overrideBusinessId)
             .single()
 
+          console.log(`[Strategic Planning] 🔍 Business lookup:`, { owner_id: business?.owner_id, error: businessError?.message })
+
           if (business?.owner_id) {
             ownerUser = business.owner_id
+          }
+
+          // CRITICAL: Get business_profiles.id - this is what Goals data uses!
+          const { data: profile, error: profileError } = await supabase
+            .from('business_profiles')
+            .select('id, industry')
+            .eq('business_id', overrideBusinessId)
+            .single()
+
+          console.log(`[Strategic Planning] 🔍 Profile lookup:`, { profile_id: profile?.id, industry: profile?.industry, error: profileError?.message })
+
+          if (profile?.id) {
+            bizId = profile.id
+            if (profile.industry) {
+              setIndustry(profile.industry)
+            }
+          } else {
+            // Fallback to the businesses.id if no profile found
+            console.warn(`[Strategic Planning] ⚠️ No business_profiles found for business_id: ${overrideBusinessId}, using fallback`)
+            bizId = overrideBusinessId
           }
 
           console.log(`[Strategic Planning] 📥 Coach view - loading client business: ${bizId}, owner: ${ownerUser}`)

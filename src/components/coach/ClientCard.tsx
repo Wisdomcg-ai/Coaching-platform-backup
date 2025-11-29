@@ -5,12 +5,11 @@ import {
   Building2,
   Calendar,
   MessageSquare,
-  Target,
-  TrendingUp,
   ChevronRight,
   Clock,
   AlertTriangle,
-  Eye
+  Eye,
+  Briefcase
 } from 'lucide-react'
 
 export interface ClientCardData {
@@ -18,13 +17,11 @@ export interface ClientCardData {
   businessName: string
   industry?: string
   status: 'active' | 'pending' | 'at-risk' | 'inactive'
-  healthScore?: number
   lastSessionDate?: string
   nextSessionDate?: string
   programType?: string
   unreadMessages?: number
   pendingActions?: number
-  goalsProgress?: number
 }
 
 interface ClientCardProps {
@@ -45,13 +42,6 @@ export function ClientCard({ client, onMessage, onSchedule }: ClientCardProps) {
       default:
         return { dot: 'bg-gray-400', badge: 'bg-gray-100 text-gray-700 border-gray-200' }
     }
-  }
-
-  const getHealthScoreColor = (score?: number) => {
-    if (score === undefined) return 'text-gray-400'
-    if (score >= 70) return 'text-green-600'
-    if (score >= 50) return 'text-yellow-600'
-    return 'text-red-600'
   }
 
   const formatDate = (dateString?: string) => {
@@ -79,7 +69,7 @@ export function ClientCard({ client, onMessage, onSchedule }: ClientCardProps) {
             </div>
             <div>
               <Link
-                href={`/coach/clients/${client.id}`}
+                href={`/coach/clients/${client.id}/view/dashboard`}
                 className="font-semibold text-gray-900 hover:text-indigo-600 transition-colors"
               >
                 {client.businessName}
@@ -95,30 +85,13 @@ export function ClientCard({ client, onMessage, onSchedule }: ClientCardProps) {
           </div>
         </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          {/* Health Score */}
-          <div className="bg-gray-50 rounded-lg p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500">Health</span>
-              <TrendingUp className={`w-4 h-4 ${getHealthScoreColor(client.healthScore)}`} />
-            </div>
-            <p className={`text-xl font-bold ${getHealthScoreColor(client.healthScore)}`}>
-              {client.healthScore !== undefined ? `${client.healthScore}%` : '--'}
-            </p>
+        {/* Program Type */}
+        {client.programType && (
+          <div className="flex items-center gap-2 mb-3 text-sm text-gray-600">
+            <Briefcase className="w-4 h-4" />
+            <span>{client.programType}</span>
           </div>
-
-          {/* Goals Progress */}
-          <div className="bg-gray-50 rounded-lg p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500">Goals</span>
-              <Target className="w-4 h-4 text-indigo-500" />
-            </div>
-            <p className="text-xl font-bold text-gray-900">
-              {client.goalsProgress !== undefined ? `${client.goalsProgress}%` : '--'}
-            </p>
-          </div>
-        </div>
+        )}
 
         {/* Session Info */}
         <div className="flex items-center justify-between text-sm mb-4">

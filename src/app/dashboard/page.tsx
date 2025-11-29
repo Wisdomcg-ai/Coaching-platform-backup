@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Target, TrendingUp } from 'lucide-react'
-import AskCoachModal from '@/components/dashboard/AskCoachModal'
+import { createClient } from '@/lib/supabase/client'
 import { useDashboardData } from './hooks/useDashboardData'
 import {
   InsightHeader,
@@ -10,31 +10,111 @@ import {
   RocksCard,
   WeeklyPrioritiesCard,
   SuggestedActions,
-  AskCoachCard,
+  CoachMessagesCard,
+  ChatDrawer,
   DashboardSkeleton,
   DashboardError
 } from './components'
 import { getQuarterDisplayName } from './utils/formatters'
 
 export default function DashboardPage() {
-  const { data, isLoading, error, businessId, userId, refresh } = useDashboardData()
-  const [isAskCoachOpen, setIsAskCoachOpen] = useState(false)
+  const supabase = createClient()
+  const { data, isLoading, error, userId, refresh } = useDashboardData()
+  const [isChatOpen, setIsChatOpen] = useState(false)
+  const [coachId, setCoachId] = useState<string | null>(null)
+  const [messagesBusinessId, setMessagesBusinessId] = useState<string | null>(null)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [lastMessage, setLastMessage] = useState<{ preview: string; time: string } | null>(null)
 
-  const handleAskCoach = async (question: string, priority: 'normal' | 'urgent') => {
-    if (!businessId || !userId) {
-      throw new Error('Not authenticated')
+  // Load coach info and message data
+  const loadMessageData = useCallback(async () => {
+    if (!userId) return
+
+    // Get the user's actual business (businesses table) to find coach assignment
+    // First try via business_users join table
+    const { data: businessUser } = await supabase
+      .from('business_users')
+      .select('business_id')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    let actualBusinessId: string | null = null
+
+    if (businessUser?.business_id) {
+      actualBusinessId = businessUser.business_id
+    } else {
+      // Fallback: try direct owner_id lookup on businesses table
+      const { data: ownedBusiness } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('owner_id', userId)
+        .maybeSingle()
+
+      if (ownedBusiness?.id) {
+        actualBusinessId = ownedBusiness.id
+      }
     }
 
-    const response = await fetch('/api/coach-questions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question, priority, businessId })
-    })
-
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || 'Failed to submit question')
+    if (!actualBusinessId) {
+      console.log('[Dashboard] No business found for user')
+      return
     }
+
+    // Store the actual business ID for messaging
+    setMessagesBusinessId(actualBusinessId)
+
+    // Get coach ID from the actual business
+    const { data: business } = await supabase
+      .from('businesses')
+      .select('assigned_coach_id')
+      .eq('id', actualBusinessId)
+      .maybeSingle()
+
+    console.log('[Dashboard] Business for coach lookup:', business)
+    if (business?.assigned_coach_id) {
+      console.log('[Dashboard] Setting coachId:', business.assigned_coach_id)
+      setCoachId(business.assigned_coach_id)
+    } else {
+      console.log('[Dashboard] No assigned_coach_id found')
+    }
+
+    // Get unread count and last message
+    const { data: messages } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('business_id', actualBusinessId)
+      .order('created_at', { ascending: false })
+      .limit(10)
+
+    if (messages && messages.length > 0) {
+      // Count unread from coach
+      const unread = messages.filter(m => !m.read && m.sender_id !== userId).length
+      setUnreadCount(unread)
+
+      // Get last message
+      const last = messages[0]
+      const time = new Date(last.created_at)
+      const now = new Date()
+      const isToday = time.toDateString() === now.toDateString()
+      const timeStr = isToday
+        ? time.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })
+        : time.toLocaleDateString('en-AU', { month: 'short', day: 'numeric' })
+
+      setLastMessage({
+        preview: last.content.length > 50 ? last.content.substring(0, 50) + '...' : last.content,
+        time: timeStr
+      })
+    }
+  }, [supabase, userId])
+
+  useEffect(() => {
+    loadMessageData()
+  }, [loadMessageData])
+
+  // Refresh message data when drawer closes
+  const handleChatClose = () => {
+    setIsChatOpen(false)
+    loadMessageData() // Refresh to update unread count
   }
 
   // Show skeleton while loading
@@ -98,20 +178,27 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* Second Row: Weekly Priorities, Ask Your Coach */}
+        {/* Second Row: Weekly Priorities, Coach Messages */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <WeeklyPrioritiesCard weeklyGoals={data.weeklyGoals} />
-          <AskCoachCard onOpenModal={() => setIsAskCoachOpen(true)} />
+          <CoachMessagesCard
+            onOpenChat={() => setIsChatOpen(true)}
+            unreadCount={unreadCount}
+            lastMessagePreview={lastMessage?.preview}
+            lastMessageTime={lastMessage?.time}
+          />
         </div>
 
         {/* Suggested Actions */}
         <SuggestedActions actions={data.suggestedActions} />
 
-        {/* Ask Coach Modal */}
-        <AskCoachModal
-          isOpen={isAskCoachOpen}
-          onClose={() => setIsAskCoachOpen(false)}
-          onSubmit={handleAskCoach}
+        {/* Chat Drawer */}
+        <ChatDrawer
+          isOpen={isChatOpen}
+          onClose={handleChatClose}
+          businessId={messagesBusinessId}
+          userId={userId}
+          coachId={coachId}
         />
       </div>
     </div>

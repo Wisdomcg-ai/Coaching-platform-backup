@@ -8,6 +8,7 @@ import ActionCompletionChart from '@/components/analytics/ActionCompletionChart'
 import FinancialProgressChart from '@/components/analytics/FinancialProgressChart'
 import HealthScoreGauge from '@/components/analytics/HealthScoreGauge'
 import { TrendingUp, Calendar, CheckCircle, Target, Loader2 } from 'lucide-react'
+import { useBusinessContext } from '@/hooks/useBusinessContext'
 
 interface Analytics {
   overview: {
@@ -28,13 +29,16 @@ interface Analytics {
 
 export default function ClientAnalyticsPage() {
   const supabase = createClient()
+  const { activeBusiness, isLoading: contextLoading } = useBusinessContext()
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [businessId, setBusinessId] = useState<string | null>(null)
 
   useEffect(() => {
-    loadAnalytics()
-  }, [])
+    if (!contextLoading) {
+      loadAnalytics()
+    }
+  }, [contextLoading, activeBusiness?.id])
 
   async function loadAnalytics() {
     setLoading(true)
@@ -42,22 +46,29 @@ export default function ClientAnalyticsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    // Get user's business
-    const { data: businessData } = await supabase
-      .from('businesses')
-      .select('id')
-      .eq('owner_id', user.id)
-      .single()
+    // Use activeBusiness if viewing as coach, otherwise get user's own business
+    let bizId: string | null = null
+    if (activeBusiness?.id) {
+      bizId = activeBusiness.id
+    } else {
+      const { data: businessData } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('owner_id', user.id)
+        .single()
 
-    if (!businessData) {
+      bizId = businessData?.id || null
+    }
+
+    if (!bizId) {
       setLoading(false)
       return
     }
 
-    setBusinessId(businessData.id)
+    setBusinessId(bizId)
 
     // Get analytics data
-    const res = await fetch(`/api/analytics/client/${businessData.id}`)
+    const res = await fetch(`/api/analytics/client/${bizId}`)
     const data = await res.json()
 
     if (data.success) {

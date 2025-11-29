@@ -3,10 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { getUserSystemRole } from '@/lib/auth/roles'
 import { CoachSidebar } from './CoachSidebar'
 import { CoachHeader } from './CoachHeader'
-import { Loader2 } from 'lucide-react'
 
 interface Client {
   id: string
@@ -31,83 +29,56 @@ export function CoachLayout({
   const pathname = usePathname()
   const supabase = createClient()
 
-  const [loading, setLoading] = useState(true)
-  const [userName, setUserName] = useState('')
+  const [userName, setUserName] = useState('Coach')
   const [clients, setClients] = useState<Client[]>([])
-  const [notifications, setNotifications] = useState<any[]>([])
+  const [notifications] = useState<any[]>([])
 
   // Check if we're on a public page (login)
   const isPublicPage = pathname === '/coach/login'
 
   useEffect(() => {
-    if (isPublicPage) {
-      // Don't run auth check on login page, just render children
-      setLoading(false)
-      return
-    }
-    checkAuthAndLoadData()
+    if (isPublicPage) return
+
+    // Load user info and clients in background - don't block render
+    loadUserData()
+    loadClients()
   }, [isPublicPage])
 
-  async function checkAuthAndLoadData() {
+  async function loadUserData() {
     try {
-      // Check authentication
-      const { data: { user } } = await supabase.auth.getUser()
-      console.log('[CoachLayout] User:', user?.id)
-      if (!user) {
-        console.log('[CoachLayout] No user, redirecting to login')
-        router.push('/coach/login')
-        return
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) {
+        const name = session.user.user_metadata?.first_name
+          ? `${session.user.user_metadata.first_name} ${session.user.user_metadata.last_name || ''}`
+          : session.user.email?.split('@')[0] || 'Coach'
+        setUserName(name)
       }
-
-      // Check role
-      console.log('[CoachLayout] Checking role...')
-      const role = await getUserSystemRole()
-      console.log('[CoachLayout] Role result:', role)
-      if (role !== 'coach' && role !== 'super_admin') {
-        console.log('[CoachLayout] Not a coach, redirecting. Role was:', role)
-        router.push('/login')
-        return
-      }
-      console.log('[CoachLayout] Role check passed')
-
-      // Set user name
-      const name = user.user_metadata?.first_name
-        ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ''}`
-        : user.email?.split('@')[0] || 'Coach'
-      setUserName(name)
-
-      // Load clients for sidebar
-      await loadClients(user.id)
-
-      // Load notifications
-      await loadNotifications()
-
-      setLoading(false)
-      console.log('[CoachLayout] All checks passed, showing layout')
     } catch (error) {
-      console.error('[CoachLayout] Error:', error)
-      router.push('/coach/login')
+      console.error('[CoachLayout] Error loading user:', error)
     }
   }
 
-  async function loadClients(coachId: string) {
-    console.log('[CoachLayout] Loading clients for coach:', coachId)
-    const { data, error } = await supabase
-      .from('businesses')
-      .select('id, business_name, status')
-      .eq('assigned_coach_id', coachId)
-      .order('business_name', { ascending: true })
+  async function loadClients() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) return
 
-    console.log('[CoachLayout] Clients result:', { data, error })
-    if (!error && data) {
-      setClients(data)
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('id, business_name, status')
+        .eq('assigned_coach_id', session.user.id)
+        .order('business_name', { ascending: true })
+
+      if (!error && data) {
+        setClients(data.map(b => ({
+          id: b.id,
+          business_name: b.business_name || 'Unnamed Business',
+          status: b.status || 'active'
+        })))
+      }
+    } catch (error) {
+      console.error('[CoachLayout] Error loading clients:', error)
     }
-  }
-
-  async function loadNotifications() {
-    // TODO: Load real notifications from database
-    // For now, return empty array
-    setNotifications([])
   }
 
   async function handleLogout() {
@@ -122,17 +93,6 @@ export function CoachLayout({
   // For public pages (login), just render children without layout chrome
   if (isPublicPage) {
     return <>{children}</>
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mx-auto mb-4" />
-          <p className="text-slate-400">Loading coach portal...</p>
-        </div>
-      </div>
-    )
   }
 
   return (

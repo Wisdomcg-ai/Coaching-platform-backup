@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronRight, ChevronLeft, Check, AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { BUSINESS_ENGINES, TOTAL_MAX_SCORE, getHealthStatus, mapSectionToEngineId } from '@/lib/assessment/constants';
@@ -453,6 +453,21 @@ const questions: Question[] = [
 ];
 
 export default function AssessmentPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading assessment...</p>
+        </div>
+      </div>
+    }>
+      <AssessmentContent />
+    </Suspense>
+  );
+}
+
+function AssessmentContent() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -460,25 +475,78 @@ export default function AssessmentPage() {
   const [showExitModal, setShowExitModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // Load saved draft on mount
+  const isNewAssessment = searchParams.get('new') === 'true';
+
+  // Load saved draft and check for existing assessments
   useEffect(() => {
-    const savedDraft = localStorage.getItem('assessment_draft');
-    const savedIndex = localStorage.getItem('assessment_question_index');
+    async function initialize() {
+      // If this is a new assessment (retake), just load draft and continue
+      if (isNewAssessment) {
+        const savedDraft = localStorage.getItem('assessment_draft');
+        const savedIndex = localStorage.getItem('assessment_question_index');
 
-    if (savedDraft) {
-      try {
-        const parsedAnswers = JSON.parse(savedDraft);
-        setAnswers(parsedAnswers);
-        if (savedIndex) {
-          setCurrentQuestionIndex(parseInt(savedIndex));
+        if (savedDraft) {
+          try {
+            const parsedAnswers = JSON.parse(savedDraft);
+            setAnswers(parsedAnswers);
+            if (savedIndex) {
+              setCurrentQuestionIndex(parseInt(savedIndex));
+            }
+          } catch (e) {
+            console.error('Error loading draft:', e);
+          }
         }
-      } catch (e) {
-        console.error('Error loading draft:', e);
+        setIsLoading(false);
+        return;
       }
+
+      // Check for existing completed assessments - redirect if found
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user) {
+          const { data: assessments } = await supabase
+            .from('assessments')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('status', 'completed')
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (assessments && assessments.length > 0) {
+            // User has a completed assessment - redirect to results
+            router.push(`/dashboard/assessment-results?id=${assessments[0].id}`);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Error checking assessments:', err);
+      }
+
+      // No existing assessment - load any saved draft and show the form
+      const savedDraft = localStorage.getItem('assessment_draft');
+      const savedIndex = localStorage.getItem('assessment_question_index');
+
+      if (savedDraft) {
+        try {
+          const parsedAnswers = JSON.parse(savedDraft);
+          setAnswers(parsedAnswers);
+          if (savedIndex) {
+            setCurrentQuestionIndex(parseInt(savedIndex));
+          }
+        } catch (e) {
+          console.error('Error loading draft:', e);
+        }
+      }
+
+      setIsLoading(false);
     }
-    setIsLoading(false);
-  }, []);
+
+    initialize();
+  }, [isNewAssessment, router]);
 
   // Save draft to localStorage whenever answers change
   useEffect(() => {
@@ -621,6 +689,9 @@ export default function AssessmentPage() {
         return;
       }
 
+      // Use current user ID for the assessment
+      const targetUserId = user.id;
+
       // Calculate scores
       const sectionScores = calculateSectionScores();
       const totalScore = Object.values(sectionScores).reduce((sum, score) => sum + score, 0);
@@ -631,7 +702,7 @@ export default function AssessmentPage() {
 
       // Build engine score data dynamically
       const engineScoreData: any = {
-        user_id: user.id,
+        user_id: targetUserId,
         answers: answers,
         total_score: Math.round(totalScore),
         percentage: percentage,
@@ -677,7 +748,7 @@ export default function AssessmentPage() {
     }
   }
 
-  // Show loading state while checking for saved draft
+  // Show loading state
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">

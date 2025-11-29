@@ -366,9 +366,25 @@ export function useDashboardData(): UseDashboardDataReturn {
 
       // Use active business from context if available (supports coach view)
       // Otherwise fall back to fetching user's own business
+      //
+      // IMPORTANT: Dashboard data (financial goals, initiatives) uses business_profiles.id
+      // But activeBusiness.id is businesses.id - we must look up the correct profile ID
       let bId: string
       if (activeBusiness?.id) {
-        bId = activeBusiness.id
+        // Coach view: activeBusiness.id is businesses.id
+        // Need to get the corresponding business_profiles.id
+        const { data: profile } = await supabase
+          .from('business_profiles')
+          .select('id')
+          .eq('business_id', activeBusiness.id)
+          .single()
+
+        if (profile?.id) {
+          bId = profile.id
+        } else {
+          console.warn('[DashboardData] No business_profiles found for businesses.id:', activeBusiness.id)
+          bId = activeBusiness.id // Fallback
+        }
       } else {
         const { data: profile } = await supabase
           .from('business_profiles')

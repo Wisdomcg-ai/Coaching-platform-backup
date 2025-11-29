@@ -13,7 +13,6 @@ import {
   BarChart3,
   Banknote,
   Calendar,
-  CalendarDays,
   CalendarCheck,
   CheckSquare,
   XCircle,
@@ -31,7 +30,6 @@ import {
   MessageCircle,
   FileQuestion,
   FolderOpen,
-  CalendarClock,
   Compass,
   Award,
   Network,
@@ -130,7 +128,6 @@ const getNavigation = (userRole: 'coach' | 'client'): NavSection[] => {
       defaultOpen: true,
       items: [
         { label: 'Weekly Review', href: '/reviews/weekly', icon: Calendar },
-        { label: 'Monthly Review', href: '/reviews/monthly', icon: CalendarDays },
         { label: 'Quarterly Review', href: '/quarterly-review', icon: CalendarCheck },
       ],
     },
@@ -184,13 +181,12 @@ const getNavigation = (userRole: 'coach' | 'client'): NavSection[] => {
     })
   } else {
     navigation.push({
-      title: 'SUPPORT',
+      title: 'COACHING',
       defaultOpen: false,
       items: [
-        { label: 'Questions for Coach', href: '/support/questions', icon: MessageCircle },
-        { label: 'Session Notes', href: '/support/notes', icon: FileText },
-        { label: 'Resources', href: '/support/resources', icon: FolderOpen },
-        { label: 'Next Session', href: '/support/schedule', icon: CalendarClock },
+        { label: 'Messages', href: '/messages', icon: MessageCircle },
+        { label: 'Session Notes', href: '/coaching/notes', icon: FileText, disabled: true },
+        { label: 'Resources', href: '/coaching/resources', icon: FolderOpen, disabled: true },
       ],
     })
   }

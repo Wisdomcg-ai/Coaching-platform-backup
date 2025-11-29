@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs'
-import type { FinancialForecast, ForecastPLLine, ForecastPayrollEmployee, ForecastScenario } from '../types'
+import type { FinancialForecast, PLLine, ForecastEmployee, ForecastScenario } from '../types'
 
 /**
  * Excel Export Service
@@ -8,8 +8,8 @@ import type { FinancialForecast, ForecastPLLine, ForecastPayrollEmployee, Foreca
 
 interface ExportData {
   forecast: FinancialForecast
-  plLines: ForecastPLLine[]
-  payrollEmployees: ForecastPayrollEmployee[]
+  plLines: PLLine[]
+  payrollEmployees: ForecastEmployee[]
   activeScenario?: ForecastScenario
 }
 
@@ -505,7 +505,7 @@ export class ExcelExportService {
     sheet: ExcelJS.Worksheet,
     startRow: number,
     categoryName: string,
-    lines: ForecastPLLine[],
+    lines: PLLine[],
     months: Date[],
     headerColor: string
   ): number {
@@ -655,7 +655,7 @@ export class ExcelExportService {
     }
   }
 
-  private groupLinesByCategory(lines: ForecastPLLine[]) {
+  private groupLinesByCategory(lines: PLLine[]) {
     return {
       Revenue: lines.filter(l => l.category === 'Revenue'),
       'Cost of Sales': lines.filter(l => l.category === 'Cost of Sales'),
@@ -663,7 +663,7 @@ export class ExcelExportService {
     }
   }
 
-  private sumCategory(lines: ForecastPLLine[], monthKey: string): number {
+  private sumCategory(lines: PLLine[], monthKey: string): number {
     return lines.reduce((sum, line) => sum + (line.forecast_months?.[monthKey] || 0), 0)
   }
 

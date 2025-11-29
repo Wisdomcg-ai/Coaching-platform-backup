@@ -3,8 +3,6 @@
 
 import { createClient } from '@/lib/supabase/client'
 
-const supabase = createClient()
-
 /**
  * Business Profile Service - Supabase Integration
  *
@@ -13,18 +11,121 @@ const supabase = createClient()
  * - business_profiles table: Detailed child (all profile fields)
  *
  * business_profiles.business_id -> businesses.id
+ *
+ * IMPORTANT: Methods now accept businessId parameter for coach view support.
+ * When a coach views a client, they pass the client's businessId directly.
  */
 export class BusinessProfileService {
+  private static getSupabase() {
+    return createClient()
+  }
 
   /**
-   * Get or create business + business_profile for a user
-   * This ensures both records exist and are properly linked
+   * Get business + business_profile by business ID
+   * Use this when you already know the business ID (e.g., from context)
+   * Returns the same structure as loadBusinessProfile for consistency
+   */
+  static async getBusinessProfileByBusinessId(businessId: string): Promise<{
+    data: any
+    businessId: string | null
+    profileId: string | null
+    error?: string
+  }> {
+    const supabase = this.getSupabase()
+    try {
+      console.log('[Business Profile Service] 📥 Loading business profile for business:', businessId)
+
+      // Step 1: Get business record
+      const { data: business, error: businessError } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('id', businessId)
+        .single()
+
+      if (businessError || !business) {
+        console.error('[Business Profile Service] ❌ Error fetching business:', businessError)
+        return { data: null, businessId: null, profileId: null, error: businessError?.message || 'Business not found' }
+      }
+
+      // Step 2: Get business_profile record
+      const { data: profiles, error: profileError } = await supabase
+        .from('business_profiles')
+        .select('*')
+        .eq('business_id', businessId)
+        .order('created_at', { ascending: true })
+        .limit(1)
+
+      if (profileError) {
+        console.error('[Business Profile Service] ❌ Error fetching profile:', profileError)
+        return { data: null, businessId: business.id, profileId: null, error: profileError.message }
+      }
+
+      let profile = profiles && profiles.length > 0 ? profiles[0] : null
+
+      // Create profile if doesn't exist
+      if (!profile) {
+        console.log('[Business Profile Service] 🆕 Creating new business profile record')
+        const { data: newProfile, error: createProfileError } = await supabase
+          .from('business_profiles')
+          .insert({
+            user_id: business.owner_id,
+            business_id: business.id,
+            company_name: business.name || 'My Business',
+            business_name: business.name || 'My Business',
+            key_roles: [
+              { title: '', name: '', status: '' },
+              { title: '', name: '', status: '' },
+              { title: '', name: '', status: '' }
+            ],
+            owner_info: {},
+            profile_completed: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single()
+
+        if (createProfileError) {
+          console.error('[Business Profile Service] ❌ Error creating profile:', createProfileError)
+          return { data: null, businessId: business.id, profileId: null, error: createProfileError.message }
+        }
+
+        profile = newProfile
+      }
+
+      // Merge business + profile data for the UI (same as loadBusinessProfile)
+      const mergedData = {
+        ...profile,
+        name: business?.name || profile?.business_name || 'My Business',
+      }
+
+      console.log('[Business Profile Service] ✅ Loaded business + profile successfully')
+      return {
+        data: mergedData,
+        businessId: business?.id || null,
+        profileId: profile?.id || null
+      }
+    } catch (err) {
+      console.error('[Business Profile Service] ❌ Unexpected error:', err)
+      return {
+        data: null,
+        businessId: null,
+        profileId: null,
+        error: err instanceof Error ? err.message : 'Unknown error'
+      }
+    }
+  }
+
+  /**
+   * Get or create business + business_profile for a user (legacy method)
+   * @deprecated Use getBusinessProfileByBusinessId when businessId is available from context
    */
   static async getOrCreateBusinessProfile(userId: string): Promise<{
     business: any
     profile: any
     error?: string
   }> {
+    const supabase = this.getSupabase()
     try {
       console.log('[Business Profile Service] 📥 Loading business profile for user:', userId)
 
@@ -135,6 +236,7 @@ export class BusinessProfileService {
     profileId: string,
     data: any
   ): Promise<{ success: boolean; error?: string }> {
+    const supabase = this.getSupabase()
     try {
       console.log('[Business Profile Service] 💾 Saving business profile...')
 

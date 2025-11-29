@@ -72,7 +72,13 @@ export async function GET() {
     }
 
     // Get recent activity (last 10 events)
-    const recentActivity = []
+    const recentActivity: Array<{
+      type: string
+      title: string
+      business_name: string
+      date: string
+      status: string
+    }> = []
 
     if (businessIds.length > 0) {
       // Recent sessions

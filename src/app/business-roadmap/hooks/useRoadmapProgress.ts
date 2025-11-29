@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useBusinessContext } from '@/contexts/BusinessContext'
 import { StageService, StageId, StageInfo, STAGE_DEFINITIONS } from '../services/stage-service'
 import { STAGES } from '../data'
 
@@ -17,7 +18,7 @@ export interface PriorityBuild {
   engine: string
 }
 
-export function useRoadmapProgress() {
+export function useRoadmapProgress(overrideBusinessId?: string) {
   const [completedBuilds, setCompletedBuilds] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -30,11 +31,12 @@ export function useRoadmapProgress() {
   const [revenue, setRevenue] = useState<number | null>(null)
 
   const supabase = createClient()
+  const { activeBusiness } = useBusinessContext()
 
   // Load completed builds and stage from database
   useEffect(() => {
     loadProgress()
-  }, [])
+  }, [overrideBusinessId, activeBusiness?.id])
 
   const loadProgress = async () => {
     try {
@@ -46,19 +48,57 @@ export function useRoadmapProgress() {
         return
       }
 
-      // Get business profile
-      const { data: profile } = await supabase
-        .from('business_profiles')
-        .select('id, annual_revenue')
-        .eq('user_id', user.id)
-        .single()
+      // Determine which business to load:
+      // 1. If overrideBusinessId is provided (explicit), use it (assumed to be business_profiles.id)
+      // 2. If activeBusiness is set (coach viewing client), look up business_profiles.id
+      // 3. Otherwise, load user's own business profile
+      //
+      // IMPORTANT: Roadmap data uses business_profiles.id
+      // But activeBusiness.id is businesses.id - we must look up the correct profile ID
+      let bizId: string | null = null
+      let profileRevenue: number | null = null
 
-      if (profile) {
-        setBusinessId(profile.id)
-        setRevenue(profile.annual_revenue)
+      if (overrideBusinessId) {
+        bizId = overrideBusinessId
+        const { data: profile } = await supabase
+          .from('business_profiles')
+          .select('annual_revenue')
+          .eq('id', overrideBusinessId)
+          .single()
+        profileRevenue = profile?.annual_revenue || null
+      } else if (activeBusiness?.id) {
+        // Coach view: activeBusiness.id is businesses.id
+        // Need to get the corresponding business_profiles.id
+        const { data: profile } = await supabase
+          .from('business_profiles')
+          .select('id, annual_revenue')
+          .eq('business_id', activeBusiness.id)
+          .single()
+
+        if (profile?.id) {
+          bizId = profile.id
+          profileRevenue = profile.annual_revenue || null
+        } else {
+          console.warn('[RoadmapProgress] No business_profiles found for businesses.id:', activeBusiness.id)
+          bizId = activeBusiness.id // Fallback
+        }
+      } else {
+        // Get user's own business profile
+        const { data: profile } = await supabase
+          .from('business_profiles')
+          .select('id, annual_revenue')
+          .eq('user_id', user.id)
+          .single()
+        bizId = profile?.id || null
+        profileRevenue = profile?.annual_revenue || null
+      }
+
+      if (bizId) {
+        setBusinessId(bizId)
+        setRevenue(profileRevenue)
 
         // Check for stage changes
-        const stageResult = await StageService.checkAndRecordStageChange(profile.id)
+        const stageResult = await StageService.checkAndRecordStageChange(bizId)
         setCurrentStageId(stageResult.currentStage)
         setCurrentStageInfo(StageService.getStageInfo(stageResult.currentStage)!)
         setStageChange(stageResult)

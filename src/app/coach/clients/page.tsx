@@ -14,11 +14,20 @@ import {
   UserPlus,
   Download,
   Loader2,
-  X
+  X,
+  UserCheck,
+  AlertCircle
 } from 'lucide-react'
 
 type ViewMode = 'grid' | 'list'
 type StatusFilter = 'all' | 'active' | 'pending' | 'at-risk' | 'inactive'
+
+interface UnassignedClient {
+  id: string
+  business_name: string
+  industry: string | null
+  created_at: string
+}
 
 export default function ClientsListPage() {
   const searchParams = useSearchParams()
@@ -26,6 +35,9 @@ export default function ClientsListPage() {
 
   const [loading, setLoading] = useState(true)
   const [clients, setClients] = useState<ClientCardData[]>([])
+  const [unassignedClients, setUnassignedClients] = useState<UnassignedClient[]>([])
+  const [claimingId, setClaimingId] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
@@ -42,24 +54,29 @@ export default function ClientsListPage() {
   async function loadClients() {
     try {
       setLoading(true)
+      console.log('[ClientsPage] Loading clients...')
 
       const { data: { user } } = await supabase.auth.getUser()
+      console.log('[ClientsPage] User:', user?.id || 'none')
       if (!user) return
 
+      setUserId(user.id)
+
       // Load businesses assigned to this coach
-      const { data: businesses } = await supabase
+      const { data: businesses, error } = await supabase
         .from('businesses')
         .select('*')
         .eq('assigned_coach_id', user.id)
         .order('business_name')
 
+      console.log('[ClientsPage] Businesses result:', { count: businesses?.length, error: error?.message })
+
       // Process clients
       const processedClients: ClientCardData[] = (businesses || []).map(b => ({
         id: b.id,
-        businessName: b.business_name || 'Unnamed Business',
+        businessName: b.name || b.business_name || 'Unnamed Business',
         industry: b.industry || undefined,
         status: (b.status as ClientCardData['status']) || 'active',
-        healthScore: b.health_score || undefined,
         lastSessionDate: b.last_session_date || undefined,
         programType: b.program_type || undefined,
         unreadMessages: 0,
@@ -67,11 +84,39 @@ export default function ClientsListPage() {
       }))
 
       setClients(processedClients)
+
+      // Load unassigned clients
+      const { data: unassigned } = await supabase
+        .from('businesses')
+        .select('id, business_name, industry, created_at')
+        .is('assigned_coach_id', null)
+        .order('created_at', { ascending: false })
+
+      setUnassignedClients(unassigned || [])
     } catch (error) {
       console.error('Error loading clients:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  async function claimClient(businessId: string) {
+    if (!userId) return
+
+    setClaimingId(businessId)
+    const { error } = await supabase
+      .from('businesses')
+      .update({ assigned_coach_id: userId })
+      .eq('id', businessId)
+
+    if (error) {
+      console.error('Error claiming client:', error)
+    } else {
+      // Reload to refresh both lists
+      await loadClients()
+    }
+
+    setClaimingId(null)
   }
 
   // Get unique industries for filter
@@ -127,6 +172,50 @@ export default function ClientsListPage() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Unassigned Clients Alert */}
+      {unassignedClients.length > 0 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-orange-800">
+                {unassignedClients.length} Unassigned Client{unassignedClients.length > 1 ? 's' : ''}
+              </h3>
+              <p className="text-sm text-orange-700 mt-1">
+                These clients don&apos;t have a coach assigned. Claim them to add to your roster.
+              </p>
+              <div className="mt-3 space-y-2">
+                {unassignedClients.map(client => (
+                  <div
+                    key={client.id}
+                    className="flex items-center justify-between bg-white rounded-lg px-4 py-3 border border-orange-200"
+                  >
+                    <div>
+                      <p className="font-medium text-gray-900">{client.business_name || 'Unnamed Business'}</p>
+                      <p className="text-sm text-gray-500">
+                        {client.industry || 'No industry'} &middot; Added {new Date(client.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => claimClient(client.id)}
+                      disabled={claimingId === client.id}
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                    >
+                      {claimingId === client.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <UserCheck className="w-4 h-4" />
+                      )}
+                      Claim
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

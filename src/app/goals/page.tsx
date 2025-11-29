@@ -227,6 +227,16 @@ export default function StrategicPlanningPage() {
     saveAllData
   } = useStrategicPlanning(viewerContext.isViewingAsCoach ? activeBusiness?.id : undefined)
 
+  // Debug logging for coach view
+  useEffect(() => {
+    console.log('[Goals Page] Context state:', {
+      isViewingAsCoach: viewerContext.isViewingAsCoach,
+      activeBusinessId: activeBusiness?.id,
+      activeBusinessName: activeBusiness?.name,
+      passedToHook: viewerContext.isViewingAsCoach ? activeBusiness?.id : undefined
+    })
+  }, [viewerContext.isViewingAsCoach, activeBusiness?.id, activeBusiness?.name])
+
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
   const [showKPIModal, setShowKPIModal] = useState(false)
   const [showStepHelp, setShowStepHelp] = useState(false)

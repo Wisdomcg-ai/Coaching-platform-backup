@@ -107,10 +107,10 @@ export default function ClientDashboardNew() {
       if (business) {
         setBusinessName(business.business_name || 'My Business')
 
-        // Load coach info
+        // Load coach info from users table
         if (business.assigned_coach_id) {
           const { data: coachData } = await supabase
-            .from('profiles')
+            .from('users')
             .select('*')
             .eq('id', business.assigned_coach_id)
             .single()
@@ -124,7 +124,6 @@ export default function ClientDashboardNew() {
               email: coachData.email,
               phone: coachData.phone,
               title: 'Business Coach',
-              bio: coachData.bio,
               specialties: ['Business Strategy', 'Leadership', 'Growth']
             })
           }
