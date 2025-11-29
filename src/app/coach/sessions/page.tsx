@@ -3,33 +3,37 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { getUserSystemRole } from '@/lib/auth/roles'
-import CreateSessionModal from '@/components/coach/CreateSessionModal'
 import {
   Calendar,
+  Building2,
   Clock,
-  Plus,
-  ChevronRight,
-  Filter,
-  Search,
   CheckCircle,
-  AlertCircle,
-  Video,
-  Building2
+  Play,
+  Plus,
+  Search,
+  Filter,
+  ChevronRight,
+  FileText,
+  Star,
+  Loader2,
+  Upload
 } from 'lucide-react'
 
-interface Session {
+interface SessionNote {
   id: string
   business_id: string
-  title: string
-  scheduled_at: string
-  duration_minutes: number
-  status: string
-  notes: string | null
-  summary: string | null
+  business_name: string
+  session_date: string
+  status: 'active' | 'completed'
+  duration_minutes: number | null
+  discussion_points: string | null
+  client_rating: number | null
+  transcript_name: string | null
+  created_at: string
+  updated_at: string
 }
 
-interface Business {
+interface Client {
   id: string
   business_name: string
 }
@@ -39,150 +43,234 @@ export default function CoachSessionsPage() {
   const supabase = createClient()
 
   const [loading, setLoading] = useState(true)
-  const [sessions, setSessions] = useState<Session[]>([])
-  const [businesses, setBusinesses] = useState<Record<string, Business>>({})
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [selectedBusiness, setSelectedBusiness] = useState<string>('')
-  const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [sessions, setSessions] = useState<SessionNote[]>([])
+  const [clients, setClients] = useState<Client[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed'>('all')
+  const [showNewSessionModal, setShowNewSessionModal] = useState(false)
+  const [selectedClientId, setSelectedClientId] = useState<string>('')
+  const [creating, setCreating] = useState(false)
 
   useEffect(() => {
-    checkAuthAndLoad()
+    loadData()
   }, [])
 
-  async function checkAuthAndLoad() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      router.push('/coach/login')
-      return
-    }
-
-    const role = await getUserSystemRole()
-    if (role !== 'coach' && role !== 'super_admin') {
-      router.push('/login')
-      return
-    }
-
-    await loadData()
-  }
-
   async function loadData() {
-    setLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/coach/login')
+        return
+      }
 
-    // Load businesses first
-    const businessRes = await fetch('/api/coach/clients')
-    const businessData = await businessRes.json()
+      // Load clients
+      const { data: clientsData } = await supabase
+        .from('businesses')
+        .select('id, business_name')
+        .eq('assigned_coach_id', user.id)
+        .order('business_name')
 
-    if (businessData.success) {
-      const businessMap: Record<string, Business> = {}
-      businessData.clients.forEach((b: any) => {
-        businessMap[b.id] = { id: b.id, business_name: b.business_name }
+      if (clientsData) {
+        setClients(clientsData.map(c => ({
+          id: c.id,
+          business_name: c.business_name || 'Unnamed Business'
+        })))
+      }
+
+      // Load session notes with business names
+      const { data: sessionsData, error } = await supabase
+        .from('session_notes')
+        .select(`
+          id,
+          business_id,
+          session_date,
+          status,
+          duration_minutes,
+          discussion_points,
+          client_rating,
+          transcript_name,
+          created_at,
+          updated_at
+        `)
+        .eq('coach_id', user.id)
+        .order('session_date', { ascending: false })
+
+      if (error) {
+        console.error('Error loading sessions:', error)
+        // Table might not exist yet
+        setSessions([])
+      } else if (sessionsData) {
+        // Get business names
+        const businessIds = [...new Set(sessionsData.map(s => s.business_id))]
+        const { data: businessesData } = await supabase
+          .from('businesses')
+          .select('id, business_name')
+          .in('id', businessIds)
+
+        const businessMap = new Map(businessesData?.map(b => [b.id, b.business_name]) || [])
+
+        setSessions(sessionsData.map((s: any) => ({
+          id: s.id,
+          business_id: s.business_id,
+          business_name: businessMap.get(s.business_id) || 'Unknown',
+          session_date: s.session_date,
+          status: s.status,
+          duration_minutes: s.duration_minutes,
+          discussion_points: s.discussion_points,
+          client_rating: s.client_rating,
+          transcript_name: s.transcript_name,
+          created_at: s.created_at,
+          updated_at: s.updated_at
+        })))
+      }
+    } catch (error) {
+      console.error('Error loading sessions:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function startNewSession() {
+    if (!selectedClientId) return
+
+    setCreating(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const today = new Date().toISOString().split('T')[0]
+
+      // Check if session already exists today for this client
+      const { data: existing } = await supabase
+        .from('session_notes')
+        .select('id')
+        .eq('business_id', selectedClientId)
+        .eq('session_date', today)
+        .maybeSingle()
+
+      if (existing) {
+        // Join existing session
+        router.push(`/coach/sessions/${existing.id}`)
+        return
+      }
+
+      // Create new session
+      const { data: newSession, error } = await supabase
+        .from('session_notes')
+        .insert({
+          business_id: selectedClientId,
+          coach_id: user.id,
+          session_date: today,
+          status: 'active',
+          coach_started_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error creating session:', error)
+        alert('Failed to create session. Make sure the database migration has been run.')
+        return
+      }
+
+      // Add coach as attendee
+      await supabase
+        .from('session_attendees')
+        .insert({
+          session_note_id: newSession.id,
+          user_id: user.id,
+          user_type: 'coach',
+          added_by: user.id
+        })
+
+      router.push(`/coach/sessions/${newSession.id}`)
+    } catch (error) {
+      console.error('Error creating session:', error)
+      alert('Failed to create session. Please try again.')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  // Filter sessions
+  const filteredSessions = sessions.filter(session => {
+    const matchesSearch = session.business_name.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesStatus = statusFilter === 'all' || session.status === statusFilter
+    return matchesSearch && matchesStatus
+  })
+
+  // Group sessions by date
+  const groupedSessions = filteredSessions.reduce((groups, session) => {
+    const date = session.session_date
+    if (!groups[date]) {
+      groups[date] = []
+    }
+    groups[date].push(session)
+    return groups
+  }, {} as Record<string, SessionNote[]>)
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString + 'T00:00:00')
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today'
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday'
+    } else {
+      return date.toLocaleDateString('en-AU', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
       })
-      setBusinesses(businessMap)
     }
-
-    // Load sessions
-    const sessionsRes = await fetch('/api/sessions')
-    const sessionsData = await sessionsRes.json()
-
-    if (sessionsData.success) {
-      setSessions(sessionsData.sessions)
-    }
-
-    setLoading(false)
   }
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      scheduled: 'bg-teal-100 text-teal-800 border-teal-200',
-      completed: 'bg-green-100 text-green-800 border-green-200',
-      cancelled: 'bg-gray-100 text-gray-800 border-gray-200'
-    }
-
-    const icons = {
-      scheduled: <Clock className="w-3 h-3" />,
-      completed: <CheckCircle className="w-3 h-3" />,
-      cancelled: <AlertCircle className="w-3 h-3" />
-    }
-
-    return (
-      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${styles[status as keyof typeof styles] || styles.scheduled}`}>
-        {icons[status as keyof typeof icons]}
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    )
-  }
-
-  const upcomingSessions = sessions
-    .filter(s => s.status === 'scheduled' && new Date(s.scheduled_at) > new Date())
-    .filter(s => filterStatus === 'all' || s.status === filterStatus)
-
-  const pastSessions = sessions
-    .filter(s => s.status === 'completed' || new Date(s.scheduled_at) <= new Date())
-    .filter(s => filterStatus === 'all' || s.status === filterStatus)
+  // Stats
+  const activeSessions = sessions.filter(s => s.status === 'active').length
+  const completedSessions = sessions.filter(s => s.status === 'completed').length
+  const avgRating = sessions.filter(s => s.client_rating).reduce((sum, s) => sum + (s.client_rating || 0), 0) / (sessions.filter(s => s.client_rating).length || 1)
 
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <Calendar className="w-8 h-8 animate-pulse text-teal-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading sessions...</p>
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto mb-4" />
+          <p className="text-gray-500">Loading sessions...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Coaching Sessions</h1>
-              <p className="text-sm text-gray-600 mt-1">Manage your coaching calendar</p>
-            </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Schedule Session
-            </button>
+    <div className="min-h-screen bg-slate-50 p-6">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Session Notes</h1>
+            <p className="text-gray-600 mt-1">
+              Collaborative notes from coaching sessions
+            </p>
           </div>
+          <button
+            onClick={() => setShowNewSessionModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+          >
+            <Plus className="w-5 h-5" />
+            Start Session
+          </button>
         </div>
-      </div>
 
-      {/* Stats */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-teal-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{upcomingSessions.length}</p>
-                <p className="text-sm text-gray-600">Upcoming</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{sessions.filter(s => s.status === 'completed').length}</p>
-                <p className="text-sm text-gray-600">Completed</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Video className="w-5 h-5 text-purple-600" />
+              <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                <FileText className="w-5 h-5 text-indigo-600" />
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900">{sessions.length}</p>
@@ -190,129 +278,241 @@ export default function CoachSessionsPage() {
               </div>
             </div>
           </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <Play className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{activeSessions}</p>
+                <p className="text-sm text-gray-600">Active</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                <CheckCircle className="w-5 h-5 text-gray-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{completedSessions}</p>
+                <p className="text-sm text-gray-600">Completed</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <Star className="w-5 h-5 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">
+                  {avgRating > 0 ? avgRating.toFixed(1) : '-'}
+                </p>
+                <p className="text-sm text-gray-600">Avg Rating</p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Upcoming Sessions */}
-        {upcomingSessions.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Sessions</h2>
-            <div className="space-y-3">
-              {upcomingSessions.map((session) => (
-                <div
-                  key={session.id}
-                  onClick={() => router.push(`/coach/sessions/${session.id}`)}
-                  className="bg-white rounded-lg border-2 border-gray-200 p-5 hover:border-teal-500 hover:shadow-md transition-all cursor-pointer"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900">{session.title}</h3>
-                        {getStatusBadge(session.status)}
-                      </div>
+        {/* Filters */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by client name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
 
-                      <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
-                        <span className="flex items-center gap-1">
-                          <Building2 className="w-4 h-4" />
-                          {businesses[session.business_id]?.business_name || 'Unknown'}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          {new Date(session.scheduled_at).toLocaleDateString('en-AU', {
-                            weekday: 'short',
-                            month: 'short',
-                            day: 'numeric'
-                          })}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-4 h-4" />
-                          {new Date(session.scheduled_at).toLocaleTimeString('en-AU', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Video className="w-4 h-4" />
-                          {session.duration_minutes} min
-                        </span>
-                      </div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
-                  </div>
-                </div>
-              ))}
+            {/* Status Filter */}
+            <div className="flex items-center gap-2">
+              <Filter className="w-5 h-5 text-gray-400" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                <option value="all">All Sessions</option>
+                <option value="active">Active</option>
+                <option value="completed">Completed</option>
+              </select>
             </div>
           </div>
-        )}
+        </div>
 
-        {/* Past Sessions */}
-        {pastSessions.length > 0 && (
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Past Sessions</h2>
-            <div className="space-y-3">
-              {pastSessions.map((session) => (
-                <div
-                  key={session.id}
-                  onClick={() => router.push(`/coach/sessions/${session.id}`)}
-                  className="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900">{session.title}</h3>
-                        {getStatusBadge(session.status)}
+        {/* Sessions List */}
+        {filteredSessions.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FileText className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Sessions Found</h3>
+            <p className="text-gray-500 mb-6">
+              {searchQuery || statusFilter !== 'all'
+                ? 'Try adjusting your filters'
+                : 'Start your first coaching session to begin tracking notes'}
+            </p>
+            {!searchQuery && statusFilter === 'all' && (
+              <button
+                onClick={() => setShowNewSessionModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+                Start First Session
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {Object.entries(groupedSessions).map(([date, dateSessions]) => (
+              <div key={date}>
+                {/* Date Header */}
+                <div className="flex items-center gap-3 mb-3">
+                  <Calendar className="w-5 h-5 text-gray-400" />
+                  <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                    {formatDate(date)}
+                  </h2>
+                  <div className="flex-1 h-px bg-gray-200" />
+                </div>
+
+                {/* Sessions for this date */}
+                <div className="space-y-3">
+                  {dateSessions.map((session) => (
+                    <div
+                      key={session.id}
+                      onClick={() => router.push(`/coach/sessions/${session.id}`)}
+                      className="bg-white rounded-xl border border-gray-200 p-5 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center">
+                            <Building2 className="w-6 h-6 text-slate-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                              {session.business_name}
+                            </h3>
+                            <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
+                              {session.duration_minutes && (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-4 h-4" />
+                                  {session.duration_minutes} min
+                                </span>
+                              )}
+                              {session.client_rating && (
+                                <span className="flex items-center gap-1">
+                                  <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                                  {session.client_rating}/5
+                                </span>
+                              )}
+                              {session.transcript_name && (
+                                <span className="flex items-center gap-1">
+                                  <Upload className="w-4 h-4" />
+                                  Transcript
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          {session.status === 'active' ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                              <Play className="w-3.5 h-3.5" />
+                              Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-medium">
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              Completed
+                            </span>
+                          )}
+                          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-indigo-600 transition-colors" />
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
-                        <span className="flex items-center gap-1">
-                          <Building2 className="w-4 h-4" />
-                          {businesses[session.business_id]?.business_name || 'Unknown'}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          {new Date(session.scheduled_at).toLocaleDateString('en-AU', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric'
-                          })}
-                        </span>
-                      </div>
-
-                      {session.summary && (
-                        <p className="text-sm text-gray-600 mt-2 line-clamp-2">{session.summary}</p>
+                      {/* Preview of discussion points */}
+                      {session.discussion_points && (
+                        <p className="mt-3 text-sm text-gray-600 line-clamp-2 pl-16">
+                          {session.discussion_points}
+                        </p>
                       )}
                     </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {sessions.length === 0 && (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Sessions Yet</h3>
-            <p className="text-gray-600 mb-6">
-              Get started by scheduling your first coaching session.
-            </p>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
-            >
-              <Plus className="w-4 h-4" />
-              Schedule Session
-            </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Create Session Modal */}
-      <CreateSessionModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSuccess={loadData}
-      />
+      {/* New Session Modal */}
+      {showNewSessionModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Start New Session</h2>
+            <p className="text-gray-600 mb-6">
+              Select a client to begin a coaching session. If a session already exists for today, you'll join it.
+            </p>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Client
+              </label>
+              <select
+                value={selectedClientId}
+                onChange={(e) => setSelectedClientId(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                <option value="">Choose a client...</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.business_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowNewSessionModal(false)
+                  setSelectedClientId('')
+                }}
+                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={startNewSession}
+                disabled={!selectedClientId || creating}
+                className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {creating ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Starting...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-5 h-5" />
+                    Start Session
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

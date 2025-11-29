@@ -12,7 +12,8 @@ import {
   ChevronDown,
   Building2,
   LogOut,
-  UserPlus
+  UserPlus,
+  FileText
 } from 'lucide-react'
 import { useState, useMemo } from 'react'
 import { useUnreadMessages } from '@/hooks/useUnreadMessages'
@@ -41,6 +42,7 @@ export function CoachSidebar({ clients = [], userName = 'Coach', onLogout }: Coa
     { href: '/coach/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { href: '/coach/clients', icon: Users, label: 'Clients' },
     { href: '/coach/messages', icon: MessageSquare, label: 'Messages', badge: unreadCount },
+    { href: '/coach/sessions', icon: FileText, label: 'Session Notes' },
     { href: '/coach/actions', icon: ListChecks, label: 'Actions' },
     { href: '/coach/reports', icon: BarChart3, label: 'Reports' },
   ], [unreadCount])

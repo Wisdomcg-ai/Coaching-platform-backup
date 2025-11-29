@@ -182,10 +182,10 @@ const getNavigation = (userRole: 'coach' | 'client'): NavSection[] => {
   } else {
     navigation.push({
       title: 'COACHING',
-      defaultOpen: false,
+      defaultOpen: true,
       items: [
         { label: 'Messages', href: '/messages', icon: MessageCircle },
-        { label: 'Session Notes', href: '/coaching/notes', icon: FileText, disabled: true },
+        { label: 'Session Notes', href: '/sessions', icon: FileText },
         { label: 'Resources', href: '/coaching/resources', icon: FolderOpen, disabled: true },
       ],
     })
@@ -208,6 +208,7 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
     'FINANCES',
     'EXECUTE',
     'PRODUCTIVITY',
+    'COACHING',
   ])
   const [expandedSubItems, setExpandedSubItems] = useState<string[]>([])
   const [navigation, setNavigation] = useState<NavSection[]>([])
